@@ -25,7 +25,7 @@ import { Preset, presetFromElement } from './preset.js';
 import { Group, groupFromElement } from './group.js';
 import { promisify } from 'util';
 import { ContentItem, contentItemToElement } from './content-item.js';
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 
 const parseXML = promisify(
   (
