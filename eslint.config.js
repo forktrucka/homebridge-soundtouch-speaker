@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 import importPlugin from 'eslint-plugin-import';
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import pluginJest from 'eslint-plugin-jest';
 
 export default tseslint.config(
   {
@@ -48,13 +49,13 @@ export default tseslint.config(
       globals: {
         setTimeout: 'readable',
         clearTimeout: 'readable',
+        setInterval: 'readable',
       },
     },
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   js.configs.recommended,
-  // other configs...
   {
     files: ['**/*.{ts,tsx}'],
     extends: [importPlugin.flatConfigs.recommended],
@@ -67,6 +68,22 @@ export default tseslint.config(
         },
       ],
       'import/no-unresolved': ['off'],
+    },
+  },
+  {
+    // update this to match your test files
+    files: ['**/__tests__/*.test.ts'],
+    plugins: { jest: pluginJest },
+    languageOptions: {
+      globals: pluginJest.environments.globals.globals,
+    },
+    rules: {
+      'jest/no-disabled-tests': 'warn',
+      'jest/no-focused-tests': 'error',
+      'jest/no-identical-title': 'error',
+      'jest/prefer-to-have-length': 'warn',
+      'jest/valid-expect': 'error',
+      'import/extensions': 'off',
     },
   },
   eslintConfigPrettier

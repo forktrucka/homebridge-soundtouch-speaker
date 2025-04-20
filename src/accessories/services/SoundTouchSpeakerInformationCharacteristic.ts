@@ -1,52 +1,46 @@
-import { SoundTouchSpeakerCharacteristic } from './ServiceType.js';
-import { Logging, PlatformAccessory } from 'homebridge';
+import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
+import { PlatformAccessory } from 'homebridge';
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
-import { FormattedLogger } from '../../utils/FormattedLogger.js';
 
-export class SoundTouchSpeakerInformationCharacteristic
-  implements SoundTouchSpeakerCharacteristic
-{
-  private platform: SoundTouchHomebridgePlatform;
-  private accessory: PlatformAccessory;
-  private device: SoundTouchDevice;
-  private log: FormattedLogger;
+const SOUNDTOUCH_MANUFACTURER = 'Bose';
 
+export class SoundTouchSpeakerInformationCharacteristic extends SoundTouchSpeakerCharacteristic {
   constructor(props: {
     device: SoundTouchDevice;
-    log: Logging;
     accessory: PlatformAccessory;
     platform: SoundTouchHomebridgePlatform;
   }) {
-    this.platform = props.platform;
-    this.accessory = props.accessory;
-    this.device = props.device;
-    this.log = FormattedLogger.create(props.log, this.device);
+    super(props);
   }
 
   async init(): Promise<void> {
     this.log.debug('initialising info');
 
+    const deviceName = this.device.name.toLowerCase().endsWith('speaker')
+      ? this.device.name
+      : `${this.device.name} Speaker`;
+
     const informationService = this.accessory.getService(
-      this.platform.Service.AccessoryInformation
+      this.platform.service.AccessoryInformation
     );
     if (!informationService) {
       throw new Error('No information service found');
     }
     informationService
+      .setCharacteristic(this.platform.characteristic.Name, deviceName)
       .setCharacteristic(
-        this.platform.Characteristic.Name,
-        `${this.device.name} Speaker`
+        this.platform.characteristic.Manufacturer,
+        SOUNDTOUCH_MANUFACTURER
       )
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Bose')
-      .setCharacteristic(this.platform.Characteristic.Model, this.device.model)
+      .setCharacteristic(this.platform.characteristic.Model, this.device.model)
       .setCharacteristic(
-        this.platform.Characteristic.SerialNumber,
+        this.platform.characteristic.SerialNumber,
         this.device.id
       );
     if (this.device.version) {
       informationService.setCharacteristic(
-        this.platform.Characteristic.FirmwareRevision,
+        this.platform.characteristic.FirmwareRevision,
         this.device.version
       );
     }
@@ -57,7 +51,6 @@ export class SoundTouchSpeakerInformationCharacteristic
     device: SoundTouchDevice;
     platform: SoundTouchHomebridgePlatform;
   }): Promise<SoundTouchSpeakerInformationCharacteristic> {
-    const log = props.platform.log;
-    return new SoundTouchSpeakerInformationCharacteristic({ log, ...props });
+    return new SoundTouchSpeakerInformationCharacteristic(props);
   }
 }

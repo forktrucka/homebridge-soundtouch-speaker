@@ -1,39 +1,33 @@
 import {
   Characteristic,
   CharacteristicValue,
-  Logging,
   PlatformAccessory,
   Service,
 } from 'homebridge';
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { KeyValue } from '../../devices/SoundTouch/api/index.js';
-import { SoundTouchSpeakerCharacteristic } from './ServiceType.js';
-import { FormattedLogger } from '../../utils/FormattedLogger.js';
+import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
 
-export type SpeakerStatus = 'on' | 'off' | 'unknown';
-
-export class SoundTouchSpeakerOnCharacteristic
-  implements SoundTouchSpeakerCharacteristic
-{
-  private readonly device: SoundTouchDevice;
+export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
-  private readonly log: FormattedLogger;
-  private readonly platform: SoundTouchHomebridgePlatform;
+
   private characteristic: Characteristic;
 
-  constructor(props: {
+  constructor({
+    service,
+    ...props
+  }: {
     device: SoundTouchDevice;
-    log: Logging;
     service: Service;
     platform: SoundTouchHomebridgePlatform;
+    accessory: PlatformAccessory;
   }) {
-    this.service = props.service;
-    this.device = props.device;
-    this.platform = props.platform;
-    this.log = FormattedLogger.create(props.log, this.device);
+    super(props);
+
+    this.service = service;
     this.characteristic = this.service.getCharacteristic(
-      this.platform.Characteristic.On
+      this.platform.characteristic.On
     );
 
     this.characteristic
@@ -42,13 +36,13 @@ export class SoundTouchSpeakerOnCharacteristic
   }
 
   async init(): Promise<void> {
-    this.log.debug('initialising on status');
+    this.log.debug('initialising on characteristic');
     await this.refresh();
   }
 
   async refresh(): Promise<void> {
     const isOn = await SoundTouchDevice.deviceIsOn(this.device);
-
+    this.log.debug('get on', isOn);
     if (isOn !== this.characteristic.value) {
       this.characteristic.updateValue(isOn);
     }
@@ -69,6 +63,7 @@ export class SoundTouchSpeakerOnCharacteristic
       ) {
         await this.device.api.pressKey(KeyValue.power);
       }
+      this.log.success('set status - %s', desiredPowerStatus ? 'on' : 'off');
     } catch (e: unknown) {
       this.log.error('error setting on status', e);
       throw new this.platform.api.hap.HapStatusError(
@@ -82,7 +77,7 @@ export class SoundTouchSpeakerOnCharacteristic
 
   async getOn(): Promise<CharacteristicValue> {
     const isOn = await SoundTouchDevice.deviceIsOn(this.device);
-
+    this.log.debug('get on', isOn);
     return isOn;
   }
 
@@ -92,9 +87,6 @@ export class SoundTouchSpeakerOnCharacteristic
     platform: SoundTouchHomebridgePlatform;
     service: Service;
   }): Promise<SoundTouchSpeakerOnCharacteristic> {
-    return new SoundTouchSpeakerOnCharacteristic({
-      log: props.platform.log,
-      ...props,
-    });
+    return new SoundTouchSpeakerOnCharacteristic(props);
   }
 }
