@@ -32,7 +32,6 @@
       },
       "accessories": [
         {
-          "name": "Office",
           "pollingInterval": 5000,
           "ip": "10.0.0.36"
         }
