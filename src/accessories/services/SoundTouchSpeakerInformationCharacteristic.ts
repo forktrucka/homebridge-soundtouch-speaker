@@ -6,6 +6,7 @@ import { SoundTouchHomebridgePlatform } from '../../platform.js';
 const SOUNDTOUCH_MANUFACTURER = 'Bose';
 
 export class SoundTouchSpeakerInformationCharacteristic extends SoundTouchSpeakerCharacteristic {
+
   constructor(props: {
     device: SoundTouchDevice;
     accessory: PlatformAccessory;
@@ -17,9 +18,7 @@ export class SoundTouchSpeakerInformationCharacteristic extends SoundTouchSpeake
   async init(): Promise<void> {
     this.log.debug('initialising info');
 
-    const deviceName = this.device.name.toLowerCase().endsWith('speaker')
-      ? this.device.name
-      : `${this.device.name} Speaker`;
+    const deviceName = this.calculateDeviceName();
 
     const informationService = this.accessory.getService(
       this.platform.service.AccessoryInformation
@@ -44,6 +43,12 @@ export class SoundTouchSpeakerInformationCharacteristic extends SoundTouchSpeake
         this.device.version
       );
     }
+  }
+
+  calculateDeviceName(): string {
+    return this.device.name.toLowerCase().endsWith('speaker')
+      ? this.device.name
+      : `${this.device.name} Speaker`;
   }
 
   static async create(props: {

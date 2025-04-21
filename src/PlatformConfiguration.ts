@@ -30,7 +30,7 @@ export class PlatformConfiguration {
     this.verbose = props.verbose;
   }
 
-  toJson(){
+  toJson() {
     return JSON.stringify(this, null, 2);
   }
 
@@ -50,6 +50,7 @@ export class PlatformConfiguration {
             return resultingConfig
               ? DeviceConfiguration.fromAccessoryConfiguration({
                   accessoryConfig: resultingConfig,
+                  name: accessory?.name,
                 })
               : DeviceConfiguration.create({
                   name: accessory?.name,

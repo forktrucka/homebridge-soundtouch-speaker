@@ -54,7 +54,7 @@ export class SoundTouchDevice implements BaseDevice {
     );
 
     if (matchedConfig) {
-      logger.debug('found matching config', matchedConfig);
+      logger.debug('found matching config - %s', matchedConfig.toJson());
 
       const resultingAccessoryConfig = flattenAccessoryConfiguration({
         globalConfig: config,
@@ -64,6 +64,7 @@ export class SoundTouchDevice implements BaseDevice {
       const deviceConfig = resultingAccessoryConfig
         ? DeviceConfiguration.fromAccessoryConfiguration({
             accessoryConfig: resultingAccessoryConfig,
+            name,
           })
         : DeviceConfiguration.create({
             name,
@@ -72,11 +73,12 @@ export class SoundTouchDevice implements BaseDevice {
           });
 
       if (deviceConfig) {
+        logger.debug('created device configuration - %s', deviceConfig.toJson());
         return deviceConfig;
       }
       logger.debug(
-        'could not create device config for accessory',
-        deviceConfig
+        'could not create device config for accessory - %s',
+        name
       );
     }
 
