@@ -11,6 +11,7 @@
     "xml2js",
     "axios",
     "lint-staged",
-    "ts-node"
+    "ts-node",
+    "multicast-dns"
   ]
 }
