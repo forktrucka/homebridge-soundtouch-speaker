@@ -1,0 +1,7 @@
+"**/__tests__/*.test.{js,ts}":
+  - "jest"
+"**/*.{js,ts}":
+  - "prettier --write "
+  - "eslint --fix"
+"**/*.json":
+  - "prettier --write "
