@@ -41,7 +41,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       level: this.configuration.verbose ? LogLevel.DEBUG : LogLevel.INFO,
     });
 
-    this.logger.info('Finished initializing platform:', this.configuration.toJson());
+    this.logger.info(
+      'Finished initializing platform:',
+      this.configuration.toJson()
+    );
 
     this.api.on('didFinishLaunching', async () => {
       this.logger.debug('Started didFinishLaunching callback');
@@ -136,5 +139,4 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       }
     }
   }
-
 }

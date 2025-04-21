@@ -30,7 +30,7 @@ export class PlatformConfiguration {
     this.verbose = props.verbose;
   }
 
-  toJson(){
+  toJson() {
     return JSON.stringify(this, null, 2);
   }
 
