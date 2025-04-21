@@ -25,15 +25,14 @@
     {
       "name": "homebridge-soundtouchspeaker",
       "platform": "SoundTouchHomebridgePlugin",
-      "discoverAllAccessories": false,
+      "discoverAllAccessories": true,
       "global": {
-        "pollingInterval": 2000,
-        "verbose": false
+        "verbose": true
       },
       "accessories": [
         {
-          "pollingInterval": 5000,
-          "ip": "10.0.0.36"
+          "name": "Kitchen Speaker",
+          "room": "Kitchen"
         }
       ]
     }

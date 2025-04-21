@@ -38,7 +38,9 @@
             "ip": {
               "type": "string",
               "required": false,
-              "description": "IP address to use to find accessory"
+              "description": "IP address to use to find accessory",
+              "pattern": "^[^{}/ :\\\\]+(?::\\d+)?$",
+              "placeholder": "eg. 0.0.0.0"
             },
             "room": {
               "type": "string",
@@ -50,6 +52,9 @@
               "default": 2000
             }
           }
+        },
+        "condition": {
+          "functionBody": "return model.discoverAllAccessories !== true"
         }
       }
     }
