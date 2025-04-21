@@ -1,4 +1,6 @@
-"**/*.{js,ts,vue}":
+"**/__tests__/*.test.{js,ts}":
+  - "jest"
+"**/*.{js,ts}":
   - "prettier --write "
   - "eslint --fix"
 "**/*.json":
