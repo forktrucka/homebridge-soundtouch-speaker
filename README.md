@@ -82,7 +82,7 @@ Example `config.json` for multiple speakers:
 
 *Optional fields*
 * `discoverAllAccessories`: Discover all accessories on the local network __default__: **false**  
-* `accessories`: Array of **Accessory element**
+* `accessories`: Array of **Accessory element** ignored if `discoverAllAccessories` is set to true.
 * `global`: Default configuration for all accessories. see **Global element**
 
 ### Accessory element
