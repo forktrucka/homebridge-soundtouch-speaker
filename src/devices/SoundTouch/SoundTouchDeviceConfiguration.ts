@@ -20,7 +20,7 @@ interface DeviceViaIpConfigurationProps extends BaseDeviceConfiguration {
 
 export class DeviceConfiguration {
   readonly type: 'room' | 'ip' | 'discovered';
-  readonly name: string;
+  readonly name?: string;
 
   readonly room?: string;
   readonly ip?: string;
@@ -39,7 +39,7 @@ export class DeviceConfiguration {
     verboseLogging?: boolean;
   }) {
     this.type = props.type;
-    this.name = props.name || 'default';
+    this.name = props.name;
     this.verboseLogging = props.verboseLogging ?? DEFAULT_VERBOSE_LOGGING;
     this.pollingInterval = props.pollingInterval ?? DEFAULT_POLLING_INTERVAL;
 
@@ -52,6 +52,10 @@ export class DeviceConfiguration {
     }
   }
 
+  toJson() {
+    return JSON.stringify(this, null, 2);
+  }
+
   static createForRoom(props: DeviceViaRoomConfigurationProps) {
     return new DeviceConfiguration({ ...props, type: 'room' });
   }
@@ -61,18 +65,19 @@ export class DeviceConfiguration {
   }
 
   static fromAccessoryConfiguration(props: {
+    name?: string;
     accessoryConfig: AccessoryConfig;
   }): DeviceConfiguration | undefined {
     if (props.accessoryConfig?.ip) {
       return DeviceConfiguration.createForIp({
-        name: props.accessoryConfig.name ?? '',
+        name: props?.name || props.accessoryConfig.name || '',
         ip: props.accessoryConfig.ip,
         port: props.accessoryConfig.port,
         pollingInterval: props.accessoryConfig.pollingInterval,
       });
     } else if (props.accessoryConfig?.room) {
       return DeviceConfiguration.createForRoom({
-        name: props.accessoryConfig.name ?? '',
+        name: props?.name || props.accessoryConfig.name || '',
         room: props.accessoryConfig.room,
         pollingInterval: props.accessoryConfig.pollingInterval,
       });

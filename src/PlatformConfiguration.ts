@@ -50,6 +50,7 @@ export class PlatformConfiguration {
             return resultingConfig
               ? DeviceConfiguration.fromAccessoryConfiguration({
                   accessoryConfig: resultingConfig,
+                  name: accessory?.name,
                 })
               : DeviceConfiguration.create({
                   name: accessory?.name,
