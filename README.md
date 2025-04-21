@@ -18,7 +18,7 @@ other features like volume control, sources, presets, lightbulb mode if there is
 2. Node 18, 20, or 22
 
 ## Installation
-1. Install the plugin to homebridge `hb-service add homebridge-soundtouchspeaker` 
+1. Install the plugin to homebridge `hb-service add homebridge-soundtouchspeaker@beta` 
 ## Configuration
 Example `config.json` to discover all SoundTouch accessories
 
