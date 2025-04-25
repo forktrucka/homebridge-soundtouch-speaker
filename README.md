@@ -11,7 +11,7 @@ Attempts to repair the [plugin](https://github.com/bbriatte/homebridge-soundtouc
 made by [@bbriatte](http://github.com/bbriatte) to work on Homebridge v1.8.
 
 Initial version only supports a switch accessory type, to power a speaker on and off. Future versions hope to reinstate support
-other features like volume control, sources, presets, lightbulb mode if there is demand.
+for other features like volume control, sources, presets, lightbulb mode if there is demand.
 
 ## Prerequisites
 1. [Homebridge](https://github.com/homebridge/homebridge) v1.8.0 or later
