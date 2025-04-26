@@ -6,6 +6,9 @@ on:
         - latest
         - beta
   pull_request:
+      branches:
+          - latest
+          - beta
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -48,7 +51,7 @@ jobs:
     needs:
       - build
     runs-on: ubuntu-latest
-    if: contains('refs/heads/latest','refs/heads/beta')
+    if: contains(fromJson('["refs/heads/latest", "refs/heads/beta"]'), github.ref)
     steps:
       - uses: actions/checkout@v4
 
