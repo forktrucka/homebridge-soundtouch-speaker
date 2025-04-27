@@ -47,13 +47,12 @@ jobs:
           npm audit fix || true
           npm list --outdated
           npm run build
-  
 
   publish:
     needs:
       - build
     runs-on: ubuntu-latest
-    if: contains(fromJson('["refs/heads/latest", "refs/heads/beta"]'), github.ref)
+    if: github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +60,7 @@ jobs:
         with:
           node-version: 20
 
-      - run: sh src/scripts/ci/publish.sh
+      - run: sh scripts/ci/publish.sh
         working-directory: .
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
