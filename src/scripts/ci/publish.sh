@@ -3,7 +3,7 @@
 
 branch=$(git rev-parse --abbrev-ref HEAD)
 npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-npm install
+npm ci
 
 if [ "$branch" = "latest" ]; then
   echo "Publishing to npm..."
