@@ -7,7 +7,7 @@ npm ci
 
 if [ "$branch" = "latest" ]; then
   echo "Publishing to npm..."
-  npm publish --tag beta #fix up when ready
+  npm publish --access public
 elif [ "$branch" = "beta" ]; then
   echo "Publishing beta to npm..."
   npm publish --tag beta
