@@ -60,7 +60,7 @@ jobs:
       - build
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' ||
-      contains(github.event.issue.labels.*.name, 'test-publish')
+      contains(github.event.pull_request.labels.*.name, 'test-publish')
     steps:
       - uses: actions/checkout@v4
 
