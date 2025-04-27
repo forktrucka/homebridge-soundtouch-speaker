@@ -62,4 +62,4 @@ jobs:
       - run: sh src/scripts/ci/publish.sh
         working-directory: .
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

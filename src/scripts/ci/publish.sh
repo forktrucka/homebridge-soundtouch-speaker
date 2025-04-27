@@ -2,7 +2,7 @@
 # This script is used to publish the package to npm.
 
 branch=$(git rev-parse --abbrev-ref HEAD)
-
+npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
 npm install
 
 if [ "$branch" = "latest" ]; then
