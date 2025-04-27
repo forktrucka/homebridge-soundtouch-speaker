@@ -11,6 +11,13 @@ on:
           - latest
           - beta
           - dev
+      types:
+        - labeled
+        - unlabeled
+        - opened
+        - ready_for_review
+        - reopened
+        - synchronize
 jobs:
   build:
     runs-on: ubuntu-latest
