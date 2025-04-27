@@ -11,6 +11,13 @@ on:
           - latest
           - beta
           - dev
+      types:
+        - labeled
+        - unlabeled
+        - opened
+        - ready_for_review
+        - reopened
+        - synchronize
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -52,7 +59,8 @@ jobs:
     needs:
       - build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'test-publish')
     steps:
       - uses: actions/checkout@v4
 

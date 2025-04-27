@@ -12,5 +12,6 @@ elif [ "$branch" = "beta" ]; then
   echo "Publishing beta to npm..."
   npm publish --tag beta
 else
-  echo "Not on latest or beta branch, skipping publish."
+  echo "Not on latest or beta branch, performing dry-run publish only."
+  npm publish --dry-run
 fi
