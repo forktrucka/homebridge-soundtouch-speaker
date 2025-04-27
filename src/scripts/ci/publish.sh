@@ -1,8 +1,9 @@
 #!/usr/bin/env sh
 # This script is used to publish the package to npm.
-echo running publish.sh
 
 branch=$(git rev-parse --abbrev-ref HEAD)
+
+npm install
 
 if [ "$branch" = "latest" ]; then
   echo "Publishing to npm..."
