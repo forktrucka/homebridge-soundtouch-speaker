@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { Logger } from '../FormattedLogger';
+import { Logger } from '../FormattedLogger.js';
 import { LogLevel } from 'homebridge';
 
 describe('FormattedLogger', () => {

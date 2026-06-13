@@ -1,4 +1,4 @@
-import { flattenAccessoryConfiguration } from '../ExternalPlatformConfig';
+import { flattenAccessoryConfiguration } from '../ExternalPlatformConfig.js';
 
 describe('calculateResultingAccessoryConfiguration', () => {
   test('it merges accessory and global configurations', () => {
