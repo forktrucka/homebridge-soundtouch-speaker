@@ -52,15 +52,7 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
     const desiredPowerStatus = value as boolean;
 
     try {
-      if (
-        desiredPowerStatus &&
-        this.characteristic.value !== desiredPowerStatus
-      ) {
-        await this.device.api.pressKey(KeyValue.power);
-      } else if (
-        !desiredPowerStatus &&
-        this.characteristic.value !== desiredPowerStatus
-      ) {
+      if (this.characteristic.value !== desiredPowerStatus) {
         await this.device.api.pressKey(KeyValue.power);
       }
       this.log.success('set status - %s', desiredPowerStatus ? 'on' : 'off');

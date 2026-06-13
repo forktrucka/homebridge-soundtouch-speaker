@@ -47,6 +47,7 @@ export class API {
     this.host = host;
     this.port = port;
     this.axiosInstance = axios.create({
+      timeout: 10000,
       headers: {
         'content-type': 'application/xml',
       },

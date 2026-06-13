@@ -11,6 +11,7 @@ import { SoundTouchSpeakerOnCharacteristic } from './services/SoundTouchSpeakerO
 
 export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharacteristic {
   private readonly speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
+  private _isPolling = false;
 
   constructor({
     speakerCharacteristics,
@@ -33,6 +34,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     }
 
     if (this.device.configuration.pollingInterval !== undefined) {
+      this._isPolling = true;
       this._refreshDeviceServices().then(() => {
         //no-op
       });
@@ -49,13 +51,20 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     }
   }
 
+  stopPolling(): void {
+    this._isPolling = false;
+  }
+
   private async _refreshDeviceServices(): Promise<void> {
-    while (true) {
+    while (this._isPolling) {
       await new Promise((resolve) =>
         setTimeout(resolve, this.device.configuration.pollingInterval)
       );
-
-      await this.refresh();
+      try {
+        await this.refresh();
+      } catch (e: unknown) {
+        this.log.error('Polling refresh failed', e);
+      }
     }
   }
 
