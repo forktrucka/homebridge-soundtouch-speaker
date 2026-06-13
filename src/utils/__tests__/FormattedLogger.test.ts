@@ -1,6 +1,31 @@
-import { describe, expect, test } from '@jest/globals';
-import { Logger } from '../FormattedLogger.js';
-import { LogLevel } from 'homebridge';
+import { describe, expect, jest, test } from '@jest/globals';
+import { DeviceLogger, Logger } from '../FormattedLogger.js';
+import { LogLevel, type Logging } from 'homebridge';
+import { DeviceConfiguration } from '../../devices/SoundTouch/SoundTouchDeviceConfiguration.js';
+import { API as SoundTouchApi } from '../../devices/SoundTouch/api/index.js';
+import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
+
+function makeMockLogger(): jest.Mocked<Logging> {
+  return {
+    log: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    success: jest.fn(),
+    prefix: 'test',
+  } as unknown as jest.Mocked<Logging>;
+}
+
+function makeDevice(name: string): SoundTouchDevice {
+  return new SoundTouchDevice({
+    api: new SoundTouchApi('192.168.1.1'),
+    model: 'SoundTouch 10',
+    id: 'test-id',
+    name,
+    configuration: DeviceConfiguration.create({ name }),
+  });
+}
 
 describe('FormattedLogger', () => {
   describe('excludeLog', () => {
@@ -34,6 +59,100 @@ describe('FormattedLogger', () => {
         const result = Logger.excludeLog(c.level, c.requiredLevel);
         expect(result).toBe(c.outcome);
       });
+    });
+  });
+
+  describe('Logger.log', () => {
+    test('passes message to homebridge logger when level meets threshold', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+
+      logger.log(LogLevel.INFO, 'hello');
+
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(LogLevel.INFO, 'hello');
+    });
+
+    test('suppresses message when level is below threshold', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+
+      logger.log(LogLevel.DEBUG, 'hidden');
+
+      expect(homebridgeLogger.log).not.toHaveBeenCalled();
+    });
+
+    test('convenience methods delegate to log with correct level', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+
+      logger.info('info msg');
+      logger.warn('warn msg');
+      logger.error('error msg');
+      logger.debug('debug msg');
+      logger.success('success msg');
+
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(
+        LogLevel.INFO,
+        'info msg'
+      );
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(
+        LogLevel.WARN,
+        'warn msg'
+      );
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(
+        LogLevel.ERROR,
+        'error msg'
+      );
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(
+        LogLevel.DEBUG,
+        'debug msg'
+      );
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(
+        LogLevel.SUCCESS,
+        'success msg'
+      );
+    });
+  });
+
+  describe('DeviceLogger', () => {
+    test('prefixes messages with device name', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+      const device = makeDevice('Kitchen Speaker');
+      const deviceLogger = DeviceLogger.fromLogger({ logger, device });
+
+      deviceLogger.info('ready');
+
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(
+        LogLevel.INFO,
+        '[Kitchen Speaker] - ready'
+      );
+    });
+
+    test('inherits log level filtering from parent logger', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+      const device = makeDevice('Kitchen Speaker');
+      const deviceLogger = DeviceLogger.fromLogger({ logger, device });
+
+      deviceLogger.debug('should be hidden');
+
+      expect(homebridgeLogger.log).not.toHaveBeenCalled();
     });
   });
 });
