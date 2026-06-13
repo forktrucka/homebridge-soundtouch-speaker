@@ -68,7 +68,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       });
     }
 
-    return Promise.all(
+    const results = await Promise.allSettled(
       this.configuration.accessories.map((accessoryConfig) =>
         SoundTouchDevice.fromConfiguredAccessory({
           accessoryConfig,
@@ -76,55 +76,68 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         })
       )
     );
+
+    return results.flatMap((result) => {
+      if (result.status === 'fulfilled') {
+        return [result.value];
+      }
+      this.logger.error('Failed to load configured accessory', result.reason);
+      return [];
+    });
   }
 
   async discoverDevices() {
     this.logger.debug('searching for devices', this.configuration);
 
-    const accessories = await this.searchDevices();
+    let accessories: SoundTouchDevice[];
+    try {
+      accessories = await this.searchDevices();
+    } catch (e: unknown) {
+      this.logger.error('Device discovery failed', e);
+      return;
+    }
 
     this.logger.debug('loaded devices', accessories);
 
     for (const device of accessories) {
       const uuid = this.api.hap.uuid.generate(device.id);
 
-      // see if an accessory with the same uuid has already been registered and restored from
-      // the cached devices we stored in the `configureAccessory` method above
       const existingAccessory = this._accessories.get(uuid);
 
-      if (existingAccessory) {
-        // the accessory already exists
-        this.logger.info(
-          'Restoring existing accessory from cache:',
-          existingAccessory.displayName
-        );
+      try {
+        if (existingAccessory) {
+          this.logger.info(
+            'Restoring existing accessory from cache:',
+            existingAccessory.displayName
+          );
 
-        await SoundTouchSpeakerPlatformAccessory.create({
-          platform: this,
-          accessory: existingAccessory,
-          device,
-        });
-      } else {
-        this.logger.info('Adding new accessory:', device.name);
+          await SoundTouchSpeakerPlatformAccessory.create({
+            platform: this,
+            accessory: existingAccessory,
+            device,
+          });
+        } else {
+          this.logger.info('Adding new accessory:', device.name);
 
-        const accessory = new this.api.platformAccessory(device.name, uuid);
+          const accessory = new this.api.platformAccessory(device.name, uuid);
 
-        accessory.context.device = device;
+          accessory.context.device = device;
 
-        await SoundTouchSpeakerPlatformAccessory.create({
-          platform: this,
-          accessory,
-          device,
-        });
+          await SoundTouchSpeakerPlatformAccessory.create({
+            platform: this,
+            accessory,
+            device,
+          });
 
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
-          accessory,
-        ]);
+          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
+            accessory,
+          ]);
+        }
+
+        this._discoveredCacheUUIDs.push(uuid);
+      } catch (e: unknown) {
+        this.logger.error(`Failed to initialise accessory: ${device.name}`, e);
       }
-
-      // push into _discoveredCacheUUIDs
-      this._discoveredCacheUUIDs.push(uuid);
     }
 
     for (const [uuid, accessory] of this._accessories) {
