@@ -3,10 +3,10 @@ import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 
 const logLevelSeverityMap = {
   [LogLevel.DEBUG]: 0,
-  [LogLevel.ERROR]: 1,
-  [LogLevel.WARN]: 3,
-  [LogLevel.SUCCESS]: 3, // WARNING AND SUCCESS are the same severity
-  [LogLevel.INFO]: 5,
+  [LogLevel.INFO]: 1,
+  [LogLevel.SUCCESS]: 2,
+  [LogLevel.WARN]: 2,
+  [LogLevel.ERROR]: 3,
 };
 
 export class Logger implements Partial<Logging> {
@@ -24,10 +24,8 @@ export class Logger implements Partial<Logging> {
     this.requiredLogLevel = level;
   }
 
-  static excludeLog(level: LogLevel, requiredlevel: LogLevel) {
-    return (
-      (logLevelSeverityMap[level] &= logLevelSeverityMap[requiredlevel]) === 0
-    );
+  static excludeLog(level: LogLevel, requiredLevel: LogLevel): boolean {
+    return logLevelSeverityMap[level] < logLevelSeverityMap[requiredLevel];
   }
 
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
