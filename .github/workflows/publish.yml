@@ -44,4 +44,11 @@ jobs:
 
       - name: Publish to npm (beta)
         if: github.ref == 'refs/heads/beta'
-        run: npm publish --provenance --tag beta --access public
+        run: npm publish --provenance --tag beta --access public || true
+
+      - name: Upload npm debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-debug-log
+          path: ~/.npm/_logs/*.log
