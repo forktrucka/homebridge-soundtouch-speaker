@@ -25,6 +25,13 @@ jobs:
         with:
           node-version: 22
 
+      - name: Diagnostics
+        run: |
+          node --version
+          npm --version
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}"
+          printenv | grep -E "^ACTIONS_|^NODE_AUTH" || true
+
       - name: Install dependencies
         run: npm ci
 
