@@ -2,7 +2,7 @@
   "name": "homebridge-soundtouchspeaker",
   "displayName": "SoundTouch Speaker",
   "type": "module",
-  "version": "0.2.4-beta.0",
+  "version": "0.2.4-beta.1",
   "description": "Updates homebridge-soundtouch-platform to work on latest homebridge.",
   "author": "Andrew Trainor",
   "license": "Apache-2.0",
