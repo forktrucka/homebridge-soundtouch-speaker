@@ -33,8 +33,8 @@ jobs:
 
       - name: Publish to npm (latest)
         if: github.ref == 'refs/heads/latest'
-        run: npm publish --access public
+        run: npm publish --provenance --access public
 
       - name: Publish to npm (beta)
         if: github.ref == 'refs/heads/beta'
-        run: npm publish --tag beta --access public
+        run: npm publish --provenance --tag beta --access public
