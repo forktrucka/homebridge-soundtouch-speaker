@@ -24,13 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Diagnostics
-        run: |
-          node --version
-          npm --version
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL != '' }}"
-          printenv | grep -E "^ACTIONS_|^NODE_AUTH" || true
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
@@ -41,14 +35,11 @@ jobs:
       - name: Publish to npm (latest)
         if: github.ref == 'refs/heads/latest'
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish to npm (beta)
         if: github.ref == 'refs/heads/beta'
-        run: npm publish --provenance --tag beta --access public || true
-
-      - name: Upload npm debug log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-debug-log
-          path: ~/.npm/_logs/*.log
+        run: npm publish --provenance --tag beta --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
