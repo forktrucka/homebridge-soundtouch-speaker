@@ -9,7 +9,7 @@
   "homepage": "https://github.com/forktrucka/homebridge-soundtouch-speaker#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/forktrucka/homebridge-soundtouch-speaker.git"
+    "url": "git+https://github.com/forktrucka/homebridge-soundtouch-speaker.git"
   },
   "bugs": {
     "url": "https://github.com/forktrucka/homebridge-soundtouch-speaker/issues"

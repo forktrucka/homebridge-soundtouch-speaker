@@ -40,6 +40,6 @@ jobs:
 
       - name: Publish to npm (beta)
         if: github.ref == 'refs/heads/beta'
-        run: npm publish --tag beta --provenance
+        run: npm publish --tag beta --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
