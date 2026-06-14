@@ -25,7 +25,7 @@ import { Preset, presetFromElement } from './preset.js';
 import { Group, groupFromElement } from './group.js';
 import { promisify } from 'util';
 import { ContentItem, contentItemToElement } from './content-item.js';
-import axios, { type AxiosInstance } from 'axios';
+import { create as axiosCreate, type AxiosInstance } from 'axios';
 
 const parseXML = promisify(
   (
@@ -46,7 +46,7 @@ export class API {
   constructor(host: string, port: number = 8090) {
     this.host = host;
     this.port = port;
-    this.axiosInstance = axios.create({
+    this.axiosInstance = axiosCreate({
       timeout: 10000,
       headers: {
         'content-type': 'application/xml',
