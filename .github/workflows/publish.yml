@@ -34,12 +34,8 @@ jobs:
 
       - name: Publish to npm (latest)
         if: github.ref == 'refs/heads/latest'
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
 
       - name: Publish to npm (beta)
         if: github.ref == 'refs/heads/beta'
-        run: npm publish --tag beta --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --tag beta --access public
