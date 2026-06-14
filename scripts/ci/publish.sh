@@ -1,17 +1,4 @@
 #!/usr/bin/env sh
-# This script is used to publish the package to npm.
-
-branch=$(git rev-parse --abbrev-ref HEAD)
-npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-npm ci
-
-if [ "$branch" = "latest" ]; then
-  echo "Publishing to npm..."
-  npm publish --access public
-elif [ "$branch" = "beta" ]; then
-  echo "Publishing beta to npm..."
-  npm publish --tag beta
-else
-  echo "Not on latest or beta branch, performing dry-run publish only."
-  npm publish --dry-run
-fi
+# Publishing is now handled directly by .github/workflows/build.yml.
+# This script is retained for reference only and is no longer called by CI.
+echo "See .github/workflows/build.yml publish job."
