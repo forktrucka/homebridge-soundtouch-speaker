@@ -112,3 +112,6 @@ Default configuration applied to all accessories. Any value here can be overridd
 *Optional fields*
 * `verbose`: Log all device information __default__: **false**
 * `pollingInterval`: Poll each device every interval in milliseconds __default__: **2000**
+
+## References
+* [SoundTouch Web API](https://assets.bosecreative.com/m/496577402d128874/original/SoundTouch-Web-API.pdf) — Bose's official API specification this plugin is built against.
