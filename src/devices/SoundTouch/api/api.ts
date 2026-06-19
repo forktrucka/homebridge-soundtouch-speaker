@@ -43,15 +43,21 @@ export class API {
   private readonly builder: XMLBuilder;
   private readonly axiosInstance: AxiosInstance;
 
-  constructor(host: string, port: number = 8090) {
+  constructor(
+    host: string,
+    port: number = 8090,
+    axiosInstance?: AxiosInstance
+  ) {
     this.host = host;
     this.port = port;
-    this.axiosInstance = axiosCreate({
-      timeout: 10000,
-      headers: {
-        'content-type': 'application/xml',
-      },
-    });
+    this.axiosInstance =
+      axiosInstance ??
+      axiosCreate({
+        timeout: 10000,
+        headers: {
+          'content-type': 'application/xml',
+        },
+      });
     this.builder = new XMLBuilder();
   }
 
