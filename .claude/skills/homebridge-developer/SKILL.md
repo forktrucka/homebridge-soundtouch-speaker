@@ -13,14 +13,10 @@ This is a **TypeScript ESM dynamic platform** Homebridge plugin. Follow the
 patterns already in `src/` — this skill points to the canonical examples rather
 than restating them.
 
-## ESM conventions (do not skip)
-
-- `package.json` has `"type": "module"`; TypeScript emits ESM.
-- **Relative imports must include the `.js` extension**, even though the source
-  is `.ts`: `import { SoundTouchDevice } from './devices/SoundTouch/SoundTouchDevice.js';`
-  Omitting `.js` builds but fails at runtime under Homebridge.
-- Import Homebridge types/values from `'homebridge'` (no extension — it's a
-  package): `import { API, Service, Characteristic } from 'homebridge';`
+> **Language, build, lint, and test tooling** (including the ESM `.js`-import
+> rule) live in the **coding-conventions** skill. This skill covers only what is
+> specific to Homebridge: architecture, HomeKit wiring, and verified-plugin
+> compliance.
 
 ## Platform & accessory architecture
 
@@ -85,33 +81,18 @@ change these casually — they key the accessory cache.
 The SoundTouch device HTTP/XML API lives under `src/devices/SoundTouch/api/`;
 discovery uses bonjour / multicast-dns.
 
-## Testing & quality
+## Testing Homebridge code
 
-- Runner: **Jest + `@swc/jest`** (no ts-jest). Config: `jest.config.ts`.
-- Tests live in `__tests__/` dirs and match `*.test.ts` / `*.spec.ts`.
-  `roots` is `<rootDir>/src`, so put tests beside the code they cover.
-- `moduleNameMapper` rewrites `^(\.{1,2}/.*)\.js$` → `$1` so the `.js` import
-  extensions resolve in tests, and maps `homebridge` to the manual mock.
+Generic test setup (Jest + `@swc/jest`, colocated `__tests__/`, coverage,
+commands, the "typecheck + lint + test before done" gate) is in the
+**coding-conventions** skill. Homebridge-specific testing notes:
+
 - **Manual mock `__mocks__/homebridge.js`** exists because SWC does not inline
-  Homebridge's `const enum`s (e.g. `LogLevel`). If a test hits an undefined
-  Homebridge enum value, add it there.
-- Coverage is collected by default (`collectCoverage: true`).
+  Homebridge's `const enum`s (e.g. `LogLevel`); `moduleNameMapper` maps
+  `homebridge` to it. If a test hits an undefined Homebridge enum value, add it
+  there.
 - Favor testing pure logic (config transforms, device parsing) over HAP wiring,
   matching the existing `PlatformConfiguration` / `ExternalPlatformConfig` tests.
-
-Commands:
-
-| Command | Purpose |
-| --- | --- |
-| `npm test` (`npx jest`) | Run tests with coverage |
-| `npx jest <pattern>` | Run a subset |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` | ESLint, `--max-warnings=0`, auto-`--fix` |
-| `npm run format` | Prettier write |
-| `npm run knip` | Unused files/exports/deps |
-| `npm run build` | Clean + `tsc` → `dist/` |
-
-Before considering a change done, run typecheck, lint, and tests.
 
 ## Running & debugging locally
 
@@ -170,8 +151,11 @@ them, so don't regress them.
 Homebridge thread) · AccessoryInformation populated with a unique SerialNumber ·
 `npm run typecheck && npm run lint && npm test` all green.
 
-## What this skill does NOT cover
+## Related skills
 
-Release, versioning, and contribution flow (conventional commits,
-semantic-release `latest`→`dev`→`beta`, README-vs-CONTRIBUTING rules) are out of
-scope — see `CONTRIBUTING.md` and the project memory notes.
+- **coding-conventions** — TypeScript/ESM rules, lint/format, generic Jest setup,
+  logging, and the pre-done checks.
+- **soundtouch-api-expert** — the Bose SoundTouch HTTP/XML + WebSocket protocol.
+- **architect** — planning a feature, and the branching/release flow
+  (conventional commits, semantic-release `latest`→`dev`→`beta`). For the full
+  contribution rules see `CONTRIBUTING.md`.
