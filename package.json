@@ -63,7 +63,8 @@
   "overrides": {
     "node-persist": "^4.0.4",
     "babel-plugin-istanbul": "^8.0.2",
-    "glob": "^13.0.6"
+    "glob": "^13.0.6",
+    "js-yaml": "^4.2.0"
   },
   "dependencies": {
     "axios": "^1.17.0",
