@@ -1,6 +1,10 @@
 # Ignore source code
 src
 
+# Claude Code skills (incl. generated planning docs) and router
+.claude
+CLAUDE.md
+
 # ------------- Defaults ------------- #
 
 # gitHub actions
