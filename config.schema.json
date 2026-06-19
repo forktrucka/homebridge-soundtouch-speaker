@@ -32,8 +32,8 @@
           "properties": {
             "name": {
               "type": "string",
-              "required": true,
-              "description": "Name of the speaker"
+              "required": false,
+              "description": "Name shown in HomeKit. Defaults to the device's own name."
             },
             "ip": {
               "type": "string",
@@ -41,6 +41,12 @@
               "description": "IP address to use to find accessory",
               "pattern": "^[^{}/ :\\\\]+(?::\\d+)?$",
               "placeholder": "eg. 0.0.0.0"
+            },
+            "port": {
+              "type": "integer",
+              "required": false,
+              "description": "Port to use with ip",
+              "placeholder": "8090"
             },
             "room": {
               "type": "string",

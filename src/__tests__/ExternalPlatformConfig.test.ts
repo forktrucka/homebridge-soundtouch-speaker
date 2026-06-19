@@ -1,4 +1,5 @@
-import { flattenAccessoryConfiguration } from '../ExternalPlatformConfig';
+import { describe, expect, test } from '@jest/globals';
+import { flattenAccessoryConfiguration } from '../ExternalPlatformConfig.js';
 
 describe('calculateResultingAccessoryConfiguration', () => {
   test('it merges accessory and global configurations', () => {
