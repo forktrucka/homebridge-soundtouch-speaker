@@ -1,0 +1,117 @@
+---
+feature: Volume control — Speaker service (Switch mode) and Lightbulb Brightness (Lightbulb mode)
+status: planned # planned | in-progress | done | cancelled
+date: 2026-06-19
+updated: 2026-06-20
+branch: feat/volume-control
+commit-type: feat
+---
+
+# Volume control — Speaker service (Switch) and Lightbulb Brightness (Lightbulb)
+
+## Context
+
+Expose speaker volume in HomeKit for both accessory types:
+
+- **Switch mode (default, ships first):** add a linked **Speaker** service with a
+  `Volume` characteristic (0–100). This is a separate tile in the Home app,
+  independent of the On/Off switch. No dependency on plan 01.
+- **Lightbulb mode (plan 01 prerequisite):** expose volume via the Lightbulb's
+  `Brightness` characteristic (0–100). `Brightness 0` powers the speaker off;
+  raising from 0 powers it back on.
+
+The API layer is already complete: `api.getVolume()` returns
+`{ target, actual, isMuted }` (`src/devices/SoundTouch/api/volume.ts`) and
+`api.setVolume(value)` POSTs `/volume` (`src/devices/SoundTouch/api/api.ts:69`).
+This is purely HomeKit wiring — no protocol work.
+
+**Implementation order:** plan 02 ships before plan 01. The Switch/Speaker path
+works independently. The Lightbulb/Brightness path is wired in plan 02 but
+activates only once plan 01 enables the Lightbulb accessory type.
+
+## Decisions & findings
+
+| Date | Decision / finding | Rationale / evidence | Alternatives rejected |
+| --- | --- | --- | --- |
+| 2026-06-19 | Lightbulb: Volume = `Brightness` 0–100; `Brightness 0` ⇒ power off | Explicit product decision | Brightness 0 = mute but stay powered on |
+| 2026-06-19 | Finding: the API already implements `getVolume`/`setVolume` | No protocol work; pure HomeKit wiring | — |
+| 2026-06-19 | Finding: the `On` setter sleeps 5s in `finally` (`SoundTouchSpeakerOnCharacteristic.ts:66`) | A near-simultaneous volume set can race; needs reconciling/debounce | — |
+| 2026-06-20 | Switch mode: HAP `Speaker` service + `Volume` characteristic as a separate linked service | Semantically correct; appears as its own tile; no dependency on plan 01's Lightbulb plumbing | Fan/RotationSpeed — semantically wrong; Lightbulb-only volume — leaves Switch users without volume control |
+| 2026-06-20 | Plan 02 ships before plan 01; dependency on plan 01 removed | Volume should be available immediately on default Switch accessories | Waiting for plan 01 before shipping volume |
+| 2026-06-20 | Two characteristic classes: `SoundTouchSpeakerVolumeCharacteristic` (Speaker/Volume) and the Lightbulb Brightness wiring | Different services, different power-off semantics; cleaner to keep them separate than to parameterise one class | One class parameterised by service/characteristic type — more complex with marginal reuse |
+
+## If cancelled
+
+> Only fill this in when `status: cancelled`. Leave empty otherwise.
+
+## Affected areas
+
+- **New** `src/accessories/services/SoundTouchSpeakerVolumeCharacteristic.ts` —
+  characteristic class for the **Speaker** service path. Takes
+  `{ service, device, platform, accessory }`, grabs
+  `platform.characteristic.Volume`, binds `onSet`/`onGet`, implements
+  `init()`/`refresh()` (update only when changed via `characteristic.updateValue`),
+  exposes static async `create`. Logs via `this.log`.
+- **New** `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts` —
+  characteristic class for the **Lightbulb** path. Same pattern but uses
+  `platform.characteristic.Brightness`; additionally maps `0 → power off` and
+  `>0 from off → power on` (coordinates with `SoundTouchSpeakerOnCharacteristic`).
+- `src/accessories/SoundTouchSpeakerPlatformAccessory.ts`:
+  - **Switch path:** add a linked Speaker service and wire
+    `SoundTouchSpeakerVolumeCharacteristic` to it.
+  - **Lightbulb path (plan 01 gate):** add `SoundTouchSpeakerBrightnessCharacteristic`
+    to the Lightbulb service alongside `On`.
+
+## Conventions for this change
+
+- **Commit type:** `feat:` → minor release.
+- **Config schema touched:** no new fields; volume is always-on per accessory type.
+- **Tests to add/update:**
+  - `src/accessories/services/__tests__/SoundTouchSpeakerVolumeCharacteristic.test.ts`
+    — volume get/set, HAP error on device failure.
+  - `src/accessories/services/__tests__/SoundTouchSpeakerBrightnessCharacteristic.test.ts`
+    — volume↔brightness mapping, `0 ⇒ off`, `>0-from-off ⇒ on`, race condition
+    with the `On` setter.
+- Follow **coding-conventions** (ESM `.js` imports, lint/format, the
+  typecheck+lint+test gate) and the characteristic pattern in **homebridge-developer**.
+- **Target branch:** `dev`.
+
+## Design notes / risks
+
+- **On + Brightness interplay (Lightbulb only):** HomeKit often sends `On` and
+  `Brightness` together (e.g. turning on sends `On=true` then `Brightness=last`).
+  Treat `setBrightness(0)` as power-off; `setBrightness(>0)` as set-volume
+  (powering on first if currently off). Guard against fighting the `On` setter's
+  5s settle sleep (`SoundTouchSpeakerOnCharacteristic.ts:66`).
+- **Speaker service on Switch:** the Speaker service appears as a linked tile in
+  HomeKit, not embedded in the Switch tile. Confirm the UX is acceptable on a real
+  device before finalising.
+- `getVolume().actual` is the live value for both `refresh()` paths.
+
+## Implementation checklist
+
+- [ ] Add `SoundTouchSpeakerVolumeCharacteristic` (Speaker service, Volume 0–100)
+- [ ] Wire Speaker service + volume characteristic into `createAccessory` for the
+      Switch path
+- [ ] Add `SoundTouchSpeakerBrightnessCharacteristic` (Lightbulb Brightness ↔
+      volume, 0 = power off)
+- [ ] Wire Brightness characteristic into `createAccessory` for the Lightbulb path
+      (behind the plan 01 `accessoryType` gate)
+- [ ] Reconcile On/Brightness ordering with `SoundTouchSpeakerOnCharacteristic`
+- [ ] Add tests for both characteristic classes
+
+## Verification
+
+- [ ] `npm run lint`
+- [ ] `npm run build`
+- [ ] `npm test`
+- [ ] `npm run watch` — with a **Switch** speaker: confirm the Speaker tile appears,
+      dragging volume tracks the speaker, and external volume changes reflect back.
+- [ ] `npm run watch` — with a **Lightbulb** speaker (after plan 01): drag brightness,
+      confirm volume tracks; set to 0, confirm power off; raise from 0, confirm power
+      on.
+
+## PR / release notes
+
+- **PR title:** `feat: add volume control via Speaker service and Lightbulb brightness`
+- **Targets:** `dev`
