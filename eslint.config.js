@@ -1,7 +1,5 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import importPlugin from 'eslint-plugin-import';
-import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import pluginJest from 'eslint-plugin-jest';
 
@@ -55,23 +53,7 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
-  js.configs.recommended,
   {
-    files: ['**/*.{ts,tsx}'],
-    extends: [importPlugin.flatConfigs.recommended],
-    rules: {
-      'import/extensions': [
-        'error',
-        'always',
-        {
-          svg: 'never',
-        },
-      ],
-      'import/no-unresolved': ['off'],
-    },
-  },
-  {
-    // update this to match your test files
     files: ['**/__tests__/*.test.ts'],
     plugins: { jest: pluginJest },
     languageOptions: {
@@ -83,7 +65,6 @@ export default tseslint.config(
       'jest/no-identical-title': 'error',
       'jest/prefer-to-have-length': 'warn',
       'jest/valid-expect': 'error',
-      'import/extensions': 'off',
     },
   },
   eslintConfigPrettier
