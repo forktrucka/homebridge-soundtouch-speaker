@@ -39,6 +39,7 @@ activates only once plan 01 enables the Lightbulb accessory type.
 | 2026-06-20 | Switch mode: HAP `Speaker` service + `Volume` characteristic as a separate linked service | Semantically correct; appears as its own tile; no dependency on plan 01's Lightbulb plumbing | Fan/RotationSpeed — semantically wrong; Lightbulb-only volume — leaves Switch users without volume control |
 | 2026-06-20 | Plan 02 ships before plan 01; dependency on plan 01 removed | Volume should be available immediately on default Switch accessories | Waiting for plan 01 before shipping volume |
 | 2026-06-20 | Two characteristic classes: `SoundTouchSpeakerVolumeCharacteristic` (Speaker/Volume) and the Lightbulb Brightness wiring | Different services, different power-off semantics; cleaner to keep them separate than to parameterise one class | One class parameterised by service/characteristic type — more complex with marginal reuse |
+| 2026-06-20 | WebSocket push used for external volume changes — no new WS infrastructure needed | The speaker sends a `volumeUpdated` tickle on port 8080 (existing per-device WebSocket connection) whenever volume changes externally. The characteristic's `refresh()` listens for this event and re-fetches via `api.getVolume()`, then pushes the new value to HomeKit via `characteristic.updateValue`. The WS connection is already open; volume just needs to subscribe to the existing event emitter. | Polling on a timer — less responsive and wastes requests; opening a second WebSocket — redundant |
 
 ## If cancelled
 
