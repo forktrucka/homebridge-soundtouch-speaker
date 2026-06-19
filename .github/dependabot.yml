@@ -1,0 +1,39 @@
+# Dependabot keeps dependencies current by opening PRs against `dev` (not the
+# default `latest` branch). PRs squash-merge into `dev`, so the PR *title* is what
+# matters: it becomes the commit semantic-release analyses. We force a `chore`
+# Conventional Commit prefix so bumps pass the PR Title check and never trigger a
+# release on their own — versions are cut deliberately by promoting dev -> beta ->
+# latest after testing. See .releaserc.json and .github/workflows/pr-title.yml.
+version: 2
+updates:
+  # npm dependencies (production + development)
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      # `include: "scope"` appends (deps) for production and (deps-dev) for dev
+      # deps, yielding e.g. `chore(deps): bump axios` / `chore(deps-dev): bump jest`.
+      prefix: "chore"
+      include: "scope"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
+
+  # Pinned GitHub Actions (actions/checkout, setup-node, amannn, ...)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
