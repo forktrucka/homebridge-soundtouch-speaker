@@ -1,6 +1,6 @@
 ---
 feature: Polling lifecycle — stop polling on accessory removal/shutdown and make it configurable
-status: planned # planned | in-progress | done | cancelled
+status: in-progress # planned | in-progress | done | cancelled
 date: 2026-06-20
 branch: fix/polling-lifecycle
 commit-type: fix
@@ -44,6 +44,9 @@ loop. This plan fixes the underlying lifecycle in production code.
 | 2026-06-20 | Finding: `PlatformConfiguration.fromExternalConfiguration` hardcodes `pollingInterval` **and** `verbose`, ignoring `props.global?.pollingInterval`/`verbose` (`PlatformConfiguration.ts:41-42`) | Global config for these two fields is silently dropped — a related config-threading bug worth fixing in the same pass | — |
 | 2026-06-20 | Decision: retain wrappers in a `Map<uuid, SoundTouchSpeakerPlatformAccessory>` on the platform and call `stopPolling()` on unregister and on Homebridge `shutdown` | Smallest change that makes the loop stoppable; mirrors the existing `_accessories` map | Passing an `AbortSignal` into the accessory (larger refactor); a global polling scheduler (over-engineered for the device count) |
 | 2026-06-20 | Decision: treat `pollingInterval <= 0` as "disable polling" | Gives users an off switch without a new boolean field | A separate `polling: boolean` field (more schema surface for the same effect) |
+| 2026-06-20 | Finding: `DeviceConfiguration` already preserves `0` — its constructor uses `?? DEFAULT` (nullish), not `\|\|`, so an explicit `0` survives | No code change needed there; locked it with a regression test. The real config bug was `PlatformConfiguration.fromExternalConfiguration` hardcoding `verbose`/`pollingInterval` (now threaded from `props.global`) | Coercing `0`→default with `\|\|` (would silently re-enable polling) |
+| 2026-06-20 | Finding: the unregister-time `stopPolling()` is **defensive** — in a single process, discovery runs once at `didFinishLaunching`, so a not-rediscovered device never had a wrapper created this run. The load-bearing fix is the `shutdown` handler that stops all wrappers | Kept the unregister guard for any future re-discovery path, but the integration test exercises the `shutdown` path (a discovered accessory's loop is stopped) as the meaningful assertion | Dropping the unregister guard (leaves a gap if discovery is ever re-run) |
+| 2026-06-20 | Implemented the stop as a non-blocking flag flip (`stopPolling()` sets `_isPolling = false`); the loop exits at its next guard check | Already idempotent and safe to call when not polling; covered by a fake-timer accessory test that proves `refresh` stops being called | An `AbortController` (larger change for no extra benefit at this device count) |
 
 ## If cancelled
 
@@ -78,14 +81,14 @@ loop. This plan fixes the underlying lifecycle in production code.
 
 ## Implementation checklist
 
-- [ ] Platform: retain wrappers in a `Map<uuid, SoundTouchSpeakerPlatformAccessory>`
-- [ ] Platform: call `stopPolling()` when unregistering a stale cached accessory
-- [ ] Platform: add an `api.on('shutdown', …)` handler that stops all wrappers
-- [ ] Accessory: start polling only when `pollingInterval > 0`; make `stopPolling()` idempotent
-- [ ] Config: thread `global.pollingInterval` and `global.verbose` through `PlatformConfiguration`
-- [ ] Config: let `pollingInterval: 0` survive as "disabled" through `DeviceConfiguration`
-- [ ] Add/update tests (config + integration lifecycle)
-- [ ] Update `config.schema.json` description noting `0` disables polling
+- [x] Platform: retain wrappers in a `Map<uuid, SoundTouchSpeakerPlatformAccessory>`
+- [x] Platform: call `stopPolling()` when unregistering a stale cached accessory (defensive — see findings)
+- [x] Platform: add an `api.on('shutdown', …)` handler that stops all wrappers
+- [x] Accessory: start polling only when `pollingInterval > 0`; `stopPolling()` is idempotent
+- [x] Config: thread `global.pollingInterval` and `global.verbose` through `PlatformConfiguration`
+- [x] Config: `pollingInterval: 0` survives as "disabled" through `DeviceConfiguration` (already did via `??`; locked with a test)
+- [x] Add/update tests (config + accessory polling lifecycle + integration shutdown)
+- [x] Update `config.schema.json` description noting `0` disables polling
 
 ## Verification
 
