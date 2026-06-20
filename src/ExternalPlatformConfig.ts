@@ -18,6 +18,8 @@ export interface AccessoryConfig extends GlobalConfig {
   readonly room?: string;
   readonly ip?: string;
   readonly port?: number;
+  /** Override the gabbo WebSocket port (default 8080). For tests only. */
+  readonly gabboPort?: number;
 }
 
 export interface ExternalPlatformConfig extends BasePlatformConfig {

@@ -20,6 +20,8 @@ interface DeviceViaRoomConfigurationProps extends BaseDeviceConfiguration {
 interface DeviceViaIpConfigurationProps extends BaseDeviceConfiguration {
   ip?: string;
   port?: number;
+  /** Override the gabbo WebSocket port (default 8080). For tests only. */
+  gabboPort?: number;
 }
 
 export class DeviceConfiguration {
@@ -29,6 +31,8 @@ export class DeviceConfiguration {
   readonly room?: string;
   readonly ip?: string;
   readonly port?: number;
+  /** Override the gabbo WebSocket port (default 8080). For tests only. */
+  readonly gabboPort?: number;
 
   readonly pollingInterval: number;
   readonly verboseLogging: boolean;
@@ -40,6 +44,7 @@ export class DeviceConfiguration {
     room?: string;
     ip?: string;
     port?: number;
+    gabboPort?: number;
     pollingInterval?: number;
     verboseLogging?: boolean;
     accessoryType?: AccessoryType;
@@ -56,6 +61,7 @@ export class DeviceConfiguration {
     if (props.type === 'ip') {
       this.ip = props.ip;
       this.port = props.port;
+      this.gabboPort = props.gabboPort;
     }
   }
 
@@ -68,7 +74,7 @@ export class DeviceConfiguration {
   }
 
   static createForIp(props: DeviceViaIpConfigurationProps) {
-    return new DeviceConfiguration({ ...props, type: 'ip' });
+    return new DeviceConfiguration({ ...props, type: 'ip', gabboPort: props.gabboPort });
   }
 
   static fromAccessoryConfiguration(props: {
@@ -80,6 +86,7 @@ export class DeviceConfiguration {
         name: props?.name || props.accessoryConfig.name || '',
         ip: props.accessoryConfig.ip,
         port: props.accessoryConfig.port,
+        gabboPort: props.accessoryConfig.gabboPort,
         pollingInterval: props.accessoryConfig.pollingInterval,
         accessoryType: props.accessoryConfig.accessoryType,
       });

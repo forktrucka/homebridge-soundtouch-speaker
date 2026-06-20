@@ -7,10 +7,12 @@ import {
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
+import { GabboClient } from '../../devices/SoundTouch/GabboClient.js';
 
 export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
   private characteristic: Characteristic;
+  private readonly gabbo: GabboClient;
 
   constructor({
     service,
@@ -29,11 +31,25 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
     this.characteristic
       .onSet(this.setBrightness.bind(this))
       .onGet(this.getBrightness.bind(this));
+
+    this.gabbo = new GabboClient({
+      host: this.device.api.host,
+      log: this.log,
+      port: this.device.configuration.gabboPort,
+    });
+    this.gabbo.onVolume(() => {
+      this.refresh().catch((err: unknown) => {
+        this.log.error('gabbo volume refresh failed', err);
+      });
+    });
   }
 
   async init(): Promise<void> {
     this.log.debug('initialising brightness characteristic');
     await this.refresh();
+    this.gabbo.connect().catch((err: unknown) => {
+      this.log.error('gabbo connect failed', err);
+    });
   }
 
   async refresh(): Promise<void> {
@@ -76,6 +92,10 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
       );
     }
+  }
+
+  stopGabbo(): void {
+    this.gabbo.close();
   }
 
   static async create(props: {
