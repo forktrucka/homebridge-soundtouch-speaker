@@ -19,3 +19,8 @@ skill **before** acting — don't rely on memory for these:
 - **architect** (`/architect`) — plan and track a new feature; owns the
   branching/release flow (conventional commits, semantic-release
   `latest`→`dev`→`beta`). See also `CONTRIBUTING.md`.
+- **technical-lead** — surveys the roadmap and plans, identifies the next
+  unblocked item, resolves/surfaces blockers, and produces engineering briefs.
+  Can brief multiple engineers in parallel when work is independent.
+- **engineer** — receives a brief from the technical lead and implements it:
+  reads domain skills, follows TDD, creates a branch, and delivers a tested PR.
