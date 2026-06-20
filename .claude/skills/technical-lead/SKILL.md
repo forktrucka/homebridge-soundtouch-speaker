@@ -32,6 +32,16 @@ You do **not** write feature code. You write research, decisions, and briefs.
 The architect writes plans independently of delivery order. You slot them into
 the roadmap and own driving them to shipped.
 
+**Planning vs. implementation branches.** Your artefacts — `ROADMAP.md`,
+sequencing/status edits, and new or revised plan files — are *planning* changes.
+Commit them on a **planning branch** (`docs/…` or `plan/…`, commit type
+`docs:` → no release), never onto a feature's implementation branch. An
+implementation branch (`feat/…`, `test/…`, etc.) carries only the code for its
+plan plus that plan's own bookkeeping (checklist ticks, `status`, findings). A
+roadmap re-sequence or a cross-feature status refresh must not ride along on a
+feature PR — it couples planning churn to that feature's review and release. The
+architect skill owns the full branch/PR model; follow it.
+
 ## Workflow
 
 ### 1. Survey the landscape
@@ -174,8 +184,10 @@ fed back.
 For each unit of work, produce a brief:
 
 **Plan:** `<filename>` — `<feature name>`
-**Branch:** `<branch name>` (off `dev`; if parallel work, use distinct branch
-names e.g. `feat/volume-switch-path`, `feat/volume-lightbulb-path`)
+**Branch:** `<implementation branch>` (`feat/…`/`fix/…`/`test/…` off `dev`; if
+parallel work, use distinct names e.g. `feat/volume-switch-path`,
+`feat/volume-lightbulb-path`). Plan/roadmap edits belong on a separate planning
+branch, not here.
 **Commit type:** `<type>` → `<release impact>`
 **Session cost estimate:** `<Small | Medium | Heavy>` — `<the one or two drivers
 that set the band>` (see step 5)
