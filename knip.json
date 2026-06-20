@@ -13,7 +13,8 @@
     "nodemon",
     "prettier",
     "rimraf",
-    "semantic-release"
+    "semantic-release",
+    "conventional-changelog-conventionalcommits"
   ],
   "ignoreBinaries": [
     "semantic-release",
