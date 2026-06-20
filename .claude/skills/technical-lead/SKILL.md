@@ -4,12 +4,12 @@ description: >-
   Use for delivery leadership on this Homebridge SoundTouch plugin — NOT for
   writing code. Trigger when the user wants to: prioritize or sequence the
   plans backlog, figure out what's next after merging a PR, identify work that
-  can run in parallel, decide whether to cancel/defer/pivot a stalled feature,
-  work through a pre-implementation decision or spike before coding starts, or
-  produce a detailed handoff brief for an engineer. This is the "what do we
-  build next and in what order" skill — it owns sequencing, blockers,
-  cancel/defer decisions, and engineering briefs. It does not implement
-  features.
+  can run in parallel, estimate the session/token cost of a plan before starting,
+  decide whether to cancel/defer/pivot a stalled feature, work through a
+  pre-implementation decision or spike before coding starts, or produce a detailed
+  handoff brief for an engineer. This is the "what do we build next and in what
+  order" skill — it owns sequencing, blockers, capacity/cost estimates,
+  cancel/defer decisions, and engineering briefs. It does not implement features.
 ---
 
 # Technical Lead
@@ -119,7 +119,57 @@ If parallel work makes sense, say so explicitly and produce one brief per
 engineer. Each brief must be fully self-contained — an engineer reads only
 their brief and the cited domain skills, nothing else.
 
-### 5. Write the engineering brief(s)
+### 5. Estimate session cost (token budget)
+
+Before briefing, size each candidate unit of work against a **single session's
+budget** so scope fits what can actually be delivered to a green, pushed state.
+A coding session's cost is dominated by **iteration loops** (read → edit → run
+tests → lint → fix → re-run), not by raw output length. Estimate from the
+drivers below, not from line count alone.
+
+**Cost drivers** (each one present pushes the estimate up):
+
+| Driver | Cheap | Expensive |
+| --- | --- | --- |
+| New vs. modify | New, additive files | Modifying existing code (must read + understand first) |
+| Cross-file threading | Localised to 1–2 files | Propagated through several layers (e.g. config → `DeviceConfiguration` → accessory) |
+| Iteration risk | Deterministic, synchronous | Async timing, races (e.g. the 5s `finally` sleep), lifecycle/caching, service pruning, config migration |
+| Test surface | Few new cases | New test infra, or many cases each needing run/fix cycles |
+| Open decisions | All resolved in the plan | Decisions likely to surface mid-implementation |
+| Unfamiliar paths | Well-trodden code | Code no plan has touched yet |
+
+**Cost bands** (per brief):
+
+- **Small** — mostly additive, no cross-file threading, low iteration risk,
+  small test surface. Comfortable; leaves budget for a second item.
+- **Medium** — mixes new + modified files, some test iteration expected, ~one
+  known hazard to reconcile. One fits comfortably; a second only if the first
+  reached green + pushed with budget clearly remaining.
+- **Heavy** — threads through multiple modules/config layers, has
+  lifecycle/pruning/migration concerns or a broad test surface, or carries an
+  unresolved decision likely to surface mid-build. Plan on **one per session**.
+
+**Budgeting rules:**
+
+- Default to **one Medium/Heavy unit per session**, fully verified. Chain a
+  second only when the first is green and pushed with budget to spare.
+- Checklist item count is a rough proxy only (~10–12 ≈ one feature PR); the
+  drivers above dominate. Splitting a Heavy plan into Small/Medium briefs (see
+  step 4) is the main lever for fitting work into a session.
+- State the estimate in the brief (band + the one or two drivers that set it),
+  and record the current estimates in `ROADMAP.md`'s "Session cost estimates"
+  table.
+- **If the budget tightens mid-session, stop at a clean committed + pushed
+  checkpoint** rather than leaving a feature half-done. A partial, green,
+  pushed slice beats an unfinished one.
+
+**Calibrate.** After a unit ships, compare the estimate to what it actually
+took (smooth vs. many fix-loops, finished in one pass vs. split) and add a row
+to the plan's Decisions & findings noting the variance. Update the band in
+`ROADMAP.md` if the estimate was off. Estimates only get sharper if actuals are
+fed back.
+
+### 6. Write the engineering brief(s)
 
 For each unit of work, produce a brief:
 
@@ -127,6 +177,8 @@ For each unit of work, produce a brief:
 **Branch:** `<branch name>` (off `dev`; if parallel work, use distinct branch
 names e.g. `feat/volume-switch-path`, `feat/volume-lightbulb-path`)
 **Commit type:** `<type>` → `<release impact>`
+**Session cost estimate:** `<Small | Medium | Heavy>` — `<the one or two drivers
+that set the band>` (see step 5)
 
 **What to build (this session):**
 A focused scope — not necessarily the entire plan. If the plan is large, scope
@@ -151,7 +203,7 @@ the engineer doesn't have to re-read the entire history.
 `npm run typecheck && npm run lint && npm test` — all green before the PR is
 opened. If the plan lists additional manual verification steps, list them.
 
-### 6. Update plan status and roadmap
+### 7. Update plan status and roadmap
 
 When handing off to the engineer, set `status: in-progress` in the plan file
 frontmatter. When all checklist items are done and the PR is merged, set
@@ -178,6 +230,12 @@ Always re-read a file before editing it.
   cancel/defer/pivot decision rather than leaving work in limbo indefinitely.
   A recorded cancellation is a better outcome than an open plan that never
   moves.
+- **Scope each session to its budget.** A coding session's cost is driven by
+  iteration loops, not output length. Estimate before briefing (step 5), default
+  to one Medium/Heavy unit per session, and stop at a clean pushed checkpoint
+  rather than overrunning into a half-done feature.
+- **Feed actuals back.** Every shipped unit is a data point — compare it to the
+  estimate and record the variance so the next estimate is sharper.
 - **The roadmap is a living document.** If delivery order changes because of
   new findings, update it.
 
