@@ -31,7 +31,7 @@ export function nowPlayingXml(source: string, deviceId = 'DEV-INT-1'): string {
   );
 }
 
-export function volumeXml(
+function volumeXml(
   options: { target?: number; actual?: number; muted?: boolean } = {}
 ): string {
   const { target = 20, actual = 20, muted = false } = options;

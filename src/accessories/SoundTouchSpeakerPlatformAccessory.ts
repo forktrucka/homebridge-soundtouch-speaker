@@ -8,7 +8,6 @@ import {
 } from './services/SoundTouchSpeakerCharacteristic.js';
 import { SoundTouchSpeakerInformationCharacteristic } from './services/SoundTouchSpeakerInformationCharacteristic.js';
 import { SoundTouchSpeakerOnCharacteristic } from './services/SoundTouchSpeakerOnCharacteristic.js';
-import { SoundTouchSpeakerVolumeCharacteristic } from './services/SoundTouchSpeakerVolumeCharacteristic.js';
 
 export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharacteristic {
   private readonly speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
@@ -81,20 +80,9 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       ...props,
     });
 
-    const speakerService =
-      SoundTouchSpeakerPlatformAccessory.ensureAccessoryService({
-        serviceType: ServiceType.SPEAKER,
-        service: props.platform.service.Speaker,
-        ...props,
-      });
-
     const characteristics = [
       await SoundTouchSpeakerOnCharacteristic.create({
         service,
-        ...props,
-      }),
-      await SoundTouchSpeakerVolumeCharacteristic.create({
-        service: speakerService,
         ...props,
       }),
       ...props.defaultCharacteristics,

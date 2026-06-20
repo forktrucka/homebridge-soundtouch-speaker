@@ -18,13 +18,11 @@ interface Identifier {
 
 const ServiceTypes = {
   Switch: { name: 'Switch' },
-  Speaker: { name: 'Speaker' },
   AccessoryInformation: { name: 'AccessoryInformation' },
 } satisfies Record<string, Identifier>;
 
 const CharacteristicTypes = {
   On: { name: 'On' },
-  Volume: { name: 'Volume' },
   Name: { name: 'Name' },
   Manufacturer: { name: 'Manufacturer' },
   Model: { name: 'Model' },
