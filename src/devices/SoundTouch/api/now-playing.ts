@@ -24,6 +24,7 @@ export interface NowPlaying {
   readonly album?: string;
   readonly genre?: string;
   readonly stationName?: string;
+  readonly description?: string;
   readonly art?: Art;
   readonly time?: Time;
   readonly canGoForward: boolean;
@@ -55,13 +56,7 @@ export function nowPlayingFromElement(
   const deviceId = element.getAttribute('deviceID');
   const source = element.getAttribute('source');
   const contentItemElement = element.getChild('ContentItem');
-  if (
-    !artElement ||
-    !timeElement ||
-    !deviceId ||
-    !source ||
-    !contentItemElement
-  ) {
+  if (!deviceId || !source || !contentItemElement) {
     return undefined;
   }
   const rating = element.getText('rating');
@@ -82,6 +77,7 @@ export function nowPlayingFromElement(
     artist: element.getText('artist'),
     album: element.getText('album'),
     genre: element.getText('genre'),
+    description: element.getText('description'),
     rating: rating ? (rating as Rate) : Rate.none,
     stationName: element.getText('stationName'),
     art: artElement ? artFromElement(artElement) : undefined,
