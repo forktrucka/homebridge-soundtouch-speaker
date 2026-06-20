@@ -6,7 +6,11 @@ description: >-
   notifications (port 8080, "gabbo" protocol), device discovery (SSDP/mDNS), or
   interpreting/constructing SoundTouch XML payloads for endpoints like
   /now_playing, /volume, /key, /select, /presets, /bass, /info, /getZone,
-  /setZone, and friends.
+  /setZone. Also use when writing or modifying any code under
+  src/devices/SoundTouch/api/, adding a new endpoint, debugging API responses,
+  or understanding device state changes via WebSocket. Always read the bundled
+  api-reference.md before writing or parsing any XML payload — don't guess at
+  field names, attribute shapes, or response structure.
 ---
 
 # SoundTouch Web API Expert

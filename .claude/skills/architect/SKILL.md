@@ -1,6 +1,16 @@
 ---
 name: architect
-description: Plan and track a new feature rollout for this Homebridge SoundTouch plugin. Use when the user runs /architect with a feature idea — explores the relevant code, produces an implementation plan tailored to this repo's conventions, and writes it to a tracked checklist file in the skill's own plans/ directory that gets updated as the work proceeds.
+description: >-
+  Plan and track feature implementation for this Homebridge SoundTouch plugin.
+  Use when the user runs /architect, asks how to implement a feature, wants an
+  approach for adding new functionality ("how should I add X", "what's the best
+  way to implement Y", "I want to build Z", "where do I start with X"). Also
+  use when continuing work on an existing plan or when any architectural
+  question comes up about this repo. Explores the relevant code first, produces
+  an implementation plan tailored to this repo's conventions, and writes it to a
+  tracked checklist file that stays up to date as work proceeds. Don't rely on
+  memory for file locations or conventions — always read the plan and relevant
+  skills fresh.
 ---
 
 # Architect — plan & track feature rollouts
