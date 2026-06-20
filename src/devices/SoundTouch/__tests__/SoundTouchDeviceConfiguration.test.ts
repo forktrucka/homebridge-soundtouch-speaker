@@ -1,11 +1,11 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { DeviceConfiguration } from '../SoundTouchDeviceConfiguration.js';
 
 const DEFAULT_POLLING_INTERVAL = 2000;
 
 describe('DeviceConfiguration', () => {
   describe('createForRoom', () => {
-    test('creates a room-type configuration', () => {
+    it('creates a room-type configuration', () => {
       const config = DeviceConfiguration.createForRoom({
         name: 'Kitchen',
         room: 'Kitchen',
@@ -17,12 +17,12 @@ describe('DeviceConfiguration', () => {
       expect(config.port).toBeUndefined();
     });
 
-    test('applies default pollingInterval', () => {
+    it('applies default pollingInterval', () => {
       const config = DeviceConfiguration.createForRoom({ name: 'Kitchen' });
       expect(config.pollingInterval).toBe(DEFAULT_POLLING_INTERVAL);
     });
 
-    test('uses provided pollingInterval', () => {
+    it('uses provided pollingInterval', () => {
       const config = DeviceConfiguration.createForRoom({
         name: 'Kitchen',
         pollingInterval: 5000,
@@ -30,7 +30,7 @@ describe('DeviceConfiguration', () => {
       expect(config.pollingInterval).toBe(5000);
     });
 
-    test('preserves a pollingInterval of 0 (disabled) rather than defaulting', () => {
+    it('preserves a pollingInterval of 0 (disabled) rather than defaulting', () => {
       const config = DeviceConfiguration.createForRoom({
         name: 'Kitchen',
         pollingInterval: 0,
@@ -40,7 +40,7 @@ describe('DeviceConfiguration', () => {
   });
 
   describe('createForIp', () => {
-    test('creates an ip-type configuration', () => {
+    it('creates an ip-type configuration', () => {
       const config = DeviceConfiguration.createForIp({
         name: 'Lounge',
         ip: '192.168.1.10',
@@ -53,7 +53,7 @@ describe('DeviceConfiguration', () => {
       expect(config.room).toBeUndefined();
     });
 
-    test('applies default pollingInterval', () => {
+    it('applies default pollingInterval', () => {
       const config = DeviceConfiguration.createForIp({
         name: 'Lounge',
         ip: '192.168.1.10',
@@ -63,29 +63,42 @@ describe('DeviceConfiguration', () => {
   });
 
   describe('create', () => {
-    test('creates a discovered-type configuration', () => {
+    it('creates a discovered-type configuration', () => {
       const config = DeviceConfiguration.create({ name: 'Office' });
       expect(config.type).toBe('discovered');
       expect(config.ip).toBeUndefined();
       expect(config.room).toBeUndefined();
     });
 
-    test('applies default verboseLogging', () => {
+    it('applies default verboseLogging', () => {
       const config = DeviceConfiguration.create({ name: 'Office' });
       expect(config.verboseLogging).toBe(false);
     });
 
-    test('uses provided verboseLogging', () => {
+    it('uses provided verboseLogging', () => {
       const config = DeviceConfiguration.create({
         name: 'Office',
         verboseLogging: true,
       });
       expect(config.verboseLogging).toBe(true);
     });
+
+    it('defaults accessoryType to switch', () => {
+      const config = DeviceConfiguration.create({ name: 'Office' });
+      expect(config.accessoryType).toBe('switch');
+    });
+
+    it('uses provided accessoryType', () => {
+      const config = DeviceConfiguration.create({
+        name: 'Office',
+        accessoryType: 'lightbulb',
+      });
+      expect(config.accessoryType).toBe('lightbulb');
+    });
   });
 
   describe('fromAccessoryConfiguration', () => {
-    test('returns ip-type config when ip is present', () => {
+    it('returns ip-type config when ip is present', () => {
       const config = DeviceConfiguration.fromAccessoryConfiguration({
         name: 'Kitchen',
         accessoryConfig: { ip: '10.0.0.1', port: 8090 },
@@ -96,7 +109,7 @@ describe('DeviceConfiguration', () => {
       expect(config?.port).toBe(8090);
     });
 
-    test('prefers ip over room when both are present', () => {
+    it('prefers ip over room when both are present', () => {
       const config = DeviceConfiguration.fromAccessoryConfiguration({
         name: 'Kitchen',
         accessoryConfig: { ip: '10.0.0.1', room: 'Kitchen' },
@@ -105,7 +118,7 @@ describe('DeviceConfiguration', () => {
       expect(config?.type).toBe('ip');
     });
 
-    test('returns room-type config when only room is present', () => {
+    it('returns room-type config when only room is present', () => {
       const config = DeviceConfiguration.fromAccessoryConfiguration({
         name: 'Lounge',
         accessoryConfig: { room: 'Lounge' },
@@ -115,7 +128,7 @@ describe('DeviceConfiguration', () => {
       expect(config?.room).toBe('Lounge');
     });
 
-    test('returns undefined when neither ip nor room provided', () => {
+    it('returns undefined when neither ip nor room provided', () => {
       const config = DeviceConfiguration.fromAccessoryConfiguration({
         name: 'Mystery',
         accessoryConfig: {},
@@ -124,7 +137,7 @@ describe('DeviceConfiguration', () => {
       expect(config).toBeUndefined();
     });
 
-    test('name from props takes precedence over accessoryConfig name', () => {
+    it('name from props takes precedence over accessoryConfig name', () => {
       const config = DeviceConfiguration.fromAccessoryConfiguration({
         name: 'Override Name',
         accessoryConfig: { ip: '10.0.0.1', name: 'Config Name' },
@@ -133,17 +146,41 @@ describe('DeviceConfiguration', () => {
       expect(config?.name).toBe('Override Name');
     });
 
-    test('falls back to accessoryConfig name when props name is absent', () => {
+    it('falls back to accessoryConfig name when props name is absent', () => {
       const config = DeviceConfiguration.fromAccessoryConfiguration({
         accessoryConfig: { ip: '10.0.0.1', name: 'Config Name' },
       });
 
       expect(config?.name).toBe('Config Name');
     });
+
+    it('defaults accessoryType to switch when not in accessoryConfig', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Kitchen',
+        accessoryConfig: { ip: '10.0.0.1' },
+      });
+      expect(config?.accessoryType).toBe('switch');
+    });
+
+    it('threads accessoryType from accessoryConfig (ip path)', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Kitchen',
+        accessoryConfig: { ip: '10.0.0.1', accessoryType: 'lightbulb' },
+      });
+      expect(config?.accessoryType).toBe('lightbulb');
+    });
+
+    it('threads accessoryType from accessoryConfig (room path)', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Lounge',
+        accessoryConfig: { room: 'Lounge', accessoryType: 'lightbulb' },
+      });
+      expect(config?.accessoryType).toBe('lightbulb');
+    });
   });
 
   describe('toJson', () => {
-    test('serialises to valid JSON', () => {
+    it('serialises to valid JSON', () => {
       const config = DeviceConfiguration.create({ name: 'Test' });
       expect(() => JSON.parse(config.toJson())).not.toThrow();
     });
