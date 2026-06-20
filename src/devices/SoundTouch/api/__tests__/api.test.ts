@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import { API } from '../api.js';
@@ -23,13 +23,13 @@ describe('API', () => {
   });
 
   describe('request plumbing', () => {
-    test('GET targets the host, default port and endpoint', async () => {
+    it('GET targets the host, default port and endpoint', async () => {
       mock.onGet(`${BASE}/info`).reply(200, '<info deviceID="D"></info>');
       await api.getInfo();
       expect(mock.history.get[0].url).toBe(`${BASE}/info`);
     });
 
-    test('honours a custom port', async () => {
+    it('honours a custom port', async () => {
       const instance = axios.create();
       const customMock = new MockAdapter(instance);
       const customApi = new API('10.0.0.9', 9999, instance);
@@ -41,12 +41,12 @@ describe('API', () => {
       customMock.restore();
     });
 
-    test('re-throws network errors that carry no response', async () => {
+    it('re-throws network errors that carry no response', async () => {
       mock.onGet(`${BASE}/info`).networkError();
       await expect(api.getInfo()).rejects.toThrow();
     });
 
-    test('parses the body of an error (non-2xx) response instead of throwing it', async () => {
+    it('parses the body of an error (non-2xx) response instead of throwing it', async () => {
       // A 4xx with a parseable (but non-error) body should resolve, not reject.
       mock
         .onGet(`${BASE}/info`)
@@ -56,7 +56,7 @@ describe('API', () => {
   });
 
   describe('error handling', () => {
-    test('throws APIErrors when the response contains an <errors> block', async () => {
+    it('throws APIErrors when the response contains an <errors> block', async () => {
       mock
         .onGet(`${BASE}/info`)
         .reply(
@@ -66,14 +66,14 @@ describe('API', () => {
       await expect(api.getInfo()).rejects.toBeInstanceOf(APIErrors);
     });
 
-    test('throws APIErrors when the response contains a single <error>', async () => {
+    it('throws APIErrors when the response contains a single <error>', async () => {
       mock
         .onGet(`${BASE}/info`)
         .reply(200, '<error value="1" name="X" severity="Low">bad</error>');
       await expect(api.getInfo()).rejects.toBeInstanceOf(APIErrors);
     });
 
-    test('surfaces APIErrors carried in a 4xx error response body', async () => {
+    it('surfaces APIErrors carried in a 4xx error response body', async () => {
       mock
         .onGet(`${BASE}/info`)
         .reply(
@@ -85,7 +85,7 @@ describe('API', () => {
   });
 
   describe('getInfo', () => {
-    test('parses an info document', async () => {
+    it('parses an info document', async () => {
       mock
         .onGet(`${BASE}/info`)
         .reply(
@@ -103,14 +103,14 @@ describe('API', () => {
       });
     });
 
-    test('returns undefined when there is no info element', async () => {
+    it('returns undefined when there is no info element', async () => {
       mock.onGet(`${BASE}/info`).reply(200, '<nothing/>');
       await expect(api.getInfo()).resolves.toBeUndefined();
     });
   });
 
   describe('getVolume / setVolume', () => {
-    test('parses a volume document', async () => {
+    it('parses a volume document', async () => {
       mock
         .onGet(`${BASE}/volume`)
         .reply(
@@ -126,13 +126,13 @@ describe('API', () => {
       });
     });
 
-    test('setVolume posts the value and reports success on a status reply', async () => {
+    it('setVolume posts the value and reports success on a status reply', async () => {
       mock.onPost(`${BASE}/volume`).reply(200, '<status>/volume</status>');
       await expect(api.setVolume(30)).resolves.toBe(true);
       expect(mock.history.post[0].data).toContain('<volume>30</volume>');
     });
 
-    test('setVolume reports failure when there is no status reply', async () => {
+    it('setVolume reports failure when there is no status reply', async () => {
       mock.onPost(`${BASE}/volume`).reply(200, '<nope/>');
       await expect(api.setVolume(30)).resolves.toBe(false);
     });
@@ -145,7 +145,7 @@ describe('API', () => {
       '<track>T</track><art artImageStatus="IMAGE_PRESENT">http://art</art>' +
       '<time total="200">5</time></nowPlaying>';
 
-    test('getNowPlaying parses a playing document', async () => {
+    it('getNowPlaying parses a playing document', async () => {
       mock.onGet(`${BASE}/nowPlaying`).reply(200, nowPlayingXml);
       const np = await api.getNowPlaying();
       expect(np).toMatchObject({
@@ -155,7 +155,7 @@ describe('API', () => {
       });
     });
 
-    test('getSource returns the source attribute', async () => {
+    it('getSource returns the source attribute', async () => {
       mock
         .onGet(`${BASE}/nowPlaying`)
         .reply(
@@ -165,7 +165,7 @@ describe('API', () => {
       await expect(api.getSource()).resolves.toBe('STANDBY');
     });
 
-    test('getNowPlaying parses a STANDBY response with no art or time', async () => {
+    it('getNowPlaying parses a STANDBY response with no art or time', async () => {
       mock
         .onGet(`${BASE}/nowPlaying`)
         .reply(
@@ -181,7 +181,7 @@ describe('API', () => {
   });
 
   describe('sources / select', () => {
-    test('getSources parses the source list', async () => {
+    it('getSources parses the source list', async () => {
       mock
         .onGet(`${BASE}/sources`)
         .reply(
@@ -196,7 +196,7 @@ describe('API', () => {
       });
     });
 
-    test('selectSource posts a ContentItem and reports success', async () => {
+    it('selectSource posts a ContentItem and reports success', async () => {
       mock.onPost(`${BASE}/select`).reply(200, '<status>/select</status>');
       await expect(
         api.selectSource({ source: 'AUX', sourceAccount: '' })
@@ -206,7 +206,7 @@ describe('API', () => {
   });
 
   describe('zones', () => {
-    test('getZone parses master and members', async () => {
+    it('getZone parses master and members', async () => {
       mock
         .onGet(`${BASE}/getZone`)
         .reply(
@@ -219,7 +219,7 @@ describe('API', () => {
       });
     });
 
-    test('setZone posts the serialized zone', async () => {
+    it('setZone posts the serialized zone', async () => {
       mock.onPost(`${BASE}/setZone`).reply(200, '<status>/setZone</status>');
       const zone = {
         master: 'M1',
@@ -229,7 +229,7 @@ describe('API', () => {
       expect(mock.history.post[0].data).toContain('master="M1"');
     });
 
-    test('setZone includes senderIPAddress when provided', async () => {
+    it('setZone includes senderIPAddress when provided', async () => {
       mock.onPost(`${BASE}/setZone`).reply(200, '<status>/setZone</status>');
       const zone = {
         master: 'M1',
@@ -242,7 +242,7 @@ describe('API', () => {
   });
 
   describe('bass', () => {
-    test('getBassCapabilities parses the capabilities', async () => {
+    it('getBassCapabilities parses the capabilities', async () => {
       mock
         .onGet(`${BASE}/bassCapabilities`)
         .reply(
@@ -259,7 +259,7 @@ describe('API', () => {
       });
     });
 
-    test('getBass parses the current bass', async () => {
+    it('getBass parses the current bass', async () => {
       mock
         .onGet(`${BASE}/bass`)
         .reply(
@@ -273,7 +273,7 @@ describe('API', () => {
       });
     });
 
-    test('setBass posts the value', async () => {
+    it('setBass posts the value', async () => {
       mock.onPost(`${BASE}/bass`).reply(200, '<status>/bass</status>');
       await expect(api.setBass(-3)).resolves.toBe(true);
       expect(mock.history.post[0].data).toContain('<bass>-3</bass>');
@@ -281,7 +281,7 @@ describe('API', () => {
   });
 
   describe('presets', () => {
-    test('parses presets when present', async () => {
+    it('parses presets when present', async () => {
       mock
         .onGet(`${BASE}/presets`)
         .reply(
@@ -294,14 +294,14 @@ describe('API', () => {
       expect(presets?.[0]).toMatchObject({ id: 1 });
     });
 
-    test('returns undefined when there are no presets', async () => {
+    it('returns undefined when there are no presets', async () => {
       mock.onGet(`${BASE}/presets`).reply(200, '<presets></presets>');
       await expect(api.getPresets()).resolves.toBeUndefined();
     });
   });
 
   describe('group', () => {
-    test('parses the active group', async () => {
+    it('parses the active group', async () => {
       mock
         .onGet(`${BASE}/getGroup`)
         .reply(
@@ -321,7 +321,7 @@ describe('API', () => {
   });
 
   describe('keys', () => {
-    test('pressKey sends a press then a release', async () => {
+    it('pressKey sends a press then a release', async () => {
       mock.onPost(`${BASE}/key`).reply(200, '<status>/key</status>');
       await expect(api.pressKey(KeyValue.play)).resolves.toBe(true);
       expect(mock.history.post).toHaveLength(2);
@@ -330,7 +330,7 @@ describe('API', () => {
       expect(mock.history.post[0].data).toContain('PLAY');
     });
 
-    test('pressKey aborts before the release when the press fails', async () => {
+    it('pressKey aborts before the release when the press fails', async () => {
       mock.onPost(`${BASE}/key`).reply(200, '<nope/>');
       await expect(api.pressKey(KeyValue.play)).resolves.toBe(false);
       expect(mock.history.post).toHaveLength(1);
@@ -338,7 +338,7 @@ describe('API', () => {
   });
 
   describe('setName', () => {
-    test('posts the new name and returns the updated info', async () => {
+    it('posts the new name and returns the updated info', async () => {
       mock
         .onPost(`${BASE}/name`)
         .reply(
