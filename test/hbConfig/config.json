@@ -1,7 +1,7 @@
 {
   "bridge": {
     "name": "PluginTemplate",
-    "username": "AA:BB:CC:DD:EE:FF",
+    "username": "0E:4A:B2:7C:D3:91",
     "port": 51826,
     "pin": "031-45-154"
   },
@@ -25,15 +25,17 @@
     {
       "name": "homebridge-soundtouchspeaker",
       "platform": "SoundTouchHomebridgePlugin",
-      "discoverAllAccessories": true,
+      "discoverAllAccessories": false,
       "global": {
-        "verbose": true
+        "verbose": false
       },
       "accessories": [
-        {
-          "name": "Kitchen Speaker",
-          "room": "Kitchen"
-        }
+            {
+              "name": "Office Speaker",
+              "ip": "10.0.0.36",
+              "pollingInterval": 2000,
+              "accessoryType": "lightbulb"
+            }
       ]
     }
   ],
