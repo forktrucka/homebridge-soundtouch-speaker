@@ -75,13 +75,15 @@
     "babel-plugin-istanbul": "^8.0.2",
     "glob": "^13.0.6",
     "js-yaml": "^4.2.0",
-    "q": "^1.5.1"
+    "q": "^1.5.1",
+    "undici": ">=6.27.0"
   },
   "resolutions": {
     "babel-plugin-istanbul": "^8.0.2",
     "glob": "^13.0.6",
     "js-yaml": "^4.2.0",
-    "q": "^1.5.1"
+    "q": "^1.5.1",
+    "undici": ">=6.27.0"
   },
   "dependencies": {
     "axios": "^1.17.0",
