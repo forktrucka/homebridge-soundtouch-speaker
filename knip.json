@@ -1,5 +1,31 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": "src/**",
-  "ignoreDependencies": ["homebridge-lib", "ts-node", "multicast-dns"]
+  "ignoreDependencies": [
+    "homebridge-lib",
+    "ts-node",
+    "multicast-dns",
+    "@commitlint/cli",
+    "@swc/core",
+    "eslint",
+    "husky",
+    "lint-staged",
+    "nodemon",
+    "prettier",
+    "rimraf",
+    "semantic-release"
+  ],
+  "ignoreBinaries": [
+    "semantic-release",
+    "commitlint",
+    "lint-staged",
+    "knip",
+    "rimraf",
+    "tsc",
+    "eslint",
+    "prettier",
+    "nodemon",
+    "jest",
+    "husky"
+  ]
 }

@@ -1,5 +1,5 @@
 "**/__tests__/*.test.{js,ts}":
-  - "jest"
+  - "jest --coverage=false"
 "**/*.{js,ts}":
   - "prettier --write "
   - "eslint --fix"

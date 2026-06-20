@@ -61,9 +61,6 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
       );
-    } finally {
-      //give it time before trying to change.
-      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 
