@@ -103,6 +103,13 @@ export class StubPlatformAccessory {
     this.services.push(service);
     return service;
   }
+
+  removeService(service: StubService): void {
+    const index = this.services.indexOf(service);
+    if (index !== -1) {
+      this.services.splice(index, 1);
+    }
+  }
 }
 
 const noop = (): void => {};
