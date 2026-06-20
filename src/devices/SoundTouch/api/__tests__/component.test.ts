@@ -9,6 +9,20 @@ describe('componentFromElement', () => {
       serialNumber: ['SN-001'],
     });
     expect(componentFromElement(el)).toEqual({
+      category: undefined,
+      softwareVersion: '1.2.3',
+      serialNumber: 'SN-001',
+    });
+  });
+
+  test('parses componentCategory when present', () => {
+    const el = new XMLElement({
+      componentCategory: ['DEVICE'],
+      softwareVersion: ['1.2.3'],
+      serialNumber: ['SN-001'],
+    });
+    expect(componentFromElement(el)).toEqual({
+      category: 'DEVICE',
       softwareVersion: '1.2.3',
       serialNumber: 'SN-001',
     });

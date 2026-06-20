@@ -12,6 +12,7 @@ export enum KeyValue {
   power = 'POWER',
   stop = 'STOP',
   mute = 'MUTE',
+  auxInput = 'AUX_INPUT',
   shuffleOn = 'SHUFFLE_ON',
   shuffleOff = 'SHUFFLE_OFF',
   repeatOne = 'REPEAT_ONE',
@@ -28,6 +29,7 @@ export enum KeyValue {
   preset4 = 'PRESET_4',
   preset5 = 'PRESET_5',
   preset6 = 'PRESET_6',
+  invalid = 'INVALID_KEY',
 }
 
 export enum PlayStatus {
@@ -35,6 +37,7 @@ export enum PlayStatus {
   pause = 'PAUSE_STATE',
   stop = 'STOP_STATE',
   buffering = 'BUFFERING_STATE',
+  invalid = 'INVALID_PLAY_STATUS',
 }
 
 export enum SourceStatus {
