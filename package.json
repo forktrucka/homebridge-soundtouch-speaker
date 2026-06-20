@@ -35,6 +35,8 @@
     "test": "jest",
     "test:unit": "jest --selectProjects unit",
     "test:integration": "jest --selectProjects integration",
+    "test:ci": "jest --ci",
+    "test:impacted": "jest --ci --changedSince=origin/${BASE_REF:-dev} --passWithNoTests --coverage=false",
     "knip": "knip",
     "prepare": "husky"
   },
