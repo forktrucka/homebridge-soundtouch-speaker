@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { describe, expect, jest, it } from '@jest/globals';
 import { DeviceLogger, Logger } from '../FormattedLogger.js';
 import { LogLevel, type Logging } from 'homebridge';
 import { DeviceConfiguration } from '../../devices/SoundTouch/SoundTouchDeviceConfiguration.js';
@@ -55,7 +55,7 @@ describe('FormattedLogger', () => {
     ];
 
     testLevels.forEach((c) => {
-      test(`returns ${c.outcome} when log level is '${c.level}' and required level is '${c.requiredLevel}'`, () => {
+      it(`returns ${c.outcome} when log level is '${c.level}' and required level is '${c.requiredLevel}'`, () => {
         const result = Logger.excludeLog(c.level, c.requiredLevel);
         expect(result).toBe(c.outcome);
       });
@@ -63,7 +63,7 @@ describe('FormattedLogger', () => {
   });
 
   describe('Logger.log', () => {
-    test('passes message to homebridge logger when level meets threshold', () => {
+    it('passes message to homebridge logger when level meets threshold', () => {
       const homebridgeLogger = makeMockLogger();
       const logger = Logger.forHomebridgeLogger({
         logger: homebridgeLogger,
@@ -75,7 +75,7 @@ describe('FormattedLogger', () => {
       expect(homebridgeLogger.log).toHaveBeenCalledWith(LogLevel.INFO, 'hello');
     });
 
-    test('suppresses message when level is below threshold', () => {
+    it('suppresses message when level is below threshold', () => {
       const homebridgeLogger = makeMockLogger();
       const logger = Logger.forHomebridgeLogger({
         logger: homebridgeLogger,
@@ -87,7 +87,7 @@ describe('FormattedLogger', () => {
       expect(homebridgeLogger.log).not.toHaveBeenCalled();
     });
 
-    test('convenience methods delegate to log with correct level', () => {
+    it('convenience methods delegate to log with correct level', () => {
       const homebridgeLogger = makeMockLogger();
       const logger = Logger.forHomebridgeLogger({
         logger: homebridgeLogger,
@@ -124,7 +124,7 @@ describe('FormattedLogger', () => {
   });
 
   describe('DeviceLogger', () => {
-    test('prefixes messages with device name', () => {
+    it('prefixes messages with device name', () => {
       const homebridgeLogger = makeMockLogger();
       const logger = Logger.forHomebridgeLogger({
         logger: homebridgeLogger,
@@ -141,7 +141,7 @@ describe('FormattedLogger', () => {
       );
     });
 
-    test('inherits log level filtering from parent logger', () => {
+    it('inherits log level filtering from parent logger', () => {
       const homebridgeLogger = makeMockLogger();
       const logger = Logger.forHomebridgeLogger({
         logger: homebridgeLogger,

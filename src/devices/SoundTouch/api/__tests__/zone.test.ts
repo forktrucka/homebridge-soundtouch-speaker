@@ -1,9 +1,9 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { zoneFromElement, zoneToElement } from '../zone.js';
 import { XMLElement } from '../utils/xml-element.js';
 
 describe('zoneFromElement', () => {
-  test('parses master and members', () => {
+  it('parses master and members', () => {
     const el = new XMLElement({
       $: { master: 'MASTER-1' },
       member: [
@@ -20,7 +20,7 @@ describe('zoneFromElement', () => {
     });
   });
 
-  test('skips malformed members', () => {
+  it('skips malformed members', () => {
     const el = new XMLElement({
       $: { master: 'MASTER-1' },
       member: [{ $: { ipaddress: '10.0.0.1' }, _: 'DEV-1' }, { _: 'DEV-2' }],
@@ -30,19 +30,19 @@ describe('zoneFromElement', () => {
     ]);
   });
 
-  test('returns an empty member list when there are none', () => {
+  it('returns an empty member list when there are none', () => {
     const el = new XMLElement({ $: { master: 'MASTER-1' } });
     expect(zoneFromElement(el)).toEqual({ master: 'MASTER-1', members: [] });
   });
 
-  test('returns undefined when the master attribute is missing', () => {
+  it('returns undefined when the master attribute is missing', () => {
     const el = new XMLElement({ member: [] });
     expect(zoneFromElement(el)).toBeUndefined();
   });
 });
 
 describe('zoneToElement', () => {
-  test('serializes master and members and round-trips', () => {
+  it('serializes master and members and round-trips', () => {
     const zone = {
       master: 'MASTER-1',
       members: [

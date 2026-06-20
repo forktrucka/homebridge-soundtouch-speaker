@@ -1,9 +1,9 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { APIErrors, errorFromElement } from '../error.js';
 import { XMLElement } from '../utils/xml-element.js';
 
 describe('errorFromElement', () => {
-  test('parses value, name, severity and message', () => {
+  it('parses value, name, severity and message', () => {
     const el = new XMLElement({
       $: { value: '401', name: 'HTTP_ERROR', severity: 'High' },
       _: 'Unauthorized',
@@ -16,21 +16,21 @@ describe('errorFromElement', () => {
     });
   });
 
-  test('falls back to value 0 when the value is not numeric', () => {
+  it('falls back to value 0 when the value is not numeric', () => {
     const el = new XMLElement({
       $: { value: 'NaN', name: 'X', severity: 'Low' },
     });
     expect(errorFromElement(el)?.value).toBe(0);
   });
 
-  test('returns undefined when required attributes are missing', () => {
+  it('returns undefined when required attributes are missing', () => {
     const el = new XMLElement({ $: { value: '1', name: 'X' } });
     expect(errorFromElement(el)).toBeUndefined();
   });
 });
 
 describe('APIErrors', () => {
-  test('fromElement collects all errors and the device id', () => {
+  it('fromElement collects all errors and the device id', () => {
     const el = new XMLElement({
       $: { deviceID: 'DEV1' },
       error: [
@@ -43,7 +43,7 @@ describe('APIErrors', () => {
     expect(errors?.errors).toHaveLength(2);
   });
 
-  test('fromElement skips malformed error entries', () => {
+  it('fromElement skips malformed error entries', () => {
     const el = new XMLElement({
       $: { deviceID: 'DEV1' },
       error: [
@@ -54,7 +54,7 @@ describe('APIErrors', () => {
     expect(APIErrors.fromElement(el)?.errors).toHaveLength(1);
   });
 
-  test('is an Error carrying device id and a descriptive message', () => {
+  it('is an Error carrying device id and a descriptive message', () => {
     const errors = new APIErrors(
       [{ value: 1, name: 'A', severity: 'High' }],
       'DEV1'

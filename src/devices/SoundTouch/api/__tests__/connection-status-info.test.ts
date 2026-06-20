@@ -1,9 +1,9 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { connectionStatusInfoFromElement } from '../connection-status-info.js';
 import { XMLElement } from '../utils/xml-element.js';
 
 describe('connectionStatusInfoFromElement', () => {
-  test('parses status and device name attributes', () => {
+  it('parses status and device name attributes', () => {
     const el = new XMLElement({
       $: { status: 'CONNECTED', deviceName: 'Phone' },
     });
@@ -13,7 +13,7 @@ describe('connectionStatusInfoFromElement', () => {
     });
   });
 
-  test('returns undefined fields when attributes are absent', () => {
+  it('returns undefined fields when attributes are absent', () => {
     const el = new XMLElement({});
     expect(connectionStatusInfoFromElement(el)).toEqual({
       status: undefined,
