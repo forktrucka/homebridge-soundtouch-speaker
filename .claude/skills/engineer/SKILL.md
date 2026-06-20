@@ -199,6 +199,14 @@ do it at handoff).
   Decisions & findings table and surface it to the technical lead before
   spending time on a workaround that changes the architecture.
 
+## Known pre-commit gotchas
+
+- **knip false positives blocking commits.** `npx knip` (run by `.husky/pre-commit`) reports devDependencies and binaries as unused when they are only referenced in shell scripts or `.husky/` hooks, not in TypeScript source. Fix: add them to `ignoreDependencies` and `ignoreBinaries` in `knip.json`. The full suppression list is already in `knip.json` — run `npx knip` after your changes and add any new false positives there before committing.
+
+- **lint-staged jest coverage threshold failure.** `.lintstagedrc.yml` runs `jest --coverage=false` for staged test files. If you see it running `jest` (without the flag) and failing on coverage thresholds, the config has regressed — restore `--coverage=false` so lint-staged doesn't apply global thresholds to a single-file run.
+
+- **Worktrees branch from `origin/latest` by default.** `EnterWorktree` branches from the repo's default branch (`latest`), not `dev`. Always create the worktree manually via `git worktree add .claude/worktrees/<name> -b <branch> origin/dev`, then enter it with `EnterWorktree(path: ...)`.
+
 ## Related skills
 
 - **technical-lead** — provides the brief; coordinates parallel work; updates
