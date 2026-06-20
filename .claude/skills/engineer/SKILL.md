@@ -152,8 +152,17 @@ gh pr create --title "<type>: <summary>" --base dev
 
 ### 9. Own the PR through merge
 
-Opening the PR is not the finish line — you own it until it merges:
+Opening the PR is not the finish line — you own it *up to* merge: drive CI green,
+address review, keep the body current. **Own it to the point of merge — then
+stop and wait.**
 
+- **Merging is the human's call.** Never merge a PR yourself unless the user
+  explicitly tells you to ("merge it", "go ahead and merge"). A "ready for
+  review" webhook, a "marked ready" event, an enabled auto-merge, a green CI run,
+  or a reviewer's approval are **not** instructions to merge — they're signals
+  the PR is *mergeable*, not permission to merge. When in doubt, ask. (This is a
+  hard rule: merging without explicit instruction has caused an unwanted release
+  before.)
 - **Monitor CI**: check that all status checks go green after pushing. If a
   check fails, investigate and push a fix before asking for review.
 - **Assess feedback**: read every review comment carefully. If a comment is a

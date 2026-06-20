@@ -1,1 +1,5 @@
+# Strip AI/assistant attribution before validating (project convention:
+# no AI attribution in git history — see the coding-conventions skill).
+perl -0777 -i -pe 's/^(Co-Authored-By: (Claude|Fable|Opus|Sonnet|Haiku).*|Claude-Session:.*|Claude-.*-Session:.*|.*Generated with \[?Claude Code.*)\n//mg; s/\n{3,}/\n\n/g; s/\s+\z/\n/' "$1"
+
 npx --no-install commitlint --edit "$1"
