@@ -3,7 +3,7 @@ feature: Volume control — Lightbulb Brightness (Lightbulb mode)
 status: in-progress # planned | in-progress | done | cancelled
 date: 2026-06-19
 updated: 2026-06-20
-branch: feat/volume-control
+branch: feat/lightbulb-brightness-volume
 commit-type: feat
 ---
 
@@ -42,6 +42,7 @@ after, bundled with or as a quick follow-up to plan 01.
 | 2026-06-20 | Promote the `On` setter's 5 s `finally` sleep fix into plan 02 scope (in-scope, not just a finding) | The race has been a passive finding since 2026-06-19. Plan 02 introduces the volume set that races it, and plan 02 already touches the power/volume interaction — so the fix belongs here. The brief must hand this off as a concrete task, not an open hazard. (Polling-loop lifecycle is a *separate* concern — see plan 06.) | Leaving it a passive finding (risk it never gets fixed); a separate fix PR touching `SoundTouchSpeakerOnCharacteristic.ts` (merge-conflict churn with plan 02, which also edits it) |
 | 2026-06-20 | **DECISION: Switch volume path cancelled.** HAP `Switch` service exposes only a binary `On` characteristic — there is no `Volume` characteristic it can own. Bolting a linked `Speaker`/`Volume` service onto a Switch accessory creates a disconnected second tile with no clear relationship to the Switch tile. Switch = binary (0/1); volume = range (0–100). The two are architecturally incompatible in a single coherent HomeKit UX. The correct range characteristic is `Lightbulb.Brightness` (0–100), which is the target. | HAP constraint: Switch cannot natively carry a range characteristic. UX constraint: a linked tile is confusing and unintuitive. Volume on `Brightness` is the semantically correct mapping: 0 = off, 1–100 = volume level. | Keeping Switch path (unintuitive UX, HAP mismatch); adding a Speaker tile linked to Switch (disconnected tile, no power semantics). |
 | 2026-06-20 | Plan 01 (accessory type) is now the immediate prerequisite — plan 02 gates on it | Lightbulb path cannot ship without the `accessoryType` config gate. Plan 01 ships first; plan 02 Lightbulb path follows immediately. | Attempting to embed volume-on-Switch as a stop-gap before Plan 01 (rejected: binary vs range mismatch; already reverted from #62) |
+| 2026-06-20 | **Plan 01 (accessory type) shipped** — `accessoryType: lightbulb` is live in `dev`, Lightbulb service is wired. Plan 02 is now unblocked. | PR #82 merged `accessoryType` docs + config; `discoverAllAccessories` + per-accessory `ip`/`room` paths both support it. Verified via `test/hbConfig/config.json` (`accessoryType: lightbulb`) and `cachedAccessories` (Lightbulb service UUID `00000043` present). | — |
 
 ## If cancelled
 
@@ -85,8 +86,7 @@ after, bundled with or as a quick follow-up to plan 01.
 
 ## Implementation checklist
 
-> **Prerequisite:** plan 01 (accessory type) must ship first — it provides the
-> `accessoryType` config gate and Lightbulb service that plan 02 wires into.
+> **Prerequisite:** plan 01 (accessory type) ✅ shipped — `accessoryType: lightbulb` is live in `dev`. Plan 02 is unblocked.
 
 - [ ] Add `SoundTouchSpeakerBrightnessCharacteristic` (Lightbulb Brightness ↔
       volume, 0 = power off)
