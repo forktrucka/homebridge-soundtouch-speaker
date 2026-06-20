@@ -119,6 +119,36 @@ describe('SoundTouchHomebridgePlatform', () => {
     });
   });
 
+  describe('FirmwareRevision characteristic', () => {
+    it('is set to the component softwareVersion when the serial matches the device id', async () => {
+      server.setResponse(
+        '/info',
+        infoXml({ deviceId: DEVICE_ID, softwareVersion: '2.3.4' })
+      );
+      createPlatform();
+
+      await api.emitDidFinishLaunching();
+
+      expect(
+        api.getCharacteristicValue('AccessoryInformation', 'FirmwareRevision')
+      ).toBe('2.3.4');
+    });
+
+    it('is not set when no component serial matches the device id', async () => {
+      server.setResponse(
+        '/info',
+        infoXml({ deviceId: DEVICE_ID, matchSerialToDeviceId: false })
+      );
+      createPlatform();
+
+      await api.emitDidFinishLaunching();
+
+      expect(
+        api.getCharacteristicValue('AccessoryInformation', 'FirmwareRevision')
+      ).toBeUndefined();
+    });
+  });
+
   describe('when the accessory type is lightbulb', () => {
     it('exposes the speaker as a Lightbulb service', async () => {
       createPlatform({ global: { accessoryType: 'lightbulb' } });

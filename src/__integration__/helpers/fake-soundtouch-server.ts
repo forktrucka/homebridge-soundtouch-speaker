@@ -2,20 +2,29 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 export function infoXml(
-  options: { deviceId?: string; name?: string; type?: string } = {}
+  options: {
+    deviceId?: string;
+    name?: string;
+    type?: string;
+    softwareVersion?: string;
+    matchSerialToDeviceId?: boolean;
+  } = {}
 ): string {
   const {
     deviceId = 'DEV-INT-1',
     name = 'Test Speaker',
     type = 'SoundTouch 10',
+    softwareVersion = '1.0.0',
+    matchSerialToDeviceId = true,
   } = options;
+  const serialNumber = matchSerialToDeviceId ? deviceId : 'UNRELATED-SERIAL';
   return (
     `<info deviceID="${deviceId}">` +
     `<name>${name}</name>` +
     `<type>${type}</type>` +
     '<components><component>' +
-    '<softwareVersion>1.0.0</softwareVersion>' +
-    `<serialNumber>${deviceId}</serialNumber>` +
+    `<softwareVersion>${softwareVersion}</softwareVersion>` +
+    `<serialNumber>${serialNumber}</serialNumber>` +
     '</component></components>' +
     '<networkInfo><macAddress>AA:BB:CC:DD:EE:FF</macAddress>' +
     '<ipAddress>127.0.0.1</ipAddress></networkInfo>' +
@@ -73,7 +82,9 @@ export class FakeSoundTouchServer {
       // Drain the request body so POST sockets close cleanly.
       req.resume();
 
-      const path = FakeSoundTouchServer.normalise((req.url ?? '').split('?')[0]);
+      const path = FakeSoundTouchServer.normalise(
+        (req.url ?? '').split('?')[0]
+      );
       const xml = this.responses.get(path);
 
       if (xml === undefined) {
