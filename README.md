@@ -10,8 +10,7 @@ This allows you to control your SoundTouch devices with HomeKit and Siri.
 Attempts to repair the [plugin](https://github.com/bbriatte/homebridge-soundtouch-platform/blob/master/README.md) originally
 made by [@bbriatte](http://github.com/bbriatte) to work on current Homebridge (v1.8 and v2).
 
-Initial version only supports a switch accessory type, to power a speaker on and off. Future versions hope to reinstate support
-for other features like volume control, sources, presets, lightbulb mode if there is demand.
+Currently supports powering speakers on and off as a Switch or Lightbulb accessory. The Lightbulb type exposes volume via the Brightness characteristic, so Siri commands like "set Kitchen Speaker to 40%" control the volume.
 
 ## Prerequisites
 1. [Homebridge](https://github.com/homebridge/homebridge) v1.8.0 or later (Homebridge v2 is supported)
@@ -104,6 +103,7 @@ Each accessory must be matched to a device using either `ip` or `room`. If both 
 * `port`: The port used to reach the device. Only used with `ip`. __default__: **8090**
 * `room`: Must match exactly the name of the SoundTouch device (as set in the Bose app). Ignored if `ip` is set.
 * `pollingInterval`: Poll this device every interval in milliseconds. Overrides the global value.
+* `accessoryType`: Override the HomeKit accessory type for this speaker — `switch` or `lightbulb`. Overrides the global value.
 
 
 ### Global element
@@ -112,6 +112,7 @@ Default configuration applied to all accessories. Any value here can be overridd
 *Optional fields*
 * `verbose`: Log all device information __default__: **false**
 * `pollingInterval`: Poll each device every interval in milliseconds __default__: **2000**
+* `accessoryType`: HomeKit accessory type for all speakers — `switch` (default) or `lightbulb`. The `lightbulb` type exposes volume via the Brightness characteristic. __default__: **switch**
 
 ## References
 * [SoundTouch Web API](https://assets.bosecreative.com/m/496577402d128874/original/SoundTouch-Web-API.pdf) — Bose's official API specification this plugin is built against.
