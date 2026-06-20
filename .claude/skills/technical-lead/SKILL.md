@@ -79,7 +79,29 @@ with the user before producing an engineering brief. This phase may involve:
 - If the finding changes the plan's design significantly, flag to the
   **architect** skill to revise the plan before briefing the engineer.
 
-Only move to step 4 once decisions are recorded and the path is clear.
+**If research concludes the work is infeasible or indefinitely blocked:**
+Don't bury it in a findings row — surface it explicitly. Summarise:
+- What was investigated and what was found.
+- Why the block is indefinite (missing API, platform limitation, unresolvable
+  dependency, unacceptable risk, etc.).
+- What would have to change for the work to become viable again (a future
+  Bose firmware update, a new HomeKit API, a design pivot, etc.).
+- A concrete recommendation: **cancel**, **defer** (park until the blocker
+  clears), or **pivot** (reframe the feature within the constraint).
+
+Present this to the user and ask for a decision before touching any plan file.
+Once decided:
+- **Cancel:** set `status: cancelled` in the plan frontmatter, fill in the
+  plan's "If cancelled" section with the evidence and what would need to change
+  to revisit. Remove the plan from the active delivery sequence in `ROADMAP.md`
+  but leave it in the file with a note — dead ends are a deliverable.
+- **Defer:** leave `status: planned`, add a row to Decisions & findings
+  recording the blocker and the condition that would unblock it. Add a note to
+  `ROADMAP.md` marking the item as deferred and why.
+- **Pivot:** engage the **architect** skill to revise the plan with the new
+  constraints before re-entering this workflow.
+
+Only move to step 4 once decisions are recorded and the path forward is clear.
 
 ### 4. Assess parallelism
 
@@ -150,8 +172,12 @@ Always re-read a file before editing it.
   file overlap before deciding.
 - **One coherent unit at a time per engineer.** Don't give one engineer an
   unbounded scope. 2–3 checklist items per brief is the right granularity.
-- **Blockers are not excuses.** Every blocker has a resolution path. Name it
-  concretely and own driving it to completion.
+- **Blockers are not excuses — but some are real.** Most blockers have a
+  resolution path; name it and own driving it. But if research concludes the
+  path genuinely doesn't exist, say so clearly and bring the user to a
+  cancel/defer/pivot decision rather than leaving work in limbo indefinitely.
+  A recorded cancellation is a better outcome than an open plan that never
+  moves.
 - **The roadmap is a living document.** If delivery order changes because of
   new findings, update it.
 
