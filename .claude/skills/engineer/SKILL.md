@@ -65,16 +65,26 @@ the existing patterns before adding to them:
 - If something in the existing code surprises you or contradicts the plan,
   note it in the plan's **Decisions & findings** table before proceeding.
 
-### 4. Create a branch
+### 4. Create a worktree from latest dev
+
+Always work in an isolated worktree cut from `dev`. Sync local dev with origin
+first so the branch starts from the latest state:
 
 ```sh
-git checkout dev && git pull origin dev
-git checkout -b <branch-name>
+git fetch origin dev
+git checkout dev && git merge --ff-only origin/dev
 ```
 
-Branch name comes from the plan. If working in parallel with another engineer
-on the same plan, use a more specific suffix (e.g. `feat/volume-switch-path`
-rather than `feat/volume-control`).
+Then use `EnterWorktree` to create the worktree:
+
+```
+EnterWorktree(branch: "<branch-name>", base: "dev")
+```
+
+This keeps your work isolated and leaves the main checkout untouched. Branch
+name comes from the plan. If working in parallel with another engineer on the
+same plan, use a more specific suffix (e.g. `feat/volume-switch-path` rather
+than `feat/volume-control`).
 
 ### 5. Implement via TDD
 
@@ -139,6 +149,24 @@ valid Conventional Commit. Target `dev`.
 git push -u origin <branch-name>
 gh pr create --title "<type>: <summary>" --base dev
 ```
+
+### 9. Own the PR through merge
+
+Opening the PR is not the finish line — you own it until it merges:
+
+- **Monitor CI**: check that all status checks go green after pushing. If a
+  check fails, investigate and push a fix before asking for review.
+- **Assess feedback**: read every review comment carefully. If a comment is a
+  clear improvement, implement it. If it's ambiguous, ask a clarifying question
+  rather than guessing. If you disagree, explain why — don't silently skip it.
+- **Re-verify after changes**: any code change pushed in response to review
+  must pass the full gate again (`npm run typecheck && npm run lint && npm test`)
+  before requesting re-review.
+- **Keep the PR description current**: if the implementation changed
+  meaningfully during review, update the PR body so the squash-merge commit
+  message stays accurate.
+- **Update the plan**: flip checklist items and set `status: done` once the PR
+  is merged — don't leave the plan in a stale state.
 
 Update plan `status: done` once the PR is merged (or the technical lead will
 do it at handoff).
