@@ -14,6 +14,7 @@ flowchart TD
     VolSwitchNode["[02] Volume – Switch path\nSpeaker service"]
     AccessoryTypeNode["[01] Accessory type\nSwitch / Lightbulb"]
     VolLightbulbNode["[02] Volume – Lightbulb path\nBrightness characteristic"]
+    PollingNode["[06] Polling lifecycle\nfix/polling-lifecycle"]
     SpikeTV{"Spike: TV vs\nper-Switch fallback"}
     SourceNode["[03] Source selection"]
     SpikeA{"Spike A: hotspot\nHTTP API"}
@@ -23,6 +24,7 @@ flowchart TD
     PWA3Node["[04] PWA – Phase 3\nConfig sync"]
 
     HarnessNode --> VolSwitchNode
+    VolSwitchNode -. "shares accessory file" .-> PollingNode
     VolSwitchNode --> AccessoryTypeNode
     AccessoryTypeNode --> VolLightbulbNode
     SpikeTV --> SourceNode
@@ -34,25 +36,31 @@ flowchart TD
 
 ## Current state (2026-06-20)
 
-- **Now:** [05] Integration test harness — **PR #58 open against `dev`** (draft), green
-  locally (typecheck/lint/knip/187 tests), awaiting CI + merge.
+- **Now:** [05] Integration test harness — **PR #58 open against `dev`**, with a
+  coverage-threshold guard added per review; awaiting merge.
 - **Next (ready):** [02] Volume — Switch path. Cut `feat/volume-control` off `dev`
-  once #58 merges (clean base) — or off `test/integration-harness` if starting before merge.
+  once #58 merges. The `On` setter's 5 s `finally` race fix is now **in scope**
+  for this plan (promoted from a finding).
+- **Tech debt (ready):** [06] Polling lifecycle — make polling stoppable on
+  removal/shutdown and configurable. Shares `SoundTouchSpeakerPlatformAccessory.ts`
+  with plan 02, so **serialise after 02** to avoid conflicts.
 - **Blocked:** [03] Source selection (spike), [04] PWA all phases (spikes A/B).
-- Skill change adding session-cost estimation landed in `dev` via PR #57.
+- Skill changes landed in `dev`: session-cost estimation (#57), planning vs.
+  implementation branches (#59), roadmap status + plan-05 calibration (#60).
 
 ## Anticipated delivery order
 
 | Order | Plan | Branch | Status | Why this position |
 | ----- | ---- | ------ | ------ | ----------------- |
 | 1 | **[05] Integration test harness** | `test/integration-harness` | 🔵 PR #58 open (review) | Pure test infrastructure, no release. Gives confidence before shipping any user-facing feature. No dependencies. |
-| 2 | **[02] Volume — Switch path** | `feat/volume-control` | 🟢 Ready (next) | Adds immediate value to all existing users on the default Switch accessory type. The Speaker-service path has no dependency on plan 01. Ships first so volume isn't blocked on the accessory-type rework. |
-| 3 | **[01] Accessory type** | `feat/accessory-type` | ⚪ Planned | Independent of plans 02 and 03, but it's the gate for the Lightbulb/Brightness volume path. Delivering it after the Switch volume path avoids holding volume hostage to the larger config-threading change. |
-| 4 | **[02] Volume — Lightbulb path** | (small follow-up PR or bundled with 01) | ⚪ Planned (gated on 01) | Brightness characteristic wiring is a small addition once plan 01's `accessoryType` gate exists. Can ship in the same PR as plan 01 or immediately after. |
-| 5 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Independent of 01/02. Blocked on a **spike** (verify Television+InputSource on a real device; choose TV path vs per-source Switch fallback). Cannot be committed until the spike resolves the architecture choice. |
-| 6 | **[04] PWA — Phase 1** | `feat/pwa` | 🔴 Blocked (spike A) | Architecturally separate (new `web/` workspace + embedded HTTP server). Blocked on **spike A** (reverse-engineer the hotspot provisioning HTTP API at `http://192.0.2.1`). Phase 1 must ship before phases 2 and 3 (it creates the web scaffold and embedded server). |
-| 7 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via the zone API (`/getZone`, `/setZone`, etc. — already implemented in `src/devices/SoundTouch/api/zone.ts`). Needs the phase 1 PWA scaffold and embedded server to be in place. |
-| 8 | **[04] PWA — Phase 3** | `feat/pwa` | 🔴 Blocked (spike B) | Homebridge config sync. Blocked on **spike B** (confirm atomic config write path safety under Homebridge). Requires phase 1 scaffold. |
+| 2 | **[02] Volume — Switch path** | `feat/volume-control` | 🟢 Ready (next) | Adds immediate value to all existing users on the default Switch accessory type. The Speaker-service path has no dependency on plan 01. Ships first so volume isn't blocked on the accessory-type rework. Now also owns the `On` setter 5 s-sleep race fix. |
+| 3 | **[06] Polling lifecycle** | `fix/polling-lifecycle` | 🟢 Ready (tech debt) | Stop polling on accessory removal/shutdown; make the interval configurable (`0` disables). Surfaced by plan 05. Shares `SoundTouchSpeakerPlatformAccessory.ts` with plan 02 → serialise after 02. `fix:` → patch. |
+| 4 | **[01] Accessory type** | `feat/accessory-type` | ⚪ Planned | Independent of plans 02 and 03, but it's the gate for the Lightbulb/Brightness volume path. Delivering it after the Switch volume path avoids holding volume hostage to the larger config-threading change. |
+| 5 | **[02] Volume — Lightbulb path** | (small follow-up PR or bundled with 01) | ⚪ Planned (gated on 01) | Brightness characteristic wiring is a small addition once plan 01's `accessoryType` gate exists. Can ship in the same PR as plan 01 or immediately after. |
+| 6 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Independent of 01/02. Blocked on a **spike** (verify Television+InputSource on a real device; choose TV path vs per-source Switch fallback). Cannot be committed until the spike resolves the architecture choice. |
+| 7 | **[04] PWA — Phase 1** | `feat/pwa` | 🔴 Blocked (spike A) | Architecturally separate (new `web/` workspace + embedded HTTP server). Blocked on **spike A** (reverse-engineer the hotspot provisioning HTTP API at `http://192.0.2.1`). Phase 1 must ship before phases 2 and 3 (it creates the web scaffold and embedded server). |
+| 8 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via the zone API (`/getZone`, `/setZone`, etc. — already implemented in `src/devices/SoundTouch/api/zone.ts`). Needs the phase 1 PWA scaffold and embedded server to be in place. |
+| 9 | **[04] PWA — Phase 3** | `feat/pwa` | 🔴 Blocked (spike B) | Homebridge config sync. Blocked on **spike B** (confirm atomic config write path safety under Homebridge). Requires phase 1 scaffold. |
 
 ## Session cost estimates
 
@@ -69,6 +77,7 @@ below.
 | **[02] Volume — Switch path** | Medium | Pure HomeKit wiring (API already done), but the `On` setter's 5s `finally` sleep introduces a race that needs debounce/reconcile + tests | One known hazard drives the iteration. Highest user value. ~11 items. |
 | **[01] Accessory type** | Heavy | Config threading through `DeviceConfiguration`, branching the hardcoded Switch in `createAccessory` (`:71`), and orphan-service pruning on type change | Plan a full session. Gates the Lightbulb volume follow-up. ~11 items. |
 | **[02] Volume — Lightbulb path** | Small | Brightness characteristic wiring once plan 01's `accessoryType` gate exists | Bundle into plan 01's PR or a quick follow-up. |
+| **[06] Polling lifecycle** | Small–Medium | Modifies existing platform + accessory lifecycle (retain wrappers, stop on unregister/shutdown) and threads two config fields; async lifecycle reasoning + a couple of tests | Contained; the integration harness already exercises the lifecycle path. |
 | **[03] Source selection** | TBD (blocked) | Estimate after the TV-vs-Switch spike resolves the architecture | Re-estimate once unblocked. |
 | **[04] PWA — Phase 1–3** | TBD (blocked) | New `web/` workspace + embedded `src/server/`; estimate after spike A | Each phase is its own session at minimum. |
 
