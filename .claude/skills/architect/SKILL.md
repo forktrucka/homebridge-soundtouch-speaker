@@ -46,11 +46,25 @@ The conventions this skill *owns* — decide both up front, they drive the relea
 - **Commit type:** `feat:` → minor, `fix:` → patch, `feat!:` or a
   `BREAKING CHANGE:` footer → major, `chore:`/`docs:`/`ci:`/`test:`/`refactor:` →
   no release. semantic-release derives the version from this.
-- **Branch/PR flow:** branch off `dev` (e.g. `feat/…`); open the PR **into `dev`**.
-  Feature PRs are squash-merged, so the **PR title becomes the released commit
-  message** — it must be a valid Conventional Commit. Never hand-edit the `version`
-  in `package.json` or write a changelog; releases are automated. See
-  `CONTRIBUTING.md` for the full model.
+- **Branch/PR flow:** branch off `dev`; open the PR **into `dev`**. Distinguish
+  the two kinds of branch — keep them separate so a feature PR stays a clean,
+  single-purpose release unit:
+  - **Implementation branches** (`feat/…`, `fix/…`, `test/…`, `refactor/…`) carry
+    the production code + tests that deliver **one** plan. They *may* also carry
+    that plan's own bookkeeping — checklist ticks, `status` frontmatter, and
+    Decisions & findings rows — because those document the work landing in the
+    same PR. Squash-merged, so the **PR title becomes the released commit
+    message** and must be a valid Conventional Commit.
+  - **Planning branches** (`docs/…` or `plan/…`, commit type `docs:` → no
+    release) carry planning artifacts **only**: new or revised plan files,
+    `ROADMAP.md` sequencing/status, and skill changes. Do **not** commit these
+    onto an implementation branch — cross-cutting planning churn must not ride
+    along on a feature PR.
+  - **Rule of thumb:** does the change deliver or document the code in *this*
+    PR's plan? → implementation branch. Does it re-sequence work, create/revise
+    plans, or edit skills/roadmap across features? → planning branch.
+  - Never hand-edit the `version` in `package.json` or write a changelog;
+    releases are automated. See `CONTRIBUTING.md` for the full model.
 
 ### 4. Note delivery sequencing separately
 The architect owns *what* to build and *why* — feature design, trade-offs, API
