@@ -1,9 +1,9 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { bassCapabilitiesFromElement } from '../bass-capabilities.js';
 import { XMLElement } from '../utils/xml-element.js';
 
 describe('bassCapabilitiesFromElement', () => {
-  test('parses availability and bass range', () => {
+  it('parses availability and bass range', () => {
     const el = new XMLElement({
       $: { deviceID: 'DEV1' },
       bassAvailable: ['true'],
@@ -20,7 +20,7 @@ describe('bassCapabilitiesFromElement', () => {
     });
   });
 
-  test('marks unavailable and leaves range undefined when absent', () => {
+  it('marks unavailable and leaves range undefined when absent', () => {
     const el = new XMLElement({
       $: { deviceID: 'DEV1' },
       bassAvailable: ['false'],
@@ -34,7 +34,7 @@ describe('bassCapabilitiesFromElement', () => {
     });
   });
 
-  test('returns undefined when the deviceID attribute is missing', () => {
+  it('returns undefined when the deviceID attribute is missing', () => {
     const el = new XMLElement({ bassAvailable: ['true'] });
     expect(bassCapabilitiesFromElement(el)).toBeUndefined();
   });

@@ -1,10 +1,10 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { sourceFromElement, sourcesFromElement } from '../source.js';
 import { SourceStatus } from '../special-types.js';
 import { XMLElement } from '../utils/xml-element.js';
 
 describe('sourceFromElement', () => {
-  test('parses a source item with all flags', () => {
+  it('parses a source item with all flags', () => {
     const el = new XMLElement({
       $: {
         source: 'AUX',
@@ -25,7 +25,7 @@ describe('sourceFromElement', () => {
     });
   });
 
-  test('defaults flags and account when absent', () => {
+  it('defaults flags and account when absent', () => {
     const el = new XMLElement({
       $: { source: 'BLUETOOTH', status: 'UNAVAILABLE' },
       _: 'Bluetooth',
@@ -40,19 +40,19 @@ describe('sourceFromElement', () => {
     });
   });
 
-  test('returns undefined when required attributes are missing', () => {
+  it('returns undefined when required attributes are missing', () => {
     const el = new XMLElement({ $: { source: 'AUX' }, _: 'AUX' });
     expect(sourceFromElement(el)).toBeUndefined();
   });
 
-  test('returns undefined when the name text is missing', () => {
+  it('returns undefined when the name text is missing', () => {
     const el = new XMLElement({ $: { source: 'AUX', status: 'READY' } });
     expect(sourceFromElement(el)).toBeUndefined();
   });
 });
 
 describe('sourcesFromElement', () => {
-  test('parses the device id and its source items', () => {
+  it('parses the device id and its source items', () => {
     const el = new XMLElement({
       $: { deviceID: 'DEV1' },
       sourceItem: [
@@ -66,7 +66,7 @@ describe('sourcesFromElement', () => {
     expect(result?.items[0].source).toBe('AUX');
   });
 
-  test('skips malformed source items', () => {
+  it('skips malformed source items', () => {
     const el = new XMLElement({
       $: { deviceID: 'DEV1' },
       sourceItem: [
@@ -77,7 +77,7 @@ describe('sourcesFromElement', () => {
     expect(sourcesFromElement(el)?.items).toHaveLength(1);
   });
 
-  test('returns undefined when the deviceID attribute is missing', () => {
+  it('returns undefined when the deviceID attribute is missing', () => {
     const el = new XMLElement({ sourceItem: [] });
     expect(sourcesFromElement(el)).toBeUndefined();
   });

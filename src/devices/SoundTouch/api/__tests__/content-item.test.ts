@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import {
   contentItemFromElement,
   contentItemToElement,
@@ -6,7 +6,7 @@ import {
 import { XMLElement } from '../utils/xml-element.js';
 
 describe('contentItemFromElement', () => {
-  test('parses a full content item', () => {
+  it('parses a full content item', () => {
     const el = new XMLElement({
       $: {
         source: 'SPOTIFY',
@@ -27,7 +27,7 @@ describe('contentItemFromElement', () => {
     });
   });
 
-  test('defaults sourceAccount and isPresetable when absent', () => {
+  it('defaults sourceAccount and isPresetable when absent', () => {
     const el = new XMLElement({ $: { source: 'AUX' } });
     expect(contentItemFromElement(el)).toEqual({
       source: 'AUX',
@@ -39,20 +39,20 @@ describe('contentItemFromElement', () => {
     });
   });
 
-  test('returns undefined when the source attribute is missing', () => {
+  it('returns undefined when the source attribute is missing', () => {
     const el = new XMLElement({ $: { sourceAccount: 'x' } });
     expect(contentItemFromElement(el)).toBeUndefined();
   });
 });
 
 describe('contentItemToElement', () => {
-  test('serializes required attributes', () => {
+  it('serializes required attributes', () => {
     const el = contentItemToElement({ source: 'AUX', sourceAccount: '' });
     // toElement wraps the data in a <ContentItem> node.
     expect(el.data.ContentItem.$).toEqual({ source: 'AUX', sourceAccount: '' });
   });
 
-  test('serializes optional attributes and item name when present', () => {
+  it('serializes optional attributes and item name when present', () => {
     const el = contentItemToElement({
       source: 'SPOTIFY',
       sourceAccount: 'user',
@@ -71,7 +71,7 @@ describe('contentItemToElement', () => {
     expect(el.data.ContentItem.itemName).toBe('Name');
   });
 
-  test('round-trips through fromElement', () => {
+  it('round-trips through fromElement', () => {
     const el = contentItemToElement({
       source: 'SPOTIFY',
       sourceAccount: 'user',
