@@ -7,7 +7,7 @@ export function infoXml(
     name?: string;
     type?: string;
     softwareVersion?: string;
-    matchSerialToDeviceId?: boolean;
+    hasComponents?: boolean;
   } = {}
 ): string {
   const {
@@ -15,17 +15,20 @@ export function infoXml(
     name = 'Test Speaker',
     type = 'SoundTouch 10',
     softwareVersion = '1.0.0',
-    matchSerialToDeviceId = true,
+    hasComponents = true,
   } = options;
-  const serialNumber = matchSerialToDeviceId ? deviceId : 'UNRELATED-SERIAL';
+  const components = hasComponents
+    ? '<components><component>' +
+      '<componentCategory>SCM</componentCategory>' +
+      `<softwareVersion>${softwareVersion}</softwareVersion>` +
+      '<serialNumber>COMPONENT-SERIAL</serialNumber>' +
+      '</component></components>'
+    : '<components></components>';
   return (
     `<info deviceID="${deviceId}">` +
     `<name>${name}</name>` +
     `<type>${type}</type>` +
-    '<components><component>' +
-    `<softwareVersion>${softwareVersion}</softwareVersion>` +
-    `<serialNumber>${serialNumber}</serialNumber>` +
-    '</component></components>' +
+    components +
     '<networkInfo><macAddress>AA:BB:CC:DD:EE:FF</macAddress>' +
     '<ipAddress>127.0.0.1</ipAddress></networkInfo>' +
     '</info>'
