@@ -20,8 +20,84 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded validation runs on the same PR/branch.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  # PR validation: run only the tests impacted by the changed files.
+  # Jest resolves the (transitive) import graph, so a changed source file
+  # runs every suite that exercises it — not just changed test files.
+  pr-validation:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      BASE_REF: ${{ github.base_ref }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22.x, 24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the PR head (not the synthetic merge commit) with full
+          # history so Jest can diff against the base branch.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Fetch base branch
+        run: git fetch --no-tags origin "$BASE_REF"
+
+      # Impacted-test selection only follows import/require edges. Changes to
+      # config, the lockfile, mocks, fixtures, or committed snapshots fall
+      # outside that graph, so fall back to the full suite when they change.
+      - name: Determine test scope
+        id: scope
+        run: |
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+          echo "Changed files:"
+          echo "$changed"
+          if echo "$changed" | grep -qE '^(jest\.config\.ts|tsconfig\.json|package\.json|package-lock\.json|\.swcrc|__mocks__/|test/|.*\.snap)$'; then
+            echo "Config/lockfile/fixture/snapshot change detected — running full suite."
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=impacted" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test (impacted)
+        if: steps.scope.outputs.mode == 'impacted'
+        run: npm run test:impacted
+
+      - name: Test (full — config/fixture change)
+        if: steps.scope.outputs.mode == 'full'
+        run: npm run test:ci
+
+      - name: Audit dependencies
+        run: |
+          npm list --outdated || true
+          npm audit || true
+
+  # Full regression: runs on merge/push to dev. Always the complete suite.
+  regression:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -48,8 +124,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
-        run: npm test
+      - name: Test (full regression)
+        run: npm run test:ci
 
       - name: Audit dependencies
         run: |
