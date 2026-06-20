@@ -8,25 +8,28 @@ features. The individual plan files contain the detail; this file answers
 
 ## Dependency graph
 
-```
-[05] Integration test harness  ──────────────────────────────────────────────┐
-                                                                              │
-[02] Volume – Switch path (Speaker service)  ─────────────────────────────── │ ──> ships independently
-                                                                              │
-[01] Accessory type (Switch / Lightbulb)  ────────────────────────────────── │ ──> unlocks ↓
-                    │                                                         │
-                    └──> [02] Volume – Lightbulb path (Brightness)  ──────── │ ──> ships as follow-up to 01
-                                                                              │
-[03] Source selection  ──── spike required ──────────────────────────────────┘
-                                │
-                       resolve TV vs per-Switch fallback
-                                │
-                                └──> build out chosen path
+```mermaid
+flowchart TD
+    HarnessNode["[05] Integration test harness\ntest/integration-harness"]
+    VolSwitchNode["[02] Volume – Switch path\nSpeaker service"]
+    AccessoryTypeNode["[01] Accessory type\nSwitch / Lightbulb"]
+    VolLightbulbNode["[02] Volume – Lightbulb path\nBrightness characteristic"]
+    SpikeTV{"Spike: TV vs\nper-Switch fallback"}
+    SourceNode["[03] Source selection"]
+    SpikeA{"Spike A: hotspot\nHTTP API"}
+    SpikeB{"Spike B: Homebridge\nconfig write path"}
+    PWA1Node["[04] PWA – Phase 1\nWiFi provisioning"]
+    PWA2Node["[04] PWA – Phase 2\nGroup management"]
+    PWA3Node["[04] PWA – Phase 3\nConfig sync"]
 
-[04] PWA  ──── three independent phases, each spike-gated
-   Phase 1: WiFi provisioning  ──── spike A (hotspot HTTP API)
-   Phase 2: Group management   ──── zone API already done; needs phase 1 scaffold
-   Phase 3: Config sync        ──── spike B (Homebridge config write path)
+    HarnessNode --> VolSwitchNode
+    VolSwitchNode --> AccessoryTypeNode
+    AccessoryTypeNode --> VolLightbulbNode
+    SpikeTV --> SourceNode
+    SpikeA --> PWA1Node
+    PWA1Node --> PWA2Node
+    SpikeB --> PWA3Node
+    PWA1Node --> PWA3Node
 ```
 
 ## Anticipated delivery order
