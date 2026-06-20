@@ -1,13 +1,15 @@
 homebridge-soundtouch-speaker
 Copyright (c) Andrew Trainor
 
-This product includes code derived from soundtouch-api
-(https://github.com/bbriatte/soundtouch-api), used under the BSD 3-Clause
-License:
+This product includes code derived from the following works by Briatte Benoit,
+used under the BSD 3-Clause License:
+
+- soundtouch-api (https://github.com/bbriatte/soundtouch-api)
+- homebridge-soundtouch-platform (https://github.com/bbriatte/homebridge-soundtouch-platform)
 
 BSD 3-Clause License
 
-Copyright (c) 2023, Briatte Benoit
+Copyright (c) 2019, 2023, Briatte Benoit
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
