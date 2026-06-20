@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-06-20 (cancelled Switch volume path; Plan 01 → Lightbulb path is now the volume delivery sequence)
+Last updated: 2026-06-20
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
@@ -37,35 +37,29 @@ flowchart TD
 
 ## Current state (2026-06-20)
 
-- **Done:** [05] Integration test harness — **#58 merged into `dev`**.
-- **Done:** [06] Polling lifecycle — **#65 merged into `dev`**. Polling is now
-  stoppable on unregister/shutdown and configurable via `pollingInterval`.
-- **Done (infra):** Spike C Part 1 — gabbo WebSocket harness — **#66 merged into
-  `dev`**. Parse/dispatch logic validated; fake-gabbo server test double in place.
-- **Cancelled:** [02] Volume — Switch path. **PR #62 was merged then reverted (#70)**
-  — the Switch service exposes only a binary `On` characteristic; volume requires
-  a 0–100 range. A linked Speaker tile on a Switch accessory is a UX anti-pattern.
-  `dev` is clean.
-- **Next:** [01] Accessory type — `feat/accessory-type`. Gate for the Lightbulb
-  service, which is the prerequisite for the volume/Brightness path.
-- **After 01:** [02] Volume — Lightbulb path — `SoundTouchSpeakerBrightnessCharacteristic`,
-  wired into the Lightbulb service (`accessoryType: 'lightbulb'`). Includes the
-  `On` setter race fix (5 s `finally` sleep → non-blocking settle).
-- **Blocked:** [03] Source selection (spike), [04] PWA all phases (spikes A/B),
-  **[07] WebSocket push (Spike C Part 2 — real hardware needed + plan 06 done)**.
-- Skill changes landed in `dev`: session-cost estimation (#57), planning vs.
-  implementation branches (#59), roadmap status + plan-05 calibration (#60).
+- **Beta (v0.3.0-beta.1):** [05] Integration test harness — **#58**. Fake HTTP server + HAP stub; polling neutralised with fake timers.
+- **Beta (v0.3.0-beta.1):** [06] Polling lifecycle — **#65**. Polling stoppable on unregister/shutdown; `pollingInterval` config field.
+- **Beta (v0.3.0-beta.1):** Spike C Part 1 — gabbo WebSocket harness — **#66**. Parse/dispatch validated; fake-gabbo test double in place.
+- **Beta (v0.3.0-beta.1):** FirmwareRevision characteristic — **#83** (test), **#85** (fix). SCM `softwareVersion` component correctly sourced.
+- **Beta (v0.3.0-beta.1):** [01] Accessory type — **#72**. `accessoryType: 'switch' | 'lightbulb'` threaded through config → accessory; orphan-service pruning on type change.
+- **Beta (v0.3.0-beta.1):** [02] Volume — Lightbulb path — **#86** (feat), **#91** (race fix). Brightness 0–100 maps to volume; 0 = power off; non-blocking settle.
+- **Cancelled:** [02] Volume — Switch path. **PR #62 was merged then reverted (#70)** — binary `On` only; volume requires 0–100 range.
+- **Next (unblocked):** `prefer-it-over-test` sweep — mechanical `test()` → `it()` rename across ~21 test files. Small, no production code.
+- **Next (unblocked):** Spike C Part 2 — real hardware capture session. Unblocks [07] WebSocket push (plan 06 ✅, Spike C Part 1 ✅).
+- **Blocked:** [03] Source selection (TV-vs-Switch spike), [04] PWA all phases (spikes A/B).
 
 ## Anticipated delivery order
 
 | Order | Plan | Branch | Status | Why this position |
 | ----- | ---- | ------ | ------ | ----------------- |
-| 1 | **[05] Integration test harness** | `test/integration-harness` | ✅ #58 merged | Pure test infrastructure, no release. Gives confidence before shipping any user-facing feature. |
-| 2 | **[06] Polling lifecycle** | `fix/polling-lifecycle` | ✅ #65 merged | Stop polling on accessory removal/shutdown; configurable interval. `fix:` → patch. |
-| 2.5 | **Spike C Part 1 — gabbo harness** | `spike/gabbo-harness` | ✅ #66 merged | Validated parse/dispatch; fake-gabbo test double ready. |
-| 3 | **[01] Accessory type** | `feat/accessory-type` | 🟢 Next | Thread `accessoryType: 'switch' \| 'lightbulb'` through config → `DeviceConfiguration` → `createAccessory`; prune orphan services on type change. Gate for the Lightbulb volume path. `feat:` → minor. |
-| 4 | **[02] Volume — Lightbulb path** | `feat/volume-control` | 🟡 In-progress (gated on 01) | `SoundTouchSpeakerBrightnessCharacteristic`: Brightness 0–100 maps to volume; 0 = power off; >0 from off = power on then set. Includes the `On` setter 5 s-sleep race fix. Bundle into plan 01 PR or immediate follow-up. |
-| 5 | **[07] WebSocket push (gabbo)** | `feat/websocket-push` | 🔴 Blocked (Spike C Part 2 + plan 06 ✅) | Event-driven refresh via the gabbo channel (port 8080), **augmenting** polling. Spike C Part 2 needs real hardware. Phased: P1 connection+lifecycle, P2 per-event mapping, P3 tune polling + edges. |
+| 1 | **[05] Integration test harness** | `test/integration-harness` | ✅ beta v0.3.0-beta.1 (#58) | Pure test infrastructure, no release. Gives confidence before shipping any user-facing feature. |
+| 2 | **[06] Polling lifecycle** | `fix/polling-lifecycle` | ✅ beta v0.3.0-beta.1 (#65) | Stop polling on accessory removal/shutdown; configurable interval. `fix:` → patch. |
+| 2.5 | **Spike C Part 1 — gabbo harness** | `spike/gabbo-harness` | ✅ beta v0.3.0-beta.1 (#66) | Validated parse/dispatch; fake-gabbo test double ready. |
+| 2.6 | **FirmwareRevision characteristic** | `test/firmware-revision-coverage` | ✅ beta v0.3.0-beta.1 (#83, #85) | SCM `softwareVersion` component correctly sourced and published. |
+| 3 | **[01] Accessory type** | `feat/accessory-type` | ✅ beta v0.3.0-beta.1 (#72) | `accessoryType: 'switch' \| 'lightbulb'` threaded through config → accessory; orphan-service pruning on type change. `feat:` → minor. |
+| 4 | **[02] Volume — Lightbulb path** | `feat/volume-control` | ✅ beta v0.3.0-beta.1 (#86, #91) | Brightness 0–100 maps to volume; 0 = power off; non-blocking settle for the `On`/`Brightness` race. |
+| 4.5 | **prefer-it-over-test sweep** | `test/prefer-it-over-test` | 🟢 Next (unblocked) | Mechanical `test()` → `it()` rename across ~21 test files. Small, no production code, no release. |
+| 5 | **[07] WebSocket push (gabbo)** | `feat/websocket-push` | 🟡 Spike C Part 2 needed | Event-driven refresh via the gabbo channel (port 8080), **augmenting** polling. Spike C Part 2 needs real hardware (device available). Phased: P1 connection+lifecycle, P2 per-event mapping, P3 tune polling + edges. |
 | 6 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Independent of 01/02. Blocked on a **spike** (verify Television+InputSource on a real device; choose TV path vs per-source Switch fallback). Cannot be committed until the spike resolves the architecture choice. |
 | 7 | **[04] PWA — Phase 1** | `feat/pwa` | 🔴 Blocked (spike A) | Architecturally separate (new `web/` workspace + embedded HTTP server). Blocked on **spike A** (reverse-engineer the hotspot provisioning HTTP API at `http://192.0.2.1`). Phase 1 must ship before phases 2 and 3 (it creates the web scaffold and embedded server). |
 | 8 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via the zone API (`/getZone`, `/setZone`, etc. — already implemented in `src/devices/SoundTouch/api/zone.ts`). Needs the phase 1 PWA scaffold and embedded server to be in place. |
@@ -82,10 +76,11 @@ below.
 
 | Plan | Band | Drivers that set the band | Session guidance |
 | ---- | ---- | ------------------------- | ---------------- |
-| **[05] Integration test harness** | Medium | New test infra (fake HTTP server + Homebridge stub) and a Jest `projects` split; lots of additive code but low iteration risk and no release | ✅ Done. |
-| **[06] Polling lifecycle** | Small–Medium | Modifies existing platform + accessory lifecycle (retain wrappers, stop on unregister/shutdown) and threads two config fields; async lifecycle reasoning + a couple of tests | ✅ Done. |
-| **[01] Accessory type** | Heavy | Config threading through `DeviceConfiguration`, branching the hardcoded Switch in `createAccessory` (`:71`), and orphan-service pruning on type change | Plan a full session. Gates the Lightbulb volume follow-up. ~11 items. |
-| **[02] Volume — Lightbulb path** | Small–Medium | `SoundTouchSpeakerBrightnessCharacteristic` + power/volume race fix; `On`/`Brightness` ordering needs careful handling | Bundle into plan 01's PR or a quick follow-up. Race fix is the main iteration risk. |
+| **[05] Integration test harness** | Medium | New test infra (fake HTTP server + Homebridge stub) and a Jest `projects` split; lots of additive code but low iteration risk and no release | ✅ beta v0.3.0-beta.1 |
+| **[06] Polling lifecycle** | Small–Medium | Modifies existing platform + accessory lifecycle (retain wrappers, stop on unregister/shutdown) and threads two config fields; async lifecycle reasoning + a couple of tests | ✅ beta v0.3.0-beta.1 |
+| **[01] Accessory type** | Heavy | Config threading through `DeviceConfiguration`, branching the hardcoded Switch in `createAccessory`, and orphan-service pruning on type change | ✅ beta v0.3.0-beta.1 |
+| **[02] Volume — Lightbulb path** | Small–Medium | `SoundTouchSpeakerBrightnessCharacteristic` + power/volume race fix; `On`/`Brightness` ordering needs careful handling | ✅ beta v0.3.0-beta.1 |
+| **prefer-it-over-test sweep** | Small | Pure mechanical rename, no production code, no iteration risk | 🟢 Next. |
 | **[07] WebSocket push — Phase 1** | Heavy (est.) | New stateful per-device connection (connect/parse/reconnect/teardown), a new `ws`-backed fake-gabbo harness, and async lifecycle threaded through `platform.ts`/accessory; async timing + reconnect is high iteration risk | Plan a full session. Re-estimate after Spike C. Phases 2–3 are Medium. |
 | **[03] Source selection** | TBD (blocked) | Estimate after the TV-vs-Switch spike resolves the architecture | Re-estimate once unblocked. |
 | **[04] PWA — Phase 1–3** | TBD (blocked) | New `web/` workspace + embedded `src/server/`; estimate after spike A | Each phase is its own session at minimum. |
@@ -102,6 +97,8 @@ When a unit ships, record actual-vs-estimate here so future estimates sharpen.
 | Date | Plan | Estimate | Actual | Variance / note |
 | ---- | ---- | -------- | ------ | --------------- |
 | 2026-06-20 | [05] Integration test harness | Medium | Medium–Heavy | HTTP fake server was trivial as predicted, but two unforeseen drivers pushed it up: the manual homebridge mock provides no Service/Characteristic (HAP stub written from scratch), and polling is hardcoded on (neutralised with fake timers). Lesson: when a test exercises framework wiring, budget for stubbing the framework surface, not just the protocol. |
+| 2026-06-20 | [01] Accessory type | Heavy | Heavy | Full session as estimated. Config threading + orphan pruning touched many files; pruning logic needed extra iteration. |
+| 2026-06-20 | [02] Volume — Lightbulb path | Small–Medium | Small–Medium | Landed as estimated. Race fix was the main loop as predicted; the `On`/`Brightness` ordering required a follow-up fix PR (#91). |
 
 ## Spikes (blockers)
 
@@ -177,9 +174,7 @@ notifications"):
   their real shapes, and the connection lifecycle rules — enough to finalise the
   reconnect strategy and the polling-fallback interval.
 
-**Status (2026-06-20):** docs/spike defined; **no probe or harness built yet**
-(user directive: research/docs only this session). Part 1 can proceed any time;
-Part 2 is parked until a real device is available.
+**Status (2026-06-20):** Part 1 complete — gabbo harness shipped in #66 (beta v0.3.0-beta.1). Part 2 unblocked — real device available; run `node scripts/gabbo-probe.mjs <ip>` against the device to capture frames and answer the connection lifecycle questions above.
 
 ## Key coupling notes
 

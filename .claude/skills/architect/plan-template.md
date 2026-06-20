@@ -1,6 +1,6 @@
 ---
 feature: <one-line feature name>
-status: planned # planned | in-progress | done | cancelled
+status: planned # planned | in-progress | beta | done | cancelled
 date: <YYYY-MM-DD>
 branch: <feat/…, branched off dev>
 commit-type: <feat | fix | feat! | chore | docs | ci | test | refactor>
