@@ -9,10 +9,18 @@ import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { KeyValue } from '../../devices/SoundTouch/api/index.js';
 import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
 
+// After toggling power the speaker takes a moment to settle. Within this
+// window a repeated press of the same desired state is ignored, so rapid
+// HomeKit toggles don't hammer the device. This is a non-blocking cooldown —
+// the setter returns immediately rather than stalling a concurrent volume set.
+const POWER_SETTLE_MS = 5000;
+
 export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
 
   private characteristic: Characteristic;
+
+  private settleUntil = 0;
 
   constructor({
     service,
@@ -52,18 +60,23 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
     const desiredPowerStatus = value as boolean;
 
     try {
-      if (this.characteristic.value !== desiredPowerStatus) {
-        await this.device.api.pressKey(KeyValue.power);
+      if (this.characteristic.value === desiredPowerStatus) {
+        return;
       }
+
+      if (Date.now() < this.settleUntil) {
+        this.log.debug('power press ignored while settling');
+        return;
+      }
+
+      await this.device.api.pressKey(KeyValue.power);
+      this.settleUntil = Date.now() + POWER_SETTLE_MS;
       this.log.success('set status - %s', desiredPowerStatus ? 'on' : 'off');
     } catch (e: unknown) {
       this.log.error('error setting on status', e);
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
       );
-    } finally {
-      //give it time before trying to change.
-      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 
