@@ -124,6 +124,32 @@ Avoid `test('...')` — prefer `it('...')` so descriptions complete the sentence
 Log through the formatted logger (`src/utils/FormattedLogger.ts`) — `.debug`,
 `.success`, `.error`. Never use `console.*`.
 
+## Dependency maintenance
+
+Run `npm outdated` to check for stale packages. The "Wanted" column shows what satisfies the current semver range; "Latest" shows the newest release (may be a major bump).
+
+**Safe updates (within semver range):**
+```sh
+npm update          # brings all deps to their "Wanted" version
+```
+
+**Major version bumps** require manually editing the version range in `package.json`, then running `npm install`. Always verify the toolchain passes (`npm run typecheck && npm run lint && npm test`) after any major bump.
+
+**Known config update requirements after major bumps:**
+
+| Package | What to check |
+| --- | --- |
+| `knip` (v5→v6) | Update `"$schema"` in `knip.json` to `knip@6`. Knip v6 auto-discovers most deps/binaries that previously needed `ignoreDependencies`/`ignoreBinaries` entries — run `npm run knip` and remove any entries flagged as redundant hints. |
+| `typescript-eslint` (major) | If ESLint reports "multiple candidate TSConfigRootDirs", add `parserOptions: { tsconfigRootDir: import.meta.dirname }` to `eslint.config.js`. Also ensure `.claude/**` is in the `ignores` array so git worktrees under `.claude/worktrees/` are never linted. |
+| `eslint-config-prettier` (v9→v10) | No config changes required; drop-in replacement. |
+| `lint-staged` (major) | Check `engines.node` in `npm info lint-staged@<new>` matches runtime before installing. |
+
+**Audit:**
+```sh
+npm audit
+```
+A vulnerability scoped to `node_modules/npm/node_modules/...` is inside the npm CLI itself, not this package — it is not actionable here.
+
 ## Definition of done
 
 Before considering a code change complete, all three must be green:

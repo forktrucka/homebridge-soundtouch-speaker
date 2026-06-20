@@ -15,7 +15,7 @@ import { XMLElement } from '../utils/index.js';
  * the documented frame shapes.
  */
 
-export type GabboNotificationType =
+type GabboNotificationType =
   | 'volume'
   | 'nowPlaying'
   | 'bass'
@@ -71,9 +71,7 @@ const parseXML = promisify(
  * Map a parsed `<updates>` element to the notifications it carries. A frame
  * usually carries a single change; an empty frame (heartbeat) yields none.
  */
-export function notificationsFromUpdates(
-  updates: XMLElement
-): GabboNotification[] {
+function notificationsFromUpdates(updates: XMLElement): GabboNotification[] {
   const deviceId = updates.getAttribute('deviceID');
 
   return Object.entries(UPDATE_MAP)
