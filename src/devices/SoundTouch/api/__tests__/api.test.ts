@@ -66,10 +66,10 @@ describe('API', () => {
       await expect(api.getInfo()).rejects.toBeInstanceOf(APIErrors);
     });
 
-    test('throws APIErrors when the response contains a single <Error>', async () => {
+    test('throws APIErrors when the response contains a single <error>', async () => {
       mock
         .onGet(`${BASE}/info`)
-        .reply(200, '<Error value="1" name="X" severity="Low">bad</Error>');
+        .reply(200, '<error value="1" name="X" severity="Low">bad</error>');
       await expect(api.getInfo()).rejects.toBeInstanceOf(APIErrors);
     });
 
@@ -146,7 +146,7 @@ describe('API', () => {
       '<time total="200">5</time></nowPlaying>';
 
     test('getNowPlaying parses a playing document', async () => {
-      mock.onGet(`${BASE}/now_playing`).reply(200, nowPlayingXml);
+      mock.onGet(`${BASE}/nowPlaying`).reply(200, nowPlayingXml);
       const np = await api.getNowPlaying();
       expect(np).toMatchObject({
         deviceId: 'DEV1',
@@ -157,7 +157,7 @@ describe('API', () => {
 
     test('getSource returns the source attribute', async () => {
       mock
-        .onGet(`${BASE}/now_playing`)
+        .onGet(`${BASE}/nowPlaying`)
         .reply(
           200,
           '<nowPlaying deviceID="DEV1" source="STANDBY"><ContentItem source="STANDBY"/></nowPlaying>'
@@ -165,17 +165,18 @@ describe('API', () => {
       await expect(api.getSource()).resolves.toBe('STANDBY');
     });
 
-    test('getNowPlaying returns undefined in STANDBY because art/time are absent', async () => {
-      // FLAG: nowPlayingFromElement treats <art> and <time> as required even
-      // though the NowPlaying interface marks them optional. A standby (or AUX)
-      // response with no art/time parses to undefined rather than a NowPlaying.
+    test('getNowPlaying parses a STANDBY response with no art or time', async () => {
       mock
-        .onGet(`${BASE}/now_playing`)
+        .onGet(`${BASE}/nowPlaying`)
         .reply(
           200,
           '<nowPlaying deviceID="DEV1" source="STANDBY"><ContentItem source="STANDBY"/></nowPlaying>'
         );
-      await expect(api.getNowPlaying()).resolves.toBeUndefined();
+      const np = await api.getNowPlaying();
+      expect(np).toBeDefined();
+      expect(np?.source).toBe('STANDBY');
+      expect(np?.art).toBeUndefined();
+      expect(np?.time).toBeUndefined();
     });
   });
 
@@ -227,6 +228,17 @@ describe('API', () => {
       await expect(api.setZone(zone)).resolves.toBe(true);
       expect(mock.history.post[0].data).toContain('master="M1"');
     });
+
+    test('setZone includes senderIPAddress when provided', async () => {
+      mock.onPost(`${BASE}/setZone`).reply(200, '<status>/setZone</status>');
+      const zone = {
+        master: 'M1',
+        members: [{ deviceId: 'DEV1', ipAddress: '10.0.0.1' }],
+        senderIpAddress: '10.0.0.1',
+      };
+      await expect(api.setZone(zone)).resolves.toBe(true);
+      expect(mock.history.post[0].data).toContain('senderIPAddress="10.0.0.1"');
+    });
   });
 
   describe('bass', () => {
@@ -274,7 +286,7 @@ describe('API', () => {
         .onGet(`${BASE}/presets`)
         .reply(
           200,
-          '<presets><preset id="1" createdOn="1600000000" updatedOn="1600000000">' +
+          '<presets><preset id="1" createdOn="1600000000" updateOn="1600000000">' +
             '<ContentItem source="SPOTIFY" sourceAccount="a"><itemName>Mix</itemName></ContentItem></preset></presets>'
         );
       const presets = await api.getPresets();

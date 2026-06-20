@@ -4,6 +4,7 @@ import { Member, memberFromElement } from './member.js';
 export interface Zone {
   readonly master: string;
   readonly members: Member[];
+  readonly senderIpAddress?: string;
 }
 
 export function zoneFromElement(element: XMLElement): Zone | undefined {
@@ -21,10 +22,12 @@ export function zoneFromElement(element: XMLElement): Zone | undefined {
 }
 
 export function zoneToElement(zone: Zone): XMLElement {
+  const attrs: Record<string, string> = { master: zone.master };
+  if (zone.senderIpAddress) {
+    attrs.senderIPAddress = zone.senderIpAddress;
+  }
   const data = {
-    $: {
-      master: zone.master,
-    },
+    $: attrs,
     member: zone.members.map((member: Member) => {
       return {
         $: {
