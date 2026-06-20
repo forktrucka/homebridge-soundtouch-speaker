@@ -4,14 +4,30 @@
   "project": "src/**",
   "ignore": ["src/devices/SoundTouch/api/**"],
   "ignoreDependencies": [
-    "homebridge",
-    "homebridge-base-platform",
     "homebridge-lib",
-    "bonjour",
-    "xml2js",
-    "axios",
     "lint-staged",
     "ts-node",
-    "multicast-dns"
+    "multicast-dns",
+    "@commitlint/cli",
+    "@swc/core",
+    "eslint",
+    "husky",
+    "nodemon",
+    "prettier",
+    "rimraf",
+    "semantic-release"
+  ],
+  "ignoreBinaries": [
+    "semantic-release",
+    "commitlint",
+    "lint-staged",
+    "knip",
+    "rimraf",
+    "tsc",
+    "eslint",
+    "prettier",
+    "nodemon",
+    "jest",
+    "husky"
   ]
 }
