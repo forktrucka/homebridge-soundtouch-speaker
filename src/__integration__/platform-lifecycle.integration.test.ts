@@ -120,7 +120,7 @@ describe('SoundTouchHomebridgePlatform', () => {
   });
 
   describe('FirmwareRevision characteristic', () => {
-    it('is set to the component softwareVersion when the serial matches the device id', async () => {
+    it('is set to the SCM component softwareVersion', async () => {
       server.setResponse(
         '/info',
         infoXml({ deviceId: DEVICE_ID, softwareVersion: '2.3.4' })
@@ -134,10 +134,28 @@ describe('SoundTouchHomebridgePlatform', () => {
       ).toBe('2.3.4');
     });
 
-    it('is not set when no component serial matches the device id', async () => {
+    it('strips the build suffix from the softwareVersion', async () => {
       server.setResponse(
         '/info',
-        infoXml({ deviceId: DEVICE_ID, matchSerialToDeviceId: false })
+        infoXml({
+          deviceId: DEVICE_ID,
+          softwareVersion:
+            '27.0.6.46330.5043500 epdbuild.trunk.hepdswbld04.2022-08-04T11:20:29',
+        })
+      );
+      createPlatform();
+
+      await api.emitDidFinishLaunching();
+
+      expect(
+        api.getCharacteristicValue('AccessoryInformation', 'FirmwareRevision')
+      ).toBe('27.0.6.46330.5043500');
+    });
+
+    it('is not set when the info response has no components', async () => {
+      server.setResponse(
+        '/info',
+        infoXml({ deviceId: DEVICE_ID, hasComponents: false })
       );
       createPlatform();
 
