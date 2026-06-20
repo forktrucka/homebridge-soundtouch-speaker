@@ -62,6 +62,63 @@ exports, files, or dependencies.
   `const enum` gotcha) is Homebridge-specific — see the **homebridge-developer**
   skill.
 
+## TDD workflow (red → green → refactor)
+
+Write tests **before** the implementation for any new behaviour or bug fix:
+
+1. **Red** — write a failing test that captures the intended behaviour. Run it;
+   confirm it fails for the right reason (wrong output, not a compile error).
+2. **Green** — write the minimum code that makes the test pass. Resist the urge
+   to over-engineer here.
+3. **Refactor** — clean up the implementation (and test) while keeping the suite
+   green.
+
+For bug fixes, start by writing a test that reproduces the bug before touching
+production code.
+
+## BDD test structure
+
+Structure tests so they read as a living specification. Use Jest's
+`describe`/`it` to express **what** the unit does, not how it does it.
+
+```
+describe('ClassName or function name')
+  describe('method or scenario')
+    it('returns X when Y')
+    it('throws when Z')
+```
+
+Rules:
+- `describe` labels name the **subject** (`'NowPlayingParser'`, `'#parsePreset'`).
+- `it` labels name **observable behaviour** in plain English: `'returns null when
+  the content item is missing'`, not `'handles missing content item'` or
+  `'test 3'`.
+- Nest a second `describe` for distinct scenarios or preconditions
+  (`'when the device is in standby'`).
+- Structure each test as **Arrange → Act → Assert** with a blank line between
+  phases. Skip the "Arrange" block when setup is trivial (one-liner).
+
+```ts
+describe('VolumeParser', () => {
+  describe('#parse', () => {
+    it('returns the numeric value from the XML', () => {
+      const xml = '<volume><actualvolume>42</actualvolume></volume>';
+
+      const result = VolumeParser.parse(xml);
+
+      expect(result).toBe(42);
+    });
+
+    it('returns null when the actualvolume element is absent', () => {
+      expect(VolumeParser.parse('<volume/>')).toBeNull();
+    });
+  });
+});
+```
+
+Avoid `test('...')` — prefer `it('...')` so descriptions complete the sentence
+"it should …" naturally.
+
 ## Logging
 
 Log through the formatted logger (`src/utils/FormattedLogger.ts`) — `.debug`,
