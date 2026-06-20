@@ -52,7 +52,13 @@ The conventions this skill *owns* — decide both up front, they drive the relea
   in `package.json` or write a changelog; releases are automated. See
   `CONTRIBUTING.md` for the full model.
 
-### 4. Write the plan
+### 4. Check the roadmap
+Read `ROADMAP.md` (in this skill's directory) before writing a new plan. It
+records the dependency chain and delivery order across all planned features — a
+new plan may shift the order or introduce a new dependency. Update `ROADMAP.md`
+after writing the plan if the delivery order or coupling notes change.
+
+### 5. Write the plan
 Copy `plan-template.md` (in this skill's directory) to
 `plans/<YYYY-MM-DD>-<kebab-slug>.md` inside this skill
 (`.claude/skills/architect/plans/`), using today's date and a short slug
