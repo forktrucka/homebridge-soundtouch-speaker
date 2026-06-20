@@ -4,7 +4,13 @@ description: >-
   Conventions and workflows for developing this Homebridge plugin
   (homebridge-soundtouchspeaker). Use when implementing or modifying the
   platform, accessories, characteristics, or device API; writing or running
-  Jest tests; or building, running, and debugging the plugin locally.
+  Jest tests; building, running, or debugging the plugin locally; or
+  troubleshooting issues like accessories not appearing in the Home app,
+  cached accessories not updating, config not taking effect, HAP errors in
+  setters, or verified-plugin compliance. Also use when adding a new HomeKit
+  service or characteristic, handling discovery failures, or any question
+  about the platform/accessory lifecycle. Don't rely on memory for architecture
+  patterns — consult this skill any time you touch Homebridge-specific code.
 ---
 
 # Homebridge Plugin Developer
@@ -150,6 +156,24 @@ them, so don't regress them.
 `config.schema.json` · errors caught and logged (no raw throws on the
 Homebridge thread) · AccessoryInformation populated with a unique SerialNumber ·
 `npm run typecheck && npm run lint && npm test` all green.
+
+## Common issues & quick fixes
+
+**Accessory not appearing in the Home app after changes:**
+- Did you restart Homebridge? (`npm run watch` does this automatically on save.)
+- Is the UUID stable? If the UUID computation changed, Home sees a new accessory and the old one orphans. Fix UUID derivation first, then delete cached accessories.
+- Delete `test/hbConfig/accessories/cachedAccessories` and restart to force re-registration.
+
+**"Accessory disappeared" or stale accessories after config change:**
+- The stale-pruning loop in `discoverDevices()` removes accessories whose UUID isn't rediscovered. Check that the device's `id` (used for UUID generation) hasn't changed.
+- If you renamed a config field, the `PlatformConfiguration` transform may be dropping the accessor silently — check the `fromExternalConfiguration` logic.
+
+**HAP `SERVICE_COMMUNICATION_FAILURE` in the Home app:**
+- A setter threw a `HapStatusError` — expected behavior when the speaker is unreachable. Verify the device IP is reachable and the SoundTouch API is responding on port 8090.
+- If it's a new characteristic, check the `onSet`/`onGet` handlers are correctly bound and the error propagation follows the pattern in `SoundTouchSpeakerOnCharacteristic.ts`.
+
+**Discovery not finding a device:**
+- mDNS/Bonjour often fails across subnets, VLANs, or inside Docker. Bypass discovery entirely with an explicit `ip` (+ optional `port`, default `8090`) in the accessory config.
 
 ## Related skills
 

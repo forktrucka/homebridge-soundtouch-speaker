@@ -3,8 +3,12 @@ name: coding-conventions
 description: >-
   How code is written, formatted, built, and tested in this repo: TypeScript
   ESM import rules, the ESLint/Prettier/knip toolchain, the Jest + SWC test
-  setup, logging, and the checks that gate "done". Use before writing or
-  editing any TypeScript source or test in this project.
+  setup, logging, and the checks that gate "done". Read this skill before
+  writing or editing ANY TypeScript source or test file — including bug fixes,
+  new features, refactors, and test changes. The single most common footgun:
+  missing .js extensions on relative imports compiles fine but silently breaks
+  at runtime under Homebridge. If you're about to touch a .ts file and haven't
+  read this skill yet, read it first.
 ---
 
 # Coding conventions
@@ -39,8 +43,10 @@ rather than restating this — keep style/build/test rules in this one place.
 | `npm test` (`npx jest`) | Run tests with coverage |
 | `npx jest <pattern>` | Run a subset |
 
-ESLint runs with zero tolerance for warnings; Prettier owns formatting (don't
-hand-format against it). `knip` keeps the dependency/export surface clean.
+ESLint runs with zero tolerance for warnings (`--max-warnings=0`). Prettier
+owns formatting — run `npm run format` to auto-write; don't hand-format against
+it. Run `npm run knip` after deleting or moving code to catch newly unused
+exports, files, or dependencies.
 
 ## Testing
 
