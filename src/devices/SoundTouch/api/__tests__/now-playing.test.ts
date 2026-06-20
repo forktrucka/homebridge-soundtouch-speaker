@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { nowPlayingFromElement } from '../now-playing.js';
 import {
   PlayStatus,
@@ -38,7 +38,7 @@ function makeFullData() {
 }
 
 describe('nowPlayingFromElement', () => {
-  test('parses a fully populated now playing element', () => {
+  it('parses a fully populated now playing element', () => {
     const result = nowPlayingFromElement(new XMLElement(makeFullData()));
     expect(result).toMatchObject({
       deviceId: 'DEV1',
@@ -70,7 +70,7 @@ describe('nowPlayingFromElement', () => {
     });
   });
 
-  test('applies defaults for absent optional fields', () => {
+  it('applies defaults for absent optional fields', () => {
     const data = {
       $: { deviceID: 'DEV1', source: 'SPOTIFY' },
       ContentItem: [{ $: { source: 'SPOTIFY' } }],
@@ -94,18 +94,18 @@ describe('nowPlayingFromElement', () => {
     expect(result?.connectionStatusInfo).toBeUndefined();
   });
 
-  test('returns undefined when required attributes are missing', () => {
+  it('returns undefined when required attributes are missing', () => {
     const el = new XMLElement({ $: { deviceID: 'DEV1' } });
     expect(nowPlayingFromElement(el)).toBeUndefined();
   });
 
-  test('returns undefined when the ContentItem child is missing', () => {
+  it('returns undefined when the ContentItem child is missing', () => {
     const data = makeFullData();
     delete (data as Record<string, unknown>).ContentItem;
     expect(nowPlayingFromElement(new XMLElement(data))).toBeUndefined();
   });
 
-  test('parses successfully when art or time children are absent', () => {
+  it('parses successfully when art or time children are absent', () => {
     const data = makeFullData();
     delete (data as Record<string, unknown>).art;
     delete (data as Record<string, unknown>).time;
@@ -116,7 +116,7 @@ describe('nowPlayingFromElement', () => {
     expect(result?.source).toBe('SPOTIFY');
   });
 
-  test('returns undefined when the content item is malformed', () => {
+  it('returns undefined when the content item is malformed', () => {
     const data = makeFullData();
     data.ContentItem = [{ $: {} } as never];
     expect(nowPlayingFromElement(new XMLElement(data))).toBeUndefined();

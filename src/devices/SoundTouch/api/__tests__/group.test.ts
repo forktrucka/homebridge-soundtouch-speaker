@@ -1,10 +1,10 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { groupFromElement, roleFromElement } from '../group.js';
 import { GroupLocation } from '../special-types.js';
 import { XMLElement } from '../utils/xml-element.js';
 
 describe('roleFromElement', () => {
-  test('parses a role into device id, location and ip address', () => {
+  it('parses a role into device id, location and ip address', () => {
     const el = new XMLElement({
       deviceId: ['DEV-1'],
       role: ['LEFT'],
@@ -17,7 +17,7 @@ describe('roleFromElement', () => {
     });
   });
 
-  test('returns undefined when children are missing', () => {
+  it('returns undefined when children are missing', () => {
     const el = new XMLElement({ deviceId: ['DEV-1'] });
     expect(roleFromElement(el)).toBeUndefined();
   });
@@ -41,7 +41,7 @@ describe('groupFromElement', () => {
     };
   }
 
-  test('parses a full group with its roles', () => {
+  it('parses a full group with its roles', () => {
     const result = groupFromElement(new XMLElement(makeGroupData()));
     expect(result).toEqual({
       id: 'GROUP-1',
@@ -63,19 +63,19 @@ describe('groupFromElement', () => {
     });
   });
 
-  test('skips malformed roles', () => {
+  it('skips malformed roles', () => {
     const data = makeGroupData();
     data.roles[0].groupRole.push({ deviceId: ['DEV-3'] } as never);
     expect(groupFromElement(new XMLElement(data))?.roles).toHaveLength(2);
   });
 
-  test('returns undefined when the id attribute is missing', () => {
+  it('returns undefined when the id attribute is missing', () => {
     const data = makeGroupData();
     data.$ = {} as never;
     expect(groupFromElement(new XMLElement(data))).toBeUndefined();
   });
 
-  test('returns undefined when required children are missing', () => {
+  it('returns undefined when required children are missing', () => {
     const el = new XMLElement({ $: { id: 'GROUP-1' } });
     expect(groupFromElement(el)).toBeUndefined();
   });

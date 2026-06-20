@@ -126,3 +126,6 @@ dist
 
 /test/hbConfig
 test/hbConfig/config.office.json
+
+# Claude Code agent worktrees
+.claude/worktrees/

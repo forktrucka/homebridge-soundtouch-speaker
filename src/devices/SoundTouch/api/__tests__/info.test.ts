@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { infoFromElement } from '../info.js';
 import { XMLElement } from '../utils/xml-element.js';
 
@@ -23,7 +23,7 @@ function makeInfoData() {
 }
 
 describe('infoFromElement', () => {
-  test('parses a full info element', () => {
+  it('parses a full info element', () => {
     const result = infoFromElement(new XMLElement(makeInfoData()));
     expect(result).toEqual({
       deviceId: 'DEV123',
@@ -40,7 +40,7 @@ describe('infoFromElement', () => {
     });
   });
 
-  test('skips malformed components and network info entries', () => {
+  it('skips malformed components and network info entries', () => {
     const data = makeInfoData();
     data.components[0].component.push({
       softwareVersion: ['3.0.0'],
@@ -51,13 +51,13 @@ describe('infoFromElement', () => {
     expect(result?.networkInfo).toHaveLength(2);
   });
 
-  test('returns undefined when the deviceID attribute is missing', () => {
+  it('returns undefined when the deviceID attribute is missing', () => {
     const data = makeInfoData();
     data.$ = {} as never;
     expect(infoFromElement(new XMLElement(data))).toBeUndefined();
   });
 
-  test('returns undefined when required children are missing', () => {
+  it('returns undefined when required children are missing', () => {
     const el = new XMLElement({ $: { deviceID: 'DEV123' } });
     expect(infoFromElement(el)).toBeUndefined();
   });
