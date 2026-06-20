@@ -5,7 +5,14 @@ import pluginJest from 'eslint-plugin-jest';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**'],
+    ignores: ['dist/**', '.claude/**'],
+  },
+  {
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
   },
   {
     rules: {
