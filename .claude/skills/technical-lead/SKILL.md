@@ -51,7 +51,7 @@ Read these files before saying anything:
 1. `.claude/skills/technical-lead/ROADMAP.md` — delivery order, dependency
    graph, spike blockers. This is the authoritative sequencing document.
 2. All files in `.claude/skills/architect/plans/` — check `status:` frontmatter
-   and open checklist items to see what's planned, in-progress, or done.
+   and open checklist items to see what's planned, in-progress, in beta, or done.
 
 ### 2. Assess readiness
 
@@ -61,6 +61,7 @@ For each plan in roadmap order, determine:
   no unresolved spike or open decision blocking it.
 - **Blocked:** depends on a spike, a prerequisite plan, or an open decision.
 - **In-progress:** `status: in-progress` — check if it's stalled or moving.
+- **Beta:** `status: beta` — merged to dev and released to the beta channel; awaiting promotion to `latest`. The status comment includes the version (e.g. `# v0.3.0-beta.1`). Skip for planning purposes — work is done; only promotion remains.
 - **Done / cancelled:** skip.
 
 The ROADMAP table captures anticipated order, but re-check: if a dependency has
@@ -218,9 +219,10 @@ opened. If the plan lists additional manual verification steps, list them.
 ### 7. Update plan status and roadmap
 
 When handing off to the engineer, set `status: in-progress` in the plan file
-frontmatter. When all checklist items are done and the PR is merged, set
-`status: done`. If the work is cancelled or found impossible, set
-`status: cancelled` and fill in the plan's "If cancelled" section.
+frontmatter. When the PR is merged to dev and a beta release is cut, set
+`status: beta` with the version in a comment (e.g. `# v0.3.0-beta.1`). When
+promoted to `latest`, set `status: done`. If the work is cancelled or found
+impossible, set `status: cancelled` and fill in the plan's "If cancelled" section.
 
 When delivery order changes, update `ROADMAP.md`. The roadmap is your
 document — keep it current.
