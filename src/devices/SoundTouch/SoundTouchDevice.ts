@@ -73,13 +73,13 @@ export class SoundTouchDevice implements BaseDevice {
           });
 
       if (deviceConfig) {
-        logger.debug('created device configuration - %s', deviceConfig.toJson());
+        logger.debug(
+          'created device configuration - %s',
+          deviceConfig.toJson()
+        );
         return deviceConfig;
       }
-      logger.debug(
-        'could not create device config for accessory - %s',
-        name
-      );
+      logger.debug('could not create device config for accessory - %s', name);
     }
 
     logger.debug('creating default config', {
@@ -184,16 +184,15 @@ export class SoundTouchDevice implements BaseDevice {
 
     logger.info(`[${displayName}] Found device`);
 
-    const component = info.components.find(
-      (c) => c.serialNumber.toLowerCase() === info.deviceId.toLowerCase()
-    );
+    const component =
+      info.components.find((c) => c.category === 'SCM') ?? info.components[0];
 
     return new SoundTouchDevice({
       api: api,
       name: displayName,
       id: info.deviceId,
       model: info.type,
-      version: component ? component.softwareVersion : undefined,
+      version: component ? component.softwareVersion.split(' ')[0] : undefined,
       configuration: accessoryConfig,
     });
   }
