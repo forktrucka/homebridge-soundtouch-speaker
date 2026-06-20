@@ -38,8 +38,9 @@ export class PlatformConfiguration {
     return new PlatformConfiguration({
       discoverAllAccessories:
         props.discoverAllAccessories ?? DEFAULT_DISCOVER_ALL_ACCESSORIES,
-      verbose: DEFAULT_VERBOSE,
-      pollingInterval: DEFAULT_POLLING_INTERVAL,
+      verbose: props.global?.verbose ?? DEFAULT_VERBOSE,
+      // `??` (not `||`) so an explicit `0` survives as "polling disabled".
+      pollingInterval: props.global?.pollingInterval ?? DEFAULT_POLLING_INTERVAL,
       accessories:
         props.accessories
           ?.map((accessory) => {
