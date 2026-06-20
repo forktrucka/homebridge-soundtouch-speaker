@@ -4,6 +4,10 @@ without opening the diff. Delete any section that doesn't apply, and delete
 these comments before submitting. Full rules: coding-conventions skill →
 "Pull requests".
 
+No AI/assistant attribution anywhere — no "Generated with …" footer here, and no
+Co-Authored-By/session trailers in commits (coding-conventions →
+"No AI / assistant attribution").
+
 Title (set above, not here): Conventional Commit — `<type>: <imperative summary>`
 (feat / fix / feat! / chore / docs / ci / test / refactor). The type drives the
 release (feat → minor, fix → patch, feat! → major, others → none). Squash-merged,

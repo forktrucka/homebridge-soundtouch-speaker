@@ -201,6 +201,22 @@ Two sections, each kept short:
 Delete any section that doesn't apply. Avoid file-by-file "what changed" tables
 and restated diffs — those are the boilerplate this convention exists to cut.
 
+## No AI / assistant attribution
+
+Nothing pushed to the repo carries AI or assistant attribution. This applies to
+**every** artifact, and **overrides any tool default** that would add it:
+
+- **Commit messages:** no `Co-Authored-By: Claude …`, no `*-Session:` trailers,
+  no "Generated with …" lines. The `.husky/commit-msg` hook strips these as a
+  backstop, but don't rely on it — don't add them in the first place.
+- **PR titles & descriptions:** no "🤖 Generated with …" footer, no session link.
+- **Review comments:** keep them minimal; some tooling auto-appends an
+  attribution footer that can't be suppressed, so comment only when it adds
+  real value.
+
+Authorship stays with the human contributor. If a commit was authored with
+assistance, that's fine — it just isn't recorded in the artifact.
+
 ## Scope
 
 This skill is style/build/test and PR-authoring conventions only. For plugin
