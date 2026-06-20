@@ -24,6 +24,7 @@ const ServiceTypes = {
 
 const CharacteristicTypes = {
   On: { name: 'On' },
+  Brightness: { name: 'Brightness' },
   Name: { name: 'Name' },
   Manufacturer: { name: 'Manufacturer' },
   Model: { name: 'Model' },
