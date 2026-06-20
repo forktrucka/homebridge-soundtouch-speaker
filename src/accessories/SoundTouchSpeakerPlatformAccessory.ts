@@ -8,6 +8,7 @@ import {
 } from './services/SoundTouchSpeakerCharacteristic.js';
 import { SoundTouchSpeakerInformationCharacteristic } from './services/SoundTouchSpeakerInformationCharacteristic.js';
 import { SoundTouchSpeakerOnCharacteristic } from './services/SoundTouchSpeakerOnCharacteristic.js';
+import { SoundTouchSpeakerBrightnessCharacteristic } from './services/SoundTouchSpeakerBrightnessCharacteristic.js';
 
 export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharacteristic {
   private readonly speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
@@ -80,13 +81,17 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     SoundTouchSpeakerPlatformAccessory.pruneOrphanService({
       accessory,
       platform,
-      orphanServiceType: isLightbulb ? ServiceType.ON_OFF : ServiceType.LIGHTBULB,
+      orphanServiceType: isLightbulb
+        ? ServiceType.ON_OFF
+        : ServiceType.LIGHTBULB,
       device,
     });
 
     const service = SoundTouchSpeakerPlatformAccessory.ensureAccessoryService({
       serviceType: isLightbulb ? ServiceType.LIGHTBULB : ServiceType.ON_OFF,
-      service: isLightbulb ? platform.service.Lightbulb : platform.service.Switch,
+      service: isLightbulb
+        ? platform.service.Lightbulb
+        : platform.service.Switch,
       ...props,
     });
 
@@ -95,6 +100,14 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
         service,
         ...props,
       }),
+      ...(isLightbulb
+        ? [
+            await SoundTouchSpeakerBrightnessCharacteristic.create({
+              service,
+              ...props,
+            }),
+          ]
+        : []),
       ...props.defaultCharacteristics,
     ];
 
@@ -134,7 +147,10 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     orphanServiceType: ServiceType;
     device: SoundTouchDevice;
   }): void {
-    const orphanName = getServiceName({ serviceType: orphanServiceType, device });
+    const orphanName = getServiceName({
+      serviceType: orphanServiceType,
+      device,
+    });
     const orphan = accessory.getService(orphanName);
     if (orphan) {
       platform.logger.info(
