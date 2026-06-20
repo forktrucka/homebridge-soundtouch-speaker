@@ -40,6 +40,7 @@ activates only once plan 01 enables the Lightbulb accessory type.
 | 2026-06-20 | Plan 02 ships before plan 01; dependency on plan 01 removed | Volume should be available immediately on default Switch accessories | Waiting for plan 01 before shipping volume |
 | 2026-06-20 | Two characteristic classes: `SoundTouchSpeakerVolumeCharacteristic` (Speaker/Volume) and the Lightbulb Brightness wiring | Different services, different power-off semantics; cleaner to keep them separate than to parameterise one class | One class parameterised by service/characteristic type — more complex with marginal reuse |
 | 2026-06-20 | WebSocket push used for external volume changes — no new WS infrastructure needed | The speaker sends a `volumeUpdated` tickle on port 8080 (existing per-device WebSocket connection) whenever volume changes externally. The characteristic's `refresh()` listens for this event and re-fetches via `api.getVolume()`, then pushes the new value to HomeKit via `characteristic.updateValue`. The WS connection is already open; volume just needs to subscribe to the existing event emitter. | Polling on a timer — less responsive and wastes requests; opening a second WebSocket — redundant |
+| 2026-06-20 | Promote the `On` setter's 5 s `finally` sleep fix into plan 02 scope (in-scope, not just a finding) | The race has been a passive finding since 2026-06-19. Plan 02 introduces the volume set that races it, and plan 02 already touches the power/volume interaction — so the fix belongs here. The brief must hand this off as a concrete task, not an open hazard. (Polling-loop lifecycle is a *separate* concern — see plan 06.) | Leaving it a passive finding (risk it never gets fixed); a separate fix PR touching `SoundTouchSpeakerOnCharacteristic.ts` (merge-conflict churn with plan 02, which also edits it) |
 
 ## If cancelled
 
@@ -99,7 +100,12 @@ activates only once plan 01 enables the Lightbulb accessory type.
 - [ ] Wire Brightness characteristic into `createAccessory` for the Lightbulb path
       (behind the plan 01 `accessoryType` gate)
 - [ ] Reconcile On/Brightness ordering with `SoundTouchSpeakerOnCharacteristic`
-- [ ] Add tests for both characteristic classes
+- [ ] **Fix the power/volume race:** replace the `On` setter's blocking 5 s
+      `finally` sleep (`SoundTouchSpeakerOnCharacteristic.ts:66`) with a
+      non-blocking settle/debounce, so a near-simultaneous volume set isn't
+      blocked or fought by the power set
+- [ ] Add tests for both characteristic classes (incl. a power+volume
+      interaction test that would fail against the old 5 s sleep)
 
 ## Verification
 
