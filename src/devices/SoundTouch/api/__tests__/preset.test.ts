@@ -5,7 +5,7 @@ import { XMLElement } from '../utils/xml-element.js';
 describe('presetFromElement', () => {
   test('parses id, dates and content item', () => {
     const el = new XMLElement({
-      $: { id: '3', createdOn: '1600000000', updatedOn: '1600000500' },
+      $: { id: '3', createdOn: '1600000000', updateOn: '1600000500' },
       ContentItem: [
         { $: { source: 'SPOTIFY', sourceAccount: 'acct' }, itemName: ['Mix'] },
       ],

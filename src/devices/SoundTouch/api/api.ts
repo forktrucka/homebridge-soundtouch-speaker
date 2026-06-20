@@ -250,8 +250,8 @@ export class API {
       if (errors) {
         throw APIErrors.fromElement(errors);
       }
-    } else if (root.hasChild('Error')) {
-      const errElement = root.getChild('Error');
+    } else if (root.hasChild('error')) {
+      const errElement = root.getChild('error');
       if (errElement) {
         const err = errorFromElement(errElement);
         if (err) {

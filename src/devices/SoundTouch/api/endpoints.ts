@@ -3,7 +3,7 @@ export enum Endpoints {
   volume = 'volume',
   speaker = 'speaker',
   key = 'key',
-  nowPlaying = 'now_playing',
+  nowPlaying = 'nowPlaying',
   select = 'select',
   sources = 'sources',
   getZone = 'getZone',

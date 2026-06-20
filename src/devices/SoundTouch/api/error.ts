@@ -23,7 +23,7 @@ export class APIErrors extends Error {
   readonly errors: APIError[];
 
   constructor(errors: APIError[], deviceId?: string) {
-    super(`Occured on device ${deviceId}: ${JSON.stringify(errors)}`);
+    super(`Occurred on device ${deviceId}: ${JSON.stringify(errors)}`);
     this.deviceId = deviceId;
     this.errors = errors;
   }

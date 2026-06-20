@@ -105,10 +105,15 @@ describe('nowPlayingFromElement', () => {
     expect(nowPlayingFromElement(new XMLElement(data))).toBeUndefined();
   });
 
-  test('returns undefined when the art or time children are missing', () => {
+  test('parses successfully when art or time children are absent', () => {
     const data = makeFullData();
     delete (data as Record<string, unknown>).art;
-    expect(nowPlayingFromElement(new XMLElement(data))).toBeUndefined();
+    delete (data as Record<string, unknown>).time;
+    const result = nowPlayingFromElement(new XMLElement(data));
+    expect(result).toBeDefined();
+    expect(result?.art).toBeUndefined();
+    expect(result?.time).toBeUndefined();
+    expect(result?.source).toBe('SPOTIFY');
   });
 
   test('returns undefined when the content item is malformed', () => {

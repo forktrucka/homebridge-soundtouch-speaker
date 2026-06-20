@@ -10,14 +10,14 @@ export interface Preset {
 
 export function presetFromElement(element: XMLElement): Preset | undefined {
   if (
-    !element.hasAttributes(['id', 'createdOn', 'updatedOn']) ||
+    !element.hasAttributes(['id', 'createdOn', 'updateOn']) ||
     !element.hasChild('ContentItem')
   ) {
     return undefined;
   }
   const id = element.getAttribute('id');
   const createdOn = element.getAttribute('createdOn');
-  const updatedOn = element.getAttribute('updatedOn');
+  const updatedOn = element.getAttribute('updateOn');
   const contentItemElement = element.getChild('ContentItem');
   if (!id || !createdOn || !updatedOn || !contentItemElement) {
     return undefined;
