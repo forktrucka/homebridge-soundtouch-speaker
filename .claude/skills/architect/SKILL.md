@@ -52,11 +52,14 @@ The conventions this skill *owns* — decide both up front, they drive the relea
   in `package.json` or write a changelog; releases are automated. See
   `CONTRIBUTING.md` for the full model.
 
-### 4. Check the roadmap
-Read `ROADMAP.md` (in this skill's directory) before writing a new plan. It
-records the dependency chain and delivery order across all planned features — a
-new plan may shift the order or introduce a new dependency. Update `ROADMAP.md`
-after writing the plan if the delivery order or coupling notes change.
+### 4. Note delivery sequencing separately
+The architect owns *what* to build and *why* — feature design, trade-offs, API
+decisions. Delivery order and sequencing is owned by the **technical-lead**
+skill, which maintains `ROADMAP.md` in `.claude/skills/technical-lead/`.
+
+When writing a new plan, note any dependencies on other plans in the plan file
+itself (the "Affected areas" and "Conventions" sections). Tell the technical
+lead after writing the plan so it can slot the work into the roadmap.
 
 ### 5. Write the plan
 Copy `plan-template.md` (in this skill's directory) to
