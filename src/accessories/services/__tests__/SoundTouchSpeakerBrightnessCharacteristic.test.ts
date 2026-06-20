@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { SoundTouchSpeakerBrightnessCharacteristic } from '../SoundTouchSpeakerBrightnessCharacteristic.js';
-import { SoundTouchDevice } from '../../../devices/SoundTouch/SoundTouchDevice.js';
-import { KeyValue } from '../../../devices/SoundTouch/api/index.js';
 
 class FakeHapStatusError extends Error {
   constructor(public readonly hapStatus: number) {
@@ -9,10 +7,7 @@ class FakeHapStatusError extends Error {
   }
 }
 
-function build({
-  volume = 50,
-  isOn = true,
-}: { volume?: number; isOn?: boolean } = {}) {
+function build({ volume = 50 }: { volume?: number } = {}) {
   const updateValue = jest.fn();
   const hapCharacteristic = {
     value: volume as number | boolean,
@@ -60,8 +55,6 @@ function build({
     },
     logger: { homebridgeLogger: { log: jest.fn() }, requiredLogLevel: 'debug' },
   };
-
-  jest.spyOn(SoundTouchDevice, 'deviceIsOn').mockResolvedValue(isOn);
 
   const subject = new SoundTouchSpeakerBrightnessCharacteristic({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,35 +141,19 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
 
   describe('#setBrightness', () => {
     describe('when value is 0', () => {
-      it('powers off the device when it is on', async () => {
-        const { subject, pressKey } = build({ isOn: true });
-
-        await subject.setBrightness(0);
-
-        expect(pressKey).toHaveBeenCalledWith(KeyValue.power);
-      });
-
-      it('does nothing when the device is already off', async () => {
-        const { subject, pressKey } = build({ isOn: false });
+      it('is a no-op — power-off is owned by setOn', async () => {
+        const { subject, pressKey, setVolume } = build();
 
         await subject.setBrightness(0);
 
         expect(pressKey).not.toHaveBeenCalled();
-      });
-
-      it('throws HapStatusError when the power-off command fails', async () => {
-        const { subject, pressKey } = build({ isOn: true });
-        pressKey.mockRejectedValue(new Error('network error'));
-
-        await expect(subject.setBrightness(0)).rejects.toBeInstanceOf(
-          FakeHapStatusError
-        );
+        expect(setVolume).not.toHaveBeenCalled();
       });
     });
 
     describe('when value is greater than 0', () => {
       it('sets the volume to the given value', async () => {
-        const { subject, setVolume } = build({ isOn: true });
+        const { subject, setVolume } = build();
 
         await subject.setBrightness(65);
 
@@ -184,7 +161,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
       });
 
       it('throws HapStatusError when the volume set fails', async () => {
-        const { subject, setVolume } = build({ isOn: true });
+        const { subject, setVolume } = build();
         setVolume.mockRejectedValue(new Error('network error'));
 
         await expect(subject.setBrightness(65)).rejects.toBeInstanceOf(

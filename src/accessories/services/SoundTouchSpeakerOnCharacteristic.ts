@@ -55,7 +55,7 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
       if (this.characteristic.value !== desiredPowerStatus) {
         await this.device.api.pressKey(KeyValue.power);
       }
-      this.log.success('set status - %s', desiredPowerStatus ? 'on' : 'off');
+      this.log.debug('set status - %s', desiredPowerStatus ? 'on' : 'off');
     } catch (e: unknown) {
       this.log.error('error setting on status', e);
       throw new this.platform.api.hap.HapStatusError(
