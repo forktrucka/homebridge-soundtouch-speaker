@@ -1,8 +1,8 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, it } from '@jest/globals';
 import { flattenAccessoryConfiguration } from '../ExternalPlatformConfig.js';
 
 describe('calculateResultingAccessoryConfiguration', () => {
-  test('it merges accessory and global configurations', () => {
+  it('it merges accessory and global configurations', () => {
     const result = flattenAccessoryConfiguration({
       globalConfig: {
         verbose: true,
@@ -18,7 +18,7 @@ describe('calculateResultingAccessoryConfiguration', () => {
       pollingInterval: 2000,
     });
   });
-  test('it ignores undefined values in the global config', () => {
+  it('it ignores undefined values in the global config', () => {
     const result = flattenAccessoryConfiguration({
       globalConfig: {
         verbose: undefined,
@@ -34,7 +34,7 @@ describe('calculateResultingAccessoryConfiguration', () => {
       pollingInterval: 2000,
     });
   });
-  test('it ignores undefined values in the accessory config', () => {
+  it('it ignores undefined values in the accessory config', () => {
     const result = flattenAccessoryConfiguration({
       globalConfig: {
         verbose: true,
@@ -50,7 +50,7 @@ describe('calculateResultingAccessoryConfiguration', () => {
       pollingInterval: 5000,
     });
   });
-  test('it ignores undefined value for global config', () => {
+  it('it ignores undefined value for global config', () => {
     const result = flattenAccessoryConfiguration({
       globalConfig: undefined,
       accessory: {
@@ -63,7 +63,7 @@ describe('calculateResultingAccessoryConfiguration', () => {
       pollingInterval: 5000,
     });
   });
-  test('it returns undefined when no config is specified', () => {
+  it('it returns undefined when no config is specified', () => {
     const result = flattenAccessoryConfiguration({
       globalConfig: undefined,
       accessory: undefined,
@@ -71,7 +71,7 @@ describe('calculateResultingAccessoryConfiguration', () => {
     expect(result).toEqual(undefined);
   });
 
-  test('global accessoryType flows into accessory when accessory does not override', () => {
+  it('global accessoryType flows into accessory when accessory does not override', () => {
     const result = flattenAccessoryConfiguration({
       globalConfig: { accessoryType: 'lightbulb' },
       accessory: { ip: '10.0.0.1' },
@@ -79,7 +79,7 @@ describe('calculateResultingAccessoryConfiguration', () => {
     expect(result?.accessoryType).toBe('lightbulb');
   });
 
-  test('per-accessory accessoryType overrides global', () => {
+  it('per-accessory accessoryType overrides global', () => {
     const result = flattenAccessoryConfiguration({
       globalConfig: { accessoryType: 'lightbulb' },
       accessory: { ip: '10.0.0.1', accessoryType: 'switch' },
