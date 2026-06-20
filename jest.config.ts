@@ -38,6 +38,20 @@ const config: Config = {
     '<rootDir>/src/__integration__/',
   ],
 
+  // Coverage guard: fails `npm test` (and therefore CI, which runs the tests)
+  // if coverage regresses below these floors. Set just under the current
+  // numbers (stmts 84.5 / branch 72.3 / funcs 84.9 / lines 84.9) so normal
+  // churn passes while a real drop fails the build. Ratchet up as coverage
+  // improves.
+  coverageThreshold: {
+    global: {
+      statements: 80,
+      branches: 70,
+      functions: 80,
+      lines: 80,
+    },
+  },
+
   projects: [
     {
       ...common,
