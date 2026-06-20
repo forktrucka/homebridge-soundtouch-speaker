@@ -9,6 +9,7 @@ import {
 import type { PlatformAccessory } from 'homebridge';
 import type { ExternalPlatformConfig } from '../ExternalPlatformConfig.js';
 import { SoundTouchHomebridgePlatform } from '../platform.js';
+import { SoundTouchSpeakerPlatformAccessory } from '../accessories/SoundTouchSpeakerPlatformAccessory.js';
 import {
   FakeSoundTouchServer,
   infoXml,
@@ -94,6 +95,20 @@ describe('SoundTouchHomebridgePlatform', () => {
       await api.emitDidFinishLaunching();
 
       expect(api.unregisteredAccessories).toContain(stale);
+    });
+
+    it('stops the discovered accessory polling loop on shutdown', async () => {
+      const stopPolling = jest.spyOn(
+        SoundTouchSpeakerPlatformAccessory.prototype,
+        'stopPolling'
+      );
+      createPlatform();
+      await api.emitDidFinishLaunching();
+
+      api.emitShutdown();
+
+      expect(stopPolling).toHaveBeenCalledTimes(1);
+      stopPolling.mockRestore();
     });
   });
 });

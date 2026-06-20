@@ -68,6 +68,33 @@ describe('PlatformConfiguration', () => {
       expect(config.accessories[0].pollingInterval).toBe(5000);
     });
 
+    test('honours global.pollingInterval at the platform level', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { pollingInterval: 5000 },
+      });
+
+      expect(config.pollingInterval).toBe(5000);
+    });
+
+    test('honours global.verbose at the platform level', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { verbose: true },
+      });
+
+      expect(config.verbose).toBe(true);
+    });
+
+    test('preserves an explicit pollingInterval of 0 (disabled)', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { pollingInterval: 0 },
+      });
+
+      expect(config.pollingInterval).toBe(0);
+    });
+
     test('accessory-level pollingInterval overrides global', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
