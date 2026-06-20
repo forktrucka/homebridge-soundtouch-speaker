@@ -45,6 +45,37 @@ flowchart TD
 | 7 | **[04] PWA — Phase 2** | `feat/pwa` | Group management via the zone API (`/getZone`, `/setZone`, etc. — already implemented in `src/devices/SoundTouch/api/zone.ts`). Needs the phase 1 PWA scaffold and embedded server to be in place. |
 | 8 | **[04] PWA — Phase 3** | `feat/pwa` | Homebridge config sync. Blocked on **spike B** (confirm atomic config write path safety under Homebridge). Requires phase 1 scaffold. |
 
+## Session cost estimates
+
+Per-plan estimate of how much of a single coding session each unit consumes, by
+the methodology in `SKILL.md` step 5. Cost is driven by iteration loops
+(read → edit → test → lint → fix), not line count. Bands: **Small** (room to
+spare), **Medium** (one fits comfortably), **Heavy** (plan on one per session).
+Update the band after each unit ships and note the variance — see "Calibration"
+below.
+
+| Plan | Band | Drivers that set the band | Session guidance |
+| ---- | ---- | ------------------------- | ---------------- |
+| **[05] Integration test harness** | Medium | New test infra (fake HTTP server + Homebridge stub) and a Jest `projects` split; lots of additive code but low iteration risk and no release | Best first pick — de-risks every later feature PR. ~10 checklist items. |
+| **[02] Volume — Switch path** | Medium | Pure HomeKit wiring (API already done), but the `On` setter's 5s `finally` sleep introduces a race that needs debounce/reconcile + tests | One known hazard drives the iteration. Highest user value. ~11 items. |
+| **[01] Accessory type** | Heavy | Config threading through `DeviceConfiguration`, branching the hardcoded Switch in `createAccessory` (`:71`), and orphan-service pruning on type change | Plan a full session. Gates the Lightbulb volume follow-up. ~11 items. |
+| **[02] Volume — Lightbulb path** | Small | Brightness characteristic wiring once plan 01's `accessoryType` gate exists | Bundle into plan 01's PR or a quick follow-up. |
+| **[03] Source selection** | TBD (blocked) | Estimate after the TV-vs-Switch spike resolves the architecture | Re-estimate once unblocked. |
+| **[04] PWA — Phase 1–3** | TBD (blocked) | New `web/` workspace + embedded `src/server/`; estimate after spike A | Each phase is its own session at minimum. |
+
+**Realistic capacity per session:** one Medium/Heavy plan to a shippable,
+verified, pushed state; a second only if the first goes smoothly with budget to
+spare. Three in one session is unlikely without compromising the test bar that
+plan 05 exists to raise.
+
+### Calibration
+
+When a unit ships, record actual-vs-estimate here so future estimates sharpen.
+
+| Date | Plan | Estimate | Actual | Variance / note |
+| ---- | ---- | -------- | ------ | --------------- |
+| _(none yet)_ | | | | |
+
 ## Spikes (blockers)
 
 Two features are gated on spikes that must happen on a real device before code
