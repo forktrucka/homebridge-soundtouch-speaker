@@ -107,6 +107,41 @@ describe('PlatformConfiguration', () => {
       expect(config.accessories[0].pollingInterval).toBe(1000);
     });
 
+    test('accessory defaults to switch accessoryType', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        accessories: [{ name: 'Kitchen', ip: '192.168.1.10' }],
+      });
+
+      expect(config.accessories[0].accessoryType).toBe('switch');
+    });
+
+    test('global accessoryType is applied to all accessories', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { accessoryType: 'lightbulb' },
+        accessories: [
+          { name: 'Kitchen', ip: '192.168.1.10' },
+          { name: 'Lounge', room: 'Lounge' },
+        ],
+      });
+
+      expect(config.accessories[0].accessoryType).toBe('lightbulb');
+      expect(config.accessories[1].accessoryType).toBe('lightbulb');
+    });
+
+    test('per-accessory accessoryType overrides global', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { accessoryType: 'lightbulb' },
+        accessories: [
+          { name: 'Kitchen', ip: '192.168.1.10', accessoryType: 'switch' },
+        ],
+      });
+
+      expect(config.accessories[0].accessoryType).toBe('switch');
+    });
+
     test('accessories without ip or room are excluded', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,

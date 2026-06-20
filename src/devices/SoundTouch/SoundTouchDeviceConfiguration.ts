@@ -2,11 +2,15 @@ import { AccessoryConfig } from '../../ExternalPlatformConfig.js';
 
 const DEFAULT_POLLING_INTERVAL = 2 * 1000; // 2 Seconds
 const DEFAULT_VERBOSE_LOGGING = false;
+const DEFAULT_ACCESSORY_TYPE = 'switch' as const;
+
+export type AccessoryType = 'switch' | 'lightbulb';
 
 interface BaseDeviceConfiguration {
   name: string;
   pollingInterval?: number;
   verbose?: boolean;
+  accessoryType?: AccessoryType;
 }
 
 interface DeviceViaRoomConfigurationProps extends BaseDeviceConfiguration {
@@ -28,6 +32,7 @@ export class DeviceConfiguration {
 
   readonly pollingInterval: number;
   readonly verboseLogging: boolean;
+  readonly accessoryType: AccessoryType;
 
   constructor(props: {
     type: 'room' | 'ip' | 'discovered';
@@ -37,11 +42,13 @@ export class DeviceConfiguration {
     port?: number;
     pollingInterval?: number;
     verboseLogging?: boolean;
+    accessoryType?: AccessoryType;
   }) {
     this.type = props.type;
     this.name = props.name;
     this.verboseLogging = props.verboseLogging ?? DEFAULT_VERBOSE_LOGGING;
     this.pollingInterval = props.pollingInterval ?? DEFAULT_POLLING_INTERVAL;
+    this.accessoryType = props.accessoryType ?? DEFAULT_ACCESSORY_TYPE;
 
     if (props.type === 'room') {
       this.room = props.room;
@@ -74,12 +81,14 @@ export class DeviceConfiguration {
         ip: props.accessoryConfig.ip,
         port: props.accessoryConfig.port,
         pollingInterval: props.accessoryConfig.pollingInterval,
+        accessoryType: props.accessoryConfig.accessoryType,
       });
     } else if (props.accessoryConfig?.room) {
       return DeviceConfiguration.createForRoom({
         name: props?.name || props.accessoryConfig.name || '',
         room: props.accessoryConfig.room,
         pollingInterval: props.accessoryConfig.pollingInterval,
+        accessoryType: props.accessoryConfig.accessoryType,
       });
     }
     return undefined;
@@ -89,15 +98,18 @@ export class DeviceConfiguration {
     name,
     verboseLogging,
     pollingInterval,
+    accessoryType,
   }: {
     name?: string;
     verboseLogging?: boolean;
     pollingInterval?: number;
+    accessoryType?: AccessoryType;
   }) {
     return new DeviceConfiguration({
       name,
       verboseLogging,
       pollingInterval,
+      accessoryType,
       type: 'discovered',
     });
   }

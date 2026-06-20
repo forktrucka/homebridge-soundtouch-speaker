@@ -82,6 +82,19 @@ describe('DeviceConfiguration', () => {
       });
       expect(config.verboseLogging).toBe(true);
     });
+
+    test('defaults accessoryType to switch', () => {
+      const config = DeviceConfiguration.create({ name: 'Office' });
+      expect(config.accessoryType).toBe('switch');
+    });
+
+    test('uses provided accessoryType', () => {
+      const config = DeviceConfiguration.create({
+        name: 'Office',
+        accessoryType: 'lightbulb',
+      });
+      expect(config.accessoryType).toBe('lightbulb');
+    });
   });
 
   describe('fromAccessoryConfiguration', () => {
@@ -139,6 +152,30 @@ describe('DeviceConfiguration', () => {
       });
 
       expect(config?.name).toBe('Config Name');
+    });
+
+    test('defaults accessoryType to switch when not in accessoryConfig', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Kitchen',
+        accessoryConfig: { ip: '10.0.0.1' },
+      });
+      expect(config?.accessoryType).toBe('switch');
+    });
+
+    test('threads accessoryType from accessoryConfig (ip path)', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Kitchen',
+        accessoryConfig: { ip: '10.0.0.1', accessoryType: 'lightbulb' },
+      });
+      expect(config?.accessoryType).toBe('lightbulb');
+    });
+
+    test('threads accessoryType from accessoryConfig (room path)', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Lounge',
+        accessoryConfig: { room: 'Lounge', accessoryType: 'lightbulb' },
+      });
+      expect(config?.accessoryType).toBe('lightbulb');
     });
   });
 

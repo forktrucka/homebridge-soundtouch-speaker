@@ -18,6 +18,7 @@ interface Identifier {
 
 const ServiceTypes = {
   Switch: { name: 'Switch' },
+  Lightbulb: { name: 'Lightbulb' },
   AccessoryInformation: { name: 'AccessoryInformation' },
 } satisfies Record<string, Identifier>;
 

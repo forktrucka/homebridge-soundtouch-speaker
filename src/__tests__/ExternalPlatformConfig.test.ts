@@ -70,4 +70,20 @@ describe('calculateResultingAccessoryConfiguration', () => {
     });
     expect(result).toEqual(undefined);
   });
+
+  test('global accessoryType flows into accessory when accessory does not override', () => {
+    const result = flattenAccessoryConfiguration({
+      globalConfig: { accessoryType: 'lightbulb' },
+      accessory: { ip: '10.0.0.1' },
+    });
+    expect(result?.accessoryType).toBe('lightbulb');
+  });
+
+  test('per-accessory accessoryType overrides global', () => {
+    const result = flattenAccessoryConfiguration({
+      globalConfig: { accessoryType: 'lightbulb' },
+      accessory: { ip: '10.0.0.1', accessoryType: 'switch' },
+    });
+    expect(result?.accessoryType).toBe('switch');
+  });
 });
