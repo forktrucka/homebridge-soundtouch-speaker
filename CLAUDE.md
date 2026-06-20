@@ -4,6 +4,17 @@
 plugin that controls Bose SoundTouch speakers over their local HTTP/XML +
 WebSocket API.
 
+## Branching
+
+All work branches from `dev`. Cut a new branch from the latest `dev` before starting any task:
+
+```sh
+git fetch origin dev
+git checkout -b <type>/<slug> origin/dev
+```
+
+`main` is release-only and is never worked on directly.
+
 ## Use the skills
 
 This repo's working knowledge lives in `.claude/skills/`. Consult the relevant
