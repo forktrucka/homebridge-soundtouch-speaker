@@ -11,6 +11,10 @@ import type { ExternalPlatformConfig } from '../ExternalPlatformConfig.js';
 import { SoundTouchHomebridgePlatform } from '../platform.js';
 import { SoundTouchSpeakerPlatformAccessory } from '../accessories/SoundTouchSpeakerPlatformAccessory.js';
 import {
+  getServiceName,
+  ServiceType,
+} from '../accessories/services/SoundTouchSpeakerCharacteristic.js';
+import {
   FakeSoundTouchServer,
   infoXml,
   nowPlayingXml,
@@ -47,10 +51,13 @@ describe('SoundTouchHomebridgePlatform', () => {
     await server.stop();
   });
 
-  function createPlatform(): SoundTouchHomebridgePlatform {
+  function createPlatform(
+    overrides: Partial<ExternalPlatformConfig> = {}
+  ): SoundTouchHomebridgePlatform {
     const config = {
       platform: 'SoundTouchSpeaker',
       accessories: [{ ip: '127.0.0.1', port }],
+      ...overrides,
     } as ExternalPlatformConfig;
 
     return new SoundTouchHomebridgePlatform(
@@ -109,6 +116,51 @@ describe('SoundTouchHomebridgePlatform', () => {
 
       expect(stopPolling).toHaveBeenCalledTimes(1);
       stopPolling.mockRestore();
+    });
+  });
+
+  describe('when the accessory type is lightbulb', () => {
+    it('exposes the speaker as a Lightbulb service', async () => {
+      createPlatform({ global: { accessoryType: 'lightbulb' } });
+
+      await api.emitDidFinishLaunching();
+
+      const accessory = api.registeredAccessories[0];
+      expect(
+        accessory.services.some((service) => service.type.name === 'Lightbulb')
+      ).toBe(true);
+      expect(
+        accessory.services.some((service) => service.type.name === 'Switch')
+      ).toBe(false);
+    });
+  });
+
+  describe('when a cached accessory changes type from Switch to Lightbulb', () => {
+    it('removes the orphaned Switch service', async () => {
+      const uuid = api.hap.uuid.generate(DEVICE_ID);
+      const cached = new api.platformAccessory('Test Speaker', uuid);
+      // Seed the stale service the previous (Switch) configuration left behind.
+      cached.addService(
+        api.hap.Service.Switch,
+        getServiceName({
+          serviceType: ServiceType.ON_OFF,
+          device: { name: 'Test Speaker' } as never,
+        })
+      );
+
+      const platform = createPlatform({
+        global: { accessoryType: 'lightbulb' },
+      });
+      platform.configureAccessory(cached as unknown as PlatformAccessory);
+
+      await api.emitDidFinishLaunching();
+
+      expect(
+        cached.services.some((service) => service.type.name === 'Switch')
+      ).toBe(false);
+      expect(
+        cached.services.some((service) => service.type.name === 'Lightbulb')
+      ).toBe(true);
     });
   });
 });

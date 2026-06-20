@@ -23,6 +23,12 @@
           "verbose": {
             "type": "boolean",
             "default": false
+          },
+          "accessoryType": {
+            "type": "string",
+            "enum": ["switch", "lightbulb"],
+            "default": "switch",
+            "description": "Default HomeKit accessory type for all speakers. 'lightbulb' exposes volume via Brightness."
           }
         }
       },
@@ -58,6 +64,12 @@
               "type": "integer",
               "description": "Override the polling interval (ms) for this device. Set to 0 to disable polling.",
               "default": 2000
+            },
+            "accessoryType": {
+              "type": "string",
+              "enum": ["switch", "lightbulb"],
+              "required": false,
+              "description": "Override the HomeKit accessory type for this speaker. 'lightbulb' exposes volume via Brightness."
             }
           }
         },
