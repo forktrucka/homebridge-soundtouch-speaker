@@ -5,6 +5,7 @@ import { DeviceLogger, Logger } from '../../utils/FormattedLogger.js';
 
 export enum ServiceType {
   'ON_OFF' = 'ON',
+  'SPEAKER' = 'SPEAKER',
 }
 
 export abstract class SoundTouchSpeakerCharacteristic {
