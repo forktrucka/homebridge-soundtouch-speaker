@@ -182,15 +182,24 @@ commit type to pick are owned by **architect**; the full release model lives in
 ### Description
 
 Keep it concise — a reviewer should grasp the change without opening the diff.
+The repo ships a fill-in template at `.github/PULL_REQUEST_TEMPLATE.md` (it
+auto-populates the body on GitHub); its guiding comments encode the rules below.
+Keep the template and this section in sync — edit both if either changes.
 
-- When the PR delivers an architect plan
-  (`.claude/skills/architect/plans/<date>-<slug>.md`), the description **reflects
-  that plan**: link it and summarize its **Context** (why) and what's delivered.
-  Don't restate the whole plan — point to it.
-- If there's no plan, a short paragraph of *what* changed and *why* is enough.
-- Note the verification you ran
+Two sections, each kept short:
+
+- **What & why** — describe the change and the reason, *not* the files touched
+  (the diff shows those). When the PR delivers an architect plan
+  (`.claude/skills/architect/plans/<date>-<slug>.md`), **link it and summarize
+  its Context (why) + what's delivered** — point to the plan, don't restate it.
+  With no plan, a sentence or two of *what* and *why* is enough.
+- **Verification** — the checks you ran
   (`npm run typecheck && npm run lint && npm test`, plus any live `npm run watch`
-  check). Skip boilerplate and anything obvious from the diff.
+  check) and what's still pending. Skip boilerplate and anything obvious from the
+  diff.
+
+Delete any section that doesn't apply. Avoid file-by-file "what changed" tables
+and restated diffs — those are the boilerplate this convention exists to cut.
 
 ## Scope
 
