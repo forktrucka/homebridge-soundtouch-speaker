@@ -14,7 +14,6 @@ import {
   FakeSoundTouchServer,
   infoXml,
   nowPlayingXml,
-  volumeXml,
 } from './helpers/fake-soundtouch-server.js';
 import { HomebridgeApiStub } from './helpers/homebridge-stub.js';
 
@@ -86,15 +85,6 @@ describe('SoundTouchHomebridgePlatform', () => {
       await api.emitDidFinishLaunching();
 
       expect(api.getCharacteristicValue('Switch', 'On')).toBe(true);
-    });
-
-    it('initialises the Speaker volume characteristic from the device', async () => {
-      server.setResponse('/volume', volumeXml({ actual: 35 }));
-      createPlatform();
-
-      await api.emitDidFinishLaunching();
-
-      expect(api.getCharacteristicValue('Speaker', 'Volume')).toBe(35);
     });
 
     it('unregisters a stale cached accessory not seen in discovery', async () => {

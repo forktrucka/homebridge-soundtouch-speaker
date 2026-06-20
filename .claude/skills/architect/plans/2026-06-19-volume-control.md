@@ -1,6 +1,6 @@
 ---
 feature: Volume control — Speaker service (Switch mode) and Lightbulb Brightness (Lightbulb mode)
-status: in-progress # planned | in-progress | done | cancelled
+status: planned # planned | in-progress | done | cancelled
 date: 2026-06-19
 updated: 2026-06-20
 branch: feat/volume-control
@@ -41,8 +41,6 @@ activates only once plan 01 enables the Lightbulb accessory type.
 | 2026-06-20 | Two characteristic classes: `SoundTouchSpeakerVolumeCharacteristic` (Speaker/Volume) and the Lightbulb Brightness wiring | Different services, different power-off semantics; cleaner to keep them separate than to parameterise one class | One class parameterised by service/characteristic type — more complex with marginal reuse |
 | 2026-06-20 | WebSocket push used for external volume changes — no new WS infrastructure needed | The speaker sends a `volumeUpdated` tickle on port 8080 (existing per-device WebSocket connection) whenever volume changes externally. The characteristic's `refresh()` listens for this event and re-fetches via `api.getVolume()`, then pushes the new value to HomeKit via `characteristic.updateValue`. The WS connection is already open; volume just needs to subscribe to the existing event emitter. | Polling on a timer — less responsive and wastes requests; opening a second WebSocket — redundant |
 | 2026-06-20 | Promote the `On` setter's 5 s `finally` sleep fix into plan 02 scope (in-scope, not just a finding) | The race has been a passive finding since 2026-06-19. Plan 02 introduces the volume set that races it, and plan 02 already touches the power/volume interaction — so the fix belongs here. The brief must hand this off as a concrete task, not an open hazard. (Polling-loop lifecycle is a *separate* concern — see plan 06.) | Leaving it a passive finding (risk it never gets fixed); a separate fix PR touching `SoundTouchSpeakerOnCharacteristic.ts` (merge-conflict churn with plan 02, which also edits it) |
-| 2026-06-20 | **Implemented** the race fix as a non-blocking settle window, not a blocking sleep | Replaced the `finally { await setTimeout(5000) }` with a `settleUntil` timestamp (`POWER_SETTLE_MS = 5000`): a power press records `settleUntil`; the setter returns immediately, so a concurrent volume set is never stalled. A repeated same-state press within the window is skipped (preserves the original anti-hammer intent). Covered by a fake-timer test that hangs against the old blocking sleep. | Keeping the blocking sleep (stalls HomeKit setters); a debounce timer that defers the press (adds latency to a deliberate toggle) |
-| 2026-06-20 | **Deferred** the WebSocket `volumeUpdated` push; Switch-path volume uses the existing polling `refresh()` | There is no WebSocket infrastructure in the codebase yet (`grep` for `ws://`/`gabbo`/`8080` finds only the HTTP `sender: 'Gabbo'` string). The plan's WS decision assumed an existing per-device WS connection that does not exist. `SoundTouchSpeakerVolumeCharacteristic.refresh()` follows the same polling-loop pattern as `SoundTouchSpeakerOnCharacteristic`. A WS push layer is its own piece of work (touches every characteristic) and is out of scope for the Switch volume slice. | Building new WS infrastructure inside this PR (scope creep; a cross-cutting concern that belongs in its own plan) |
 
 ## If cancelled
 
@@ -94,26 +92,20 @@ activates only once plan 01 enables the Lightbulb accessory type.
 
 ## Implementation checklist
 
-### Switch path (this PR)
-
-- [x] Add `SoundTouchSpeakerVolumeCharacteristic` (Speaker service, Volume 0–100)
-- [x] Wire Speaker service + volume characteristic into `createAccessory` for the
+- [ ] Add `SoundTouchSpeakerVolumeCharacteristic` (Speaker service, Volume 0–100)
+- [ ] Wire Speaker service + volume characteristic into `createAccessory` for the
       Switch path
-- [x] **Fix the power/volume race:** replaced the `On` setter's blocking 5 s
-      `finally` sleep with a non-blocking `settleUntil` window, so a
-      near-simultaneous volume set isn't blocked or fought by the power set
-- [x] Add the Volume characteristic tests (get/set, HAP error, refresh) and a
-      power+volume interaction test that hangs against the old 5 s sleep
-- [x] Extend the integration harness (Speaker/Volume stub types) + assert the
-      Speaker Volume initialises from the device
-
-### Lightbulb path (deferred — gated on plan 01)
-
 - [ ] Add `SoundTouchSpeakerBrightnessCharacteristic` (Lightbulb Brightness ↔
       volume, 0 = power off)
 - [ ] Wire Brightness characteristic into `createAccessory` for the Lightbulb path
       (behind the plan 01 `accessoryType` gate)
 - [ ] Reconcile On/Brightness ordering with `SoundTouchSpeakerOnCharacteristic`
+- [ ] **Fix the power/volume race:** replace the `On` setter's blocking 5 s
+      `finally` sleep (`SoundTouchSpeakerOnCharacteristic.ts:66`) with a
+      non-blocking settle/debounce, so a near-simultaneous volume set isn't
+      blocked or fought by the power set
+- [ ] Add tests for both characteristic classes (incl. a power+volume
+      interaction test that would fail against the old 5 s sleep)
 
 ## Verification
 
