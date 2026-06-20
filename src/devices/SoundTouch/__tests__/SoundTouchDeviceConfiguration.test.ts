@@ -29,6 +29,14 @@ describe('DeviceConfiguration', () => {
       });
       expect(config.pollingInterval).toBe(5000);
     });
+
+    test('preserves a pollingInterval of 0 (disabled) rather than defaulting', () => {
+      const config = DeviceConfiguration.createForRoom({
+        name: 'Kitchen',
+        pollingInterval: 0,
+      });
+      expect(config.pollingInterval).toBe(0);
+    });
   });
 
   describe('createForIp', () => {

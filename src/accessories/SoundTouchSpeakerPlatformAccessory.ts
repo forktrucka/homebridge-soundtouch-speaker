@@ -33,7 +33,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       }
     }
 
-    if (this.device.configuration.pollingInterval !== undefined) {
+    if (this.device.configuration.pollingInterval > 0) {
       this._isPolling = true;
       this._refreshDeviceServices().then(() => {
         //no-op

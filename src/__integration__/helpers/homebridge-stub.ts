@@ -139,10 +139,14 @@ export class HomebridgeApiStub {
   } as unknown as Logging;
 
   private didFinishLaunching?: () => unknown;
+  private shutdown?: () => unknown;
 
   on(event: string, callback: () => unknown): this {
     if (event === 'didFinishLaunching') {
       this.didFinishLaunching = callback;
+    }
+    if (event === 'shutdown') {
+      this.shutdown = callback;
     }
     return this;
   }
@@ -165,6 +169,10 @@ export class HomebridgeApiStub {
 
   async emitDidFinishLaunching(): Promise<void> {
     await this.didFinishLaunching?.();
+  }
+
+  emitShutdown(): void {
+    this.shutdown?.();
   }
 
   asHomebridgeApi(): API {

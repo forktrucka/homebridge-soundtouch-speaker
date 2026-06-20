@@ -22,6 +22,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly api: API;
 
   private readonly _accessories: Map<string, PlatformAccessory> = new Map();
+  private readonly _accessoryWrappers: Map<
+    string,
+    SoundTouchSpeakerPlatformAccessory
+  > = new Map();
   private readonly _discoveredCacheUUIDs: string[] = [];
 
   constructor(
@@ -50,6 +54,13 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this.logger.debug('Started didFinishLaunching callback');
       await this.discoverDevices();
       this.logger.debug('Finished didFinishLaunching callback');
+    });
+
+    this.api.on('shutdown', () => {
+      this.logger.debug('Stopping polling on shutdown');
+      for (const wrapper of this._accessoryWrappers.values()) {
+        wrapper.stopPolling();
+      }
     });
   }
 
@@ -111,11 +122,12 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             existingAccessory.displayName
           );
 
-          await SoundTouchSpeakerPlatformAccessory.create({
+          const wrapper = await SoundTouchSpeakerPlatformAccessory.create({
             platform: this,
             accessory: existingAccessory,
             device,
           });
+          this._accessoryWrappers.set(uuid, wrapper);
         } else {
           this.logger.info('Adding new accessory:', device.name);
 
@@ -123,11 +135,12 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
 
           accessory.context.device = device;
 
-          await SoundTouchSpeakerPlatformAccessory.create({
+          const wrapper = await SoundTouchSpeakerPlatformAccessory.create({
             platform: this,
             accessory,
             device,
           });
+          this._accessoryWrappers.set(uuid, wrapper);
 
           this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
             accessory,
@@ -146,6 +159,15 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
           'Removing existing accessory from cache:',
           accessory.displayName
         );
+
+        // Stop the orphaned wrapper's polling loop before it's unregistered,
+        // otherwise it keeps firing requests at a device that's gone.
+        const wrapper = this._accessoryWrappers.get(uuid);
+        if (wrapper) {
+          wrapper.stopPolling();
+          this._accessoryWrappers.delete(uuid);
+        }
+
         this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
           accessory,
         ]);
