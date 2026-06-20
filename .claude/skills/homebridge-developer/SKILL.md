@@ -175,6 +175,12 @@ Homebridge thread) · AccessoryInformation populated with a unique SerialNumber 
 **Discovery not finding a device:**
 - mDNS/Bonjour often fails across subnets, VLANs, or inside Docker. Bypass discovery entirely with an explicit `ip` (+ optional `port`, default `8090`) in the accessory config.
 
+**"Accessory belongs to another home" / pairing times out with no logs:**
+- HomeKit cloud retains a pairing record for a bridge's MAC (`username`) even after the bridge's local persist files are wiped. The bridge looks unpaired to Homebridge but HomeKit refuses to re-pair.
+- **First try:** restart the phone. HomeKit's pairing cache is sometimes stale in memory and a reboot clears it.
+- **If that doesn't work:** change the bridge `username` in `test/hbConfig/config.json` to a new locally-administered MAC (first octet with bit 1 set, e.g. `0E:4A:B2:7C:D3:91`), delete the stale persist files (`test/hbConfig/persist/AccessoryInfo.<OLD>.json`, `IdentifierCache.<OLD>.json`, and `test/hbConfig/accessories/cachedAccessories`), then restart Homebridge. The new MAC is invisible to HomeKit's cloud so it pairs as a fresh bridge.
+- The bridge's `username` `AA:BB:CC:DD:EE:FF` is the Ethernet broadcast address — avoid it; some HAP implementations behave oddly with it.
+
 ## Related skills
 
 - **coding-conventions** — TypeScript/ESM rules, lint/format, generic Jest setup,
