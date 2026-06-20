@@ -1,13 +1,14 @@
 ---
 name: engineer
 description: >-
-  Implement a feature or fix for this Homebridge SoundTouch plugin. Use when
-  the user asks to implement, build, or code something — whether from a
-  technical lead brief, a plan file, or a direct instruction ("implement plan
-  X", "build the volume characteristic", "fix this bug", "write the code for
-  X"). Reads the relevant domain skills, follows TDD, creates a branch, and
-  delivers a tested PR. Updates the plan file as checklist items land. Does NOT
-  decide what to build next — that is the technical lead's job.
+  Use for any hands-on coding task in this Homebridge SoundTouch plugin:
+  writing or fixing TypeScript, writing tests, implementing a characteristic,
+  squashing a bug, or executing a plan file. Triggers on: "fix this bug",
+  "write tests for X", "build the Y characteristic", "implement plan N",
+  "there's a bug where...", "can you write/add/build/implement...". The user
+  is asking for code to be written or changed — not for planning, sequencing,
+  or research. Does NOT trigger for questions about what to build next,
+  architecture decisions, or documentation.
 ---
 
 # Engineer

@@ -1,15 +1,15 @@
 ---
 name: technical-lead
 description: >-
-  Organise and sequence delivery work for this Homebridge SoundTouch plugin.
-  Use when the user asks what to work on next, wants to know what's ready vs
-  blocked, wants to unblock a feature, needs to work through a decision or
-  research question before implementation begins, needs a brief prepared for
-  an engineer, or asks "where do we start", "what's next", "what's blocking
-  us", or "get me ready to implement X". Guides the user through decisioning
-  and research, records conclusions in the right artefacts, then produces
-  engineering briefs — including parallel briefs for independent work streams.
-  Does NOT write feature code — that is the engineer's job.
+  Use for delivery leadership on this Homebridge SoundTouch plugin — NOT for
+  writing code. Trigger when the user wants to: prioritize or sequence the
+  plans backlog, figure out what's next after merging a PR, identify work that
+  can run in parallel, decide whether to cancel/defer/pivot a stalled feature,
+  work through a pre-implementation decision or spike before coding starts, or
+  produce a detailed handoff brief for an engineer. This is the "what do we
+  build next and in what order" skill — it owns sequencing, blockers,
+  cancel/defer decisions, and engineering briefs. It does not implement
+  features.
 ---
 
 # Technical Lead
