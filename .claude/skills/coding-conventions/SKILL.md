@@ -8,7 +8,8 @@ description: >-
   new features, refactors, and test changes. The single most common footgun:
   missing .js extensions on relative imports compiles fine but silently breaks
   at runtime under Homebridge. If you're about to touch a .ts file and haven't
-  read this skill yet, read it first.
+  read this skill yet, read it first. Also read it before opening a pull request
+  — it owns the PR title and description conventions.
 ---
 
 # Coding conventions
@@ -158,8 +159,42 @@ Before considering a code change complete, all three must be green:
 npm run typecheck && npm run lint && npm test
 ```
 
+## Pull requests
+
+Feature PRs target `dev` and are **squash-merged**, so the **PR title becomes the
+released commit message**. A required "PR Title" check (commitlint) rejects a
+title that isn't a valid Conventional Commit. The branch/PR flow and which
+commit type to pick are owned by **architect**; the full release model lives in
+`CONTRIBUTING.md`. This skill covers how to *write* the title and description.
+
+### Title
+
+- Format: `<type>: <imperative summary>` — same Conventional Commit grammar as
+  commit messages (`feat`, `fix`, `feat!` / `BREAKING CHANGE:`, and the
+  no-release types `chore`/`docs`/`ci`/`test`/`refactor`). The type drives the
+  release: `feat:` → minor, `fix:` → patch, `feat!:` → major, the rest → none.
+- **Concise and imperative.** Lower-case after the colon, no trailing period,
+  one line (~50–72 chars). Describe the change, not the files touched:
+  `feat: add volume control`, not `Added volume control to the speaker.`
+- When the PR delivers an **architect plan**, mirror that plan's `commit-type`
+  and **PR title** field so the released commit matches the plan it lands.
+
+### Description
+
+Keep it concise — a reviewer should grasp the change without opening the diff.
+
+- When the PR delivers an architect plan
+  (`.claude/skills/architect/plans/<date>-<slug>.md`), the description **reflects
+  that plan**: link it and summarize its **Context** (why) and what's delivered.
+  Don't restate the whole plan — point to it.
+- If there's no plan, a short paragraph of *what* changed and *why* is enough.
+- Note the verification you ran
+  (`npm run typecheck && npm run lint && npm test`, plus any live `npm run watch`
+  check). Skip boilerplate and anything obvious from the diff.
+
 ## Scope
 
-This skill is style/build/test only. For plugin architecture and HomeKit wiring
+This skill is style/build/test and PR-authoring conventions only. For plugin
+architecture and HomeKit wiring
 see **homebridge-developer**; for the Bose protocol see **soundtouch-api-expert**;
 for planning, branching, and release flow see **architect** and `CONTRIBUTING.md`.
