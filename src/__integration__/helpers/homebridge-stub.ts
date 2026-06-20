@@ -18,6 +18,7 @@ interface Identifier {
 
 const ServiceTypes = {
   Switch: { name: 'Switch' },
+  Lightbulb: { name: 'Lightbulb' },
   AccessoryInformation: { name: 'AccessoryInformation' },
 } satisfies Record<string, Identifier>;
 
@@ -101,6 +102,13 @@ export class StubPlatformAccessory {
     const service = new StubService(type, displayName, subtype);
     this.services.push(service);
     return service;
+  }
+
+  removeService(service: StubService): void {
+    const index = this.services.indexOf(service);
+    if (index !== -1) {
+      this.services.splice(index, 1);
+    }
   }
 }
 

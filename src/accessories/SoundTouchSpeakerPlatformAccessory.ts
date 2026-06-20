@@ -74,9 +74,19 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     device: SoundTouchDevice;
     defaultCharacteristics: SoundTouchSpeakerCharacteristic[];
   }): Promise<SoundTouchSpeakerPlatformAccessory> {
+    const { platform, accessory, device } = props;
+    const isLightbulb = device.configuration.accessoryType === 'lightbulb';
+
+    SoundTouchSpeakerPlatformAccessory.pruneOrphanService({
+      accessory,
+      platform,
+      orphanServiceType: isLightbulb ? ServiceType.ON_OFF : ServiceType.LIGHTBULB,
+      device,
+    });
+
     const service = SoundTouchSpeakerPlatformAccessory.ensureAccessoryService({
-      serviceType: ServiceType.ON_OFF,
-      service: props.platform.service.Switch,
+      serviceType: isLightbulb ? ServiceType.LIGHTBULB : ServiceType.ON_OFF,
+      service: isLightbulb ? platform.service.Lightbulb : platform.service.Switch,
       ...props,
     });
 
@@ -111,6 +121,28 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     await accessory.init();
 
     return accessory;
+  }
+
+  private static pruneOrphanService({
+    accessory,
+    platform,
+    orphanServiceType,
+    device,
+  }: {
+    accessory: PlatformAccessory;
+    platform: SoundTouchHomebridgePlatform;
+    orphanServiceType: ServiceType;
+    device: SoundTouchDevice;
+  }): void {
+    const orphanName = getServiceName({ serviceType: orphanServiceType, device });
+    const orphan = accessory.getService(orphanName);
+    if (orphan) {
+      platform.logger.info(
+        'Removing stale service after accessory type change:',
+        orphanName
+      );
+      accessory.removeService(orphan);
+    }
   }
 
   private static ensureAccessoryService({
