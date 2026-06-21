@@ -92,9 +92,20 @@ As implementation proceeds (in this or later sessions), keep the plan file curre
   made or a non-obvious fact is discovered — never delete prior entries. This is
   the anti-reinvent-the-wheel record.
 
+**Plan file location by status** — move the file on the same commit that updates
+the status so the history stays coherent:
+
+| Status | Location |
+| --- | --- |
+| `planned` | `plans/` (flat root — stay here until work starts or ships) |
+| `in-progress` | `plans/` (flat root — still actively referenced) |
+| `done` / `beta` | `plans/done/` — move here when the implementation PR merges |
+| `cancelled` | `plans/cancelled/` — move here after filling in the *If cancelled* section |
+
 If a feature turns out to be **impossible or not worth doing**, don't delete the
 plan: set `status: cancelled`, fill in the **If cancelled** section (why, the
-evidence, and what would have to change to revisit), and leave it in place.
+evidence, and what would have to change to revisit), then move it to
+`plans/cancelled/`.
 
 Always re-read the plan file before editing it so you don't clobber prior updates.
 

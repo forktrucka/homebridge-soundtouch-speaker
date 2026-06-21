@@ -153,6 +153,27 @@ than "README is out of date."
 
 ---
 
+### 9. Update plan status and location
+
+After a successful merge of an implementation PR into `dev`:
+
+1. Find the relevant architect plan in `.claude/skills/architect/plans/`.
+2. Update the `status` frontmatter to reflect the shipped state, e.g.:
+   ```
+   status: done # feat: add volume control via Lightbulb brightness (#86)
+   ```
+   Use `beta` when the commit lands in the beta channel but not yet `latest`; use
+   `done` once it reaches `latest`. Either way, move the file immediately — don't
+   wait for the `latest` promotion.
+3. **Move** the plan file to `.claude/skills/architect/plans/done/` in the same
+   commit as the status update.
+4. Update `ROADMAP.md` (`technical-lead` skill) to mark the feature as done in the
+   Current state and Anticipated delivery order sections.
+
+Commit these changes on a `docs/` planning branch — not on the feature branch.
+
+---
+
 ## What you don't need to do
 
 - **Don't write or commit a CHANGELOG.** GitHub Releases is the changelog;
