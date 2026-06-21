@@ -30,6 +30,8 @@ rather than restating this — keep style/build/test rules in this one place.
   - [BDD test structure](#bdd-test-structure)
 - [Logging](#logging)
 - [Dependency management](#dependency-management)
+  - [Adding new packages](#adding-new-packages)
+  - [Updating existing packages](#updating-existing-packages)
 - [Definition of done](#definition-of-done)
 - [Pull requests](#pull-requests)
   - [Title](#title)
@@ -199,6 +201,35 @@ Log through the formatted logger (`src/utils/FormattedLogger.ts`) — `.debug`,
 ---
 
 ## Dependency management
+
+### Adding new packages
+
+**Do not `npm install` any new package without prior discussion.** This applies
+to both runtime and dev dependencies.
+
+Before suggesting a package:
+
+1. **Exhaust zero-dep alternatives first** — Node built-ins, packages already
+   installed, or a small custom implementation. The existing dep list covers a
+   lot: `homebridge-lib` (formatError, platform utilities), `axios` (HTTP),
+   `xml2js` (XML), `ws` (WebSocket), `homebridge` types. Reach for these before
+   reaching for npm.
+2. **Check transitive dependencies** — run `npm info <pkg> dependencies` and
+   `npm pack --dry-run <pkg>` to count what comes with it. A package that pulls
+   in ten transitive deps is ten packages to audit, maintain, and trust.
+3. **Flag it explicitly** — any package suggestion must state:
+   - The number of direct + transitive dependencies
+   - Whether those dependencies are themselves external (vs. bundled/native)
+   - Why no existing dep or built-in can serve the need
+4. **Prefer lean packages** — if a package is genuinely needed, a package with
+   zero or one dependency is strongly preferred over a feature-rich one with a
+   deep tree. A package with >5 transitive deps requires strong justification.
+
+The plans in `.claude/skills/architect/plans/` record dependency decisions in
+their **Decisions & findings** table — if a package was considered and rejected,
+note it there so it isn't re-investigated.
+
+### Updating existing packages
 
 Run `npm outdated` to check for stale packages. The "Wanted" column shows what
 satisfies the current semver range; "Latest" shows the newest release (may be a
