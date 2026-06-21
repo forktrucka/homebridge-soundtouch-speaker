@@ -38,6 +38,7 @@ is active (e.g. to quieten one room without leaving the zone entirely).
 | 2026-06-21 | Slave name matching: match `zone.slaves[]` against `DeviceConfiguration.name` first, then device-reported name | Users set `name` in `accessories`; that name appears in `DeviceConfiguration.name`. If unmatched at startup, log a warning and skip that slave (don't crash). | Require IP-based slave reference (worse UX for users who use room-based discovery) |
 | 2026-06-21 | Zone accessory type: always Switch by default; honour per-zone `accessoryType` override | A zone on/off is binary and doesn't imply volume control. Volume on the primary still works via the primary's own lightbulb. | Hard-code as Lightbulb (zone volume control is a separate, later feature) |
 | 2026-06-21 | Zone `accessoryType` can be overridden per zone in config | Keeps the pattern consistent with per-speaker `accessoryType`. | Global-only override (inflexible) |
+| 2026-06-21 | `SoundTouchZoneAccessory` and `SoundTouchZoneOnCharacteristic` use private constructors + static factory methods | Follows the repo-wide static factory convention (coding-conventions skill). Mirrors the existing pattern: `SoundTouchSpeakerPlatformAccessory.createAccessory()`, `SoundTouchDevice.fromConfiguredAccessory()`. Factory on `ZoneAccessory`: `static create(props: { config, primary, slaves, api, logger })`. Factory on `ZoneOnCharacteristic`: `static create(props: { service, primary, slaves, logger })`. | Public constructors with `new ZoneAccessory(...)` at call sites (violates factory convention) |
 
 ## If cancelled
 
@@ -63,10 +64,11 @@ is active (e.g. to quieten one room without leaving the zone entirely).
 - `src/zones/SoundTouchZoneAccessory.ts` — the zone's platform accessory
   wrapper. Mirrors `SoundTouchSpeakerPlatformAccessory` but controls a zone
   rather than a single speaker. Holds refs to the primary `SoundTouchDevice`
-  and the resolved slave `SoundTouchDevice[]`. Exposes `init()`, `refresh()`,
-  `stopPolling()`.
+  and the resolved slave `SoundTouchDevice[]`. Private constructor; exposes
+  `static create(props)`, `init()`, `refresh()`, `stopPolling()`.
 - `src/zones/SoundTouchZoneOnCharacteristic.ts` — `On` (Switch) or `On` +
-  `Brightness` (Lightbulb) characteristic. `setOn(true)` calls `api.setZone(…)`;
+  `Brightness` (Lightbulb) characteristic. Private constructor; exposes
+  `static create(props)`. `setOn(true)` calls `api.setZone(…)`;
   `setOn(false)` dissolves the zone via `removeZoneSlave` (or equivalent).
   `getOn()` calls `api.getZone()` and checks whether membership matches the
   configured slaves.
