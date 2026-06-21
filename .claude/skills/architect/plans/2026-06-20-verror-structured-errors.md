@@ -54,6 +54,7 @@ This plan addresses both with zero new dependencies:
 | 2026-06-21 | Level-aware error output in `Logger.error()`: DEBUG → full cause chain + stacks; others → top message + immediate cause | Users in verbose/debug mode need root-cause visibility; users in default INFO mode need a concise signal. Same call site, output determined by `requiredLogLevel`. | Separate `logger.verboseError()` method (leaks implementation detail into call sites); always-verbose (noisy for default users) |
 | 2026-06-21 | Introduce `ContextError extends Error` with `context: Record<string, string>` | Device name is already handled by `DeviceLogger` prefix. `ContextError` handles endpoint, room, operation — metadata that belongs with the error itself, not in the message string. `FormattedLogger` detects `instanceof ContextError` and renders context fields inline. | Interpolating everything into the message string (loses structure, can't filter/reformat); custom `info` map on all errors (requires touching more files) |
 | 2026-06-21 | `ContextError` lives in `src/errors.ts` alongside `apiNotFoundWithName` | One place for shared error primitives. | New file `src/utils/ContextError.ts` (unnecessary file for 10 lines) |
+| 2026-06-21 | `ContextError` constructor is `private`; exposes `static wrap(message, context, cause)` | Follows the repo-wide static factory convention (coding-conventions skill). `wrap()` eliminates the `{ cause: err }` options bag at every catch site and is the idiomatic creation path. `throw new ContextError(...)` remains acceptable only inside the class itself. | `new ContextError(...)` at all call sites (violates factory convention for complex-arg Error subclasses) |
 | 2026-06-21 | commit-type is `feat:` — minor release | `logLevel` config option is user-visible and expands capability. | `refactor:` (wrong — user-facing config change) |
 | 2026-06-21 | Use `homebridge-lib`'s `formatError()` per node in the cause chain | Already a runtime dep. Handles ECONNREFUSED, axios errors, plain Errors consistently. | Reimplementing formatError (duplication); `.stack` raw (verbose, unreadable for ECONNREFUSED) |
 
@@ -75,7 +76,8 @@ This plan addresses both with zero new dependencies:
 ```ts
 export class ContextError extends Error {
   readonly context: Record<string, string>;
-  constructor(
+
+  private constructor(
     message: string,
     context: Record<string, string>,
     options?: ErrorOptions
@@ -83,6 +85,14 @@ export class ContextError extends Error {
     super(message, options);
     this.name = 'ContextError';
     this.context = context;
+  }
+
+  static wrap(
+    message: string,
+    context: Record<string, string>,
+    cause: unknown
+  ): ContextError {
+    return new ContextError(message, context, { cause });
   }
 }
 
@@ -170,17 +180,20 @@ With:
 level: this.configuration.logLevel,
 ```
 
-#### Call sites — wrap errors with `Error.cause` and `ContextError`
+#### Call sites — wrap errors with `ContextError.wrap()`
+
+All catch sites use `ContextError.wrap(message, context, cause)` — never
+`new ContextError(...)` directly (that is private to the class).
 
 - `src/devices/SoundTouch/SoundTouchDevice.ts`
-  - `discoverAllAccessories` catch: `new ContextError('creating device', { ip: device.ip ?? '', name: device.name ?? '' }, { cause: e })`
-  - `fromConfiguredAccessory` throws: add room/name to existing message strings.
+  - `discoverAllAccessories` catch: `ContextError.wrap('creating device', { ip: device.ip ?? '', name: device.name ?? '' }, e)`
+  - `fromConfiguredAccessory` throws: add room/name to existing message strings (plain `Error`, no cause here).
 - `src/devices/SoundTouch/api/api.ts`
-  - `_req` catch: `throw new ContextError('network request failed', { endpoint }, { cause: err })`.
+  - `_req` catch: `throw ContextError.wrap('network request failed', { endpoint }, err)`.
 - `src/accessories/SoundTouchSpeakerPlatformAccessory.ts`
-  - Polling catch: `new ContextError('polling refresh', { device: this.accessory.displayName }, { cause: e as Error })`.
+  - Polling catch: `ContextError.wrap('polling refresh', { device: this.accessory.displayName }, e)`.
 - `src/platform.ts`
-  - `searchDevices` allSettled handler: `new ContextError('loading configured accessory', { name }, { cause: result.reason })`.
+  - `searchDevices` allSettled handler: `ContextError.wrap('loading configured accessory', { name }, result.reason)`.
   - `discoverDevices` catch sites: wrap with device name context.
 - `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts`
   - Both catch blocks: log wrapped error before throwing `HapStatusError`.
