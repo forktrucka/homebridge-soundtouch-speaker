@@ -221,15 +221,17 @@ opened. If the plan lists additional manual verification steps, list them.
 When handing off to the engineer, set `status: in-progress` in the plan file
 frontmatter. When the PR is merged to dev and a beta release is cut, set
 `status: beta` with the version in a comment (e.g. `# v0.3.0-beta.1`). When
-promoted to `latest`, set `status: done` and move the file to `plans/done/`. If
-the work is cancelled or found impossible, set `status: cancelled`, fill in the
-plan's "If cancelled" section, and move the file to `plans/cancelled/`.
+promoted to `latest`, set `status: done`, move the file to `plans/done/`, and
+**remove the item from `ROADMAP.md` entirely** — done work has no place in the
+delivery sequence. If the work is cancelled or found impossible, set
+`status: cancelled`, fill in the plan's "If cancelled" section, move the file
+to `plans/cancelled/`, and likewise remove it from the ROADMAP.
 
 **Closure sweep (do this during every survey):** for each plan in `plans/done/`
 with `status: beta`, check whether `latest` has shipped at or above that version.
-If it has, update the frontmatter to `status: done`. Do not leave plans at
-`status: beta` after their version has promoted — stale statuses make the
-survey unreliable.
+If it has, update the frontmatter to `status: done` and remove the item from
+`ROADMAP.md`. Do not leave done or beta plans in the ROADMAP — they add noise
+and make the active delivery sequence harder to read.
 
 When delivery order changes, update `ROADMAP.md`. The roadmap is your
 document — keep it current.
