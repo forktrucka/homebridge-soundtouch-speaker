@@ -2,7 +2,7 @@
 name: release-manager
 description: >-
   Pre-release gate for the homebridge-soundtouchspeaker plugin. Use before
-  promoting dev→beta or beta→latest, when asked to "check if we're ready to
+  promoting dev→beta or dev→latest, when asked to "check if we're ready to
   release", "run release checks", or "is the branch releasable". Also use when
   the user asks whether the README, config schema, or docs are accurate and
   up to date. Runs the full checklist — tests, build, lint, README/schema
@@ -22,10 +22,13 @@ takes over.
 ## Release flow recap
 
 ```
-feature → dev (squash merge) → beta (regular merge, @beta on npm) → latest (regular merge, @latest on npm)
+feature → dev (squash merge) → beta (regular merge, @beta on npm)
+feature → dev (squash merge) → latest (regular merge, @latest on npm)
 ```
 
-You run this skill before the `dev → beta` or `beta → latest` promotion PR.
+Feature work lands in `dev`. From `dev` you promote to `beta` for pre-release
+testing, or directly to `latest` for a stable release. Run this skill before
+either `dev → beta` or `dev → latest` promotion PR.
 
 ---
 
@@ -102,7 +105,7 @@ To find what's implemented, check:
 ### 7. Conventional commits on the branch
 
 Identify the merge base between the current branch and its target
-(`dev`→`beta` target is `beta`; `beta`→`latest` target is `latest`):
+(`dev`→`beta` target is `beta`; `dev`→`latest` target is `latest`):
 
 ```bash
 git log --oneline $(git merge-base HEAD origin/<target>)..HEAD
