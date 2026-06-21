@@ -1,6 +1,6 @@
 ---
 feature: Integration test harness for end-to-end plugin coverage
-status: beta # v0.3.0-beta.1 — test: add in-process integration test harness (#58); no version bump (test: type)
+status: done # 2026-06-21
 date: 2026-06-20
 branch: test/integration-harness
 commit-type: test

@@ -1,6 +1,6 @@
 ---
 feature: Publish firmware version as FirmwareRevision characteristic
-status: beta # v0.3.0-beta.1 — fix: use SCM component softwareVersion for FirmwareRevision (#85); test: (#83)
+status: done # 2026-06-21
 date: 2026-06-20
 branch: test/firmware-revision-coverage
 commit-type: test

@@ -1,6 +1,6 @@
 ---
 feature: Prefer it() over test() across the remaining test suites
-status: done # test: prefer it() over test() across all remaining test suites (#98)
+status: done # 2026-06-21
 date: 2026-06-20
 branch: test/prefer-it-over-test
 commit-type: test
