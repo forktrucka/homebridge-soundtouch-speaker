@@ -8,23 +8,7 @@ Entries below were backfilled by hand from the git history.
 
 ---
 
-## [Unreleased]
-
-### Fixes
-
-- Escape XML special characters in fake SoundTouch server error responses (#110)
-
----
-
-## [0.3.0-beta.2] — 2026-06-20
-
-### Fixes
-
-- Pin `undici` >=6.27.0 to address security advisories (Dependabot #62, #64, #65) (#95)
-
----
-
-## [0.3.0-beta.1] — 2026-06-20
+## [0.3.0] — 2026-06-21
 
 ### New Features
 
@@ -34,6 +18,8 @@ Entries below were backfilled by hand from the git history.
 
 ### Fixes
 
+- Escape XML special characters in fake SoundTouch server error responses (#110)
+- Pin `undici` >=6.27.0 to address security advisories (Dependabot #62, #64, #65) (#95)
 - Prevent brightness-zero/setOn race that bounced volume back to its previous level (#91)
 - Use `softwareVersion` from SCM component for the FirmwareRevision characteristic (#85)
 - Stop device polling on accessory removal/shutdown; honour `pollingInterval` config (#65)
