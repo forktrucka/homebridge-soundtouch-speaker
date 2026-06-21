@@ -93,7 +93,7 @@ export class FakeSoundTouchServer {
       if (xml === undefined) {
         res.writeHead(404, { 'content-type': 'application/xml' });
         res.end(
-          `<errors><error value="404">no canned response for ${path}</error></errors>`
+          `<errors><error value="404">no canned response for ${path.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`)}</error></errors>`
         );
         return;
       }
