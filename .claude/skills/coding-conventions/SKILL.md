@@ -26,7 +26,7 @@ rather than restating this — keep style/build/test rules in this one place.
 - [Toolchain](#toolchain)
 - [Testing](#testing)
   - [Setup](#setup)
-  - [TDD workflow](#tdd-workflow)
+  - [TDD workflow — red → green → refactor](#tdd-workflow--red--green--refactor)
   - [BDD test structure](#bdd-test-structure)
 - [Logging](#logging)
 - [Dependency management](#dependency-management)
@@ -139,7 +139,7 @@ exports, files, or dependencies.
   `const enum` gotcha) is Homebridge-specific — see the **homebridge-developer**
   skill.
 
-### TDD workflow
+### TDD workflow — red → green → refactor
 
 Write tests **before** the implementation for any new behaviour or bug fix:
 
