@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-06-21
+Last updated: 2026-06-21 (post v0.3.0 stable release)
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
@@ -37,18 +37,24 @@ flowchart TD
 
 ## Current state (2026-06-21)
 
-- **Beta (v0.3.0-beta.1):** [05] Integration test harness — **#58**. Fake HTTP server + HAP stub; polling neutralised with fake timers.
-- **Beta (v0.3.0-beta.1):** [06] Polling lifecycle — **#65**. Polling stoppable on unregister/shutdown; `pollingInterval` config field.
-- **Beta (v0.3.0-beta.1):** Spike C Part 1 — gabbo WebSocket harness — **#66**. Parse/dispatch validated; fake-gabbo test double in place.
-- **Beta (v0.3.0-beta.1):** FirmwareRevision characteristic — **#83** (test), **#85** (fix). SCM `softwareVersion` component correctly sourced.
-- **Beta (v0.3.0-beta.1):** [01] Accessory type — **#72**. `accessoryType: 'switch' | 'lightbulb'` threaded through config → accessory; orphan-service pruning on type change.
-- **Beta (v0.3.0-beta.1):** [02] Volume — Lightbulb path — **#86** (feat), **#91** (race fix). Brightness 0–100 maps to volume; 0 = power off; non-blocking settle.
+**v0.3.0 shipped as stable `latest`.** Beta releases were deleted; v0.3.0 is the current published version. All items previously marked "beta v0.3.0-beta.1" are done.
+
+- **Done (v0.3.0):** [05] Integration test harness — **#58**. Fake HTTP server + HAP stub; polling neutralised with fake timers.
+- **Done (v0.3.0):** [06] Polling lifecycle — **#65**. Polling stoppable on unregister/shutdown; `pollingInterval` config field.
+- **Done (v0.3.0):** Spike C Part 1 — gabbo WebSocket harness — **#66**. Parse/dispatch validated; fake-gabbo test double in place.
+- **Done (v0.3.0):** FirmwareRevision characteristic — **#83** (test), **#85** (fix). SCM `softwareVersion` component correctly sourced.
+- **Done (v0.3.0):** [01] Accessory type — **#72**. `accessoryType: 'switch' | 'lightbulb'` threaded through config → accessory; orphan-service pruning on type change.
+- **Done (v0.3.0):** [02] Volume — Lightbulb path — **#86** (feat), **#91** (race fix). Brightness 0–100 maps to volume; 0 = power off; non-blocking settle.
+- **Done (v0.3.0):** XML escaping fix — **#110**. Escape special chars in fake-soundtouch-server error responses.
 - **Cancelled:** [02] Volume — Switch path. **PR #62 was merged then reverted (#70)** — binary `On` only; volume requires 0–100 range.
-- **Dev:** `prefer-it-over-test` sweep — **#98**. Mechanical `test()` → `it()` rename across all remaining test files. No production code, no release.
-- **Dev (planned):** Static factory enforcement — **#103 (plan)**. Private constructors on all classes + `API.create()` factory. `refactor:` → no release.
-- **Dev (planned):** Structured errors + logLevel — **#100 (plan)**. `ContextError`, native `Error.cause`, `logLevel` config, level-aware `FormattedLogger.error()`. `feat:` → minor.
-- **Dev (planned):** Speaker zones — **#101 (plan)**. `zones` config array, `SoundTouchZoneAccessory`, zone API activation. `feat:` → minor.
-- **Next (unblocked):** Spike C Part 2 — real hardware capture session. Unblocks [07] WebSocket push (plan 06 ✅, Spike C Part 1 ✅).
+- **Done (no release):** `prefer-it-over-test` sweep — **#98**. Mechanical `test()` → `it()` rename across all test files.
+- **In-progress:** CHANGELOG.md — **#111**. Introduce `CHANGELOG.md` + wire `@semantic-release/changelog` / `@semantic-release/git`. `docs:` → no release.
+- **Unblocked (planned):** Static factory enforcement — **#103 (plan)**. Private constructors on all classes + `API.create()` factory. `refactor:` → no release.
+- **Unblocked (planned):** Disabled flag — **(2026-06-21 plan)**. `disabled: true` per-accessory unregisters the speaker from HomeKit without removing config. `feat:` → minor. Goes before WebSocket push to make testing easier.
+- **Unblocked (planned):** Structured errors + logLevel — **#100 (plan)**. `ContextError`, native `Error.cause`, `logLevel` config, level-aware `FormattedLogger.error()`. `feat:` → minor. Goes before WebSocket push so logs are readable during Spike C Part 2.
+- **Unblocked (planned):** Speaker zones — **#101 (plan)**. `zones` config array, `SoundTouchZoneAccessory`, zone API activation. `feat:` → minor.
+- **Unblocked (spike):** Spike C Part 2 — real hardware capture session. Unblocks [07] WebSocket push (plan 06 ✅, Spike C Part 1 ✅). Run after disabled flag + logging land.
+- **Blocked:** [07] WebSocket push — waiting on disabled flag + structured-errors/logLevel (testing prerequisites) and Spike C Part 2.
 - **Blocked:** [03] Source selection (TV-vs-Switch spike), [04] PWA all phases (spikes A/B).
 
 ## Anticipated delivery order
@@ -63,9 +69,10 @@ flowchart TD
 | 4 | **[02] Volume — Lightbulb path** | `feat/volume-control` | ✅ beta v0.3.0-beta.1 (#86, #91) | Brightness 0–100 maps to volume; 0 = power off; non-blocking settle for the `On`/`Brightness` race. |
 | 4.5 | **prefer-it-over-test sweep** | `test/prefer-it-over-test` | ✅ dev (#98) | Mechanical `test()` → `it()` rename across all remaining test files. No production code, no release. |
 | 4.6 | **Static factory enforcement** | `refactor/static-factory-enforcement` | 🟢 Next (unblocked) | Private constructors on all ten classes + `API.create()` factory. `refactor:` → no release. Small, purely mechanical, no new tests. |
-| 4.7 | **Structured errors + logLevel** | `feat/structured-errors-logging` | 🟢 Next (unblocked) | `ContextError` + native `Error.cause` chaining; `logLevel` config replaces `verbose: boolean`; level-aware `FormattedLogger.error()`. `feat:` → minor. No new deps. |
-| 4.8 | **Speaker zones** | `feat/speaker-zones` | 🟢 Next (unblocked) | `zones` config array; `SoundTouchZoneAccessory`; zone API activation at startup sync. `feat:` → minor. Zone API already implemented in `api/zone.ts`. |
-| 5 | **[07] WebSocket push (gabbo)** | `feat/websocket-push` | 🟡 Spike C Part 2 needed | Event-driven refresh via the gabbo channel (port 8080), **augmenting** polling. Spike C Part 2 needs real hardware (device available). Phased: P1 connection+lifecycle, P2 per-event mapping, P3 tune polling + edges. |
+| 4.7 | **Disabled flag** | `feat/disabled-flag` | 🟢 Next (unblocked) | `disabled: true` per-accessory unregisters speaker from HomeKit without removing config. `feat:` → minor. Testing prerequisite for WebSocket push. |
+| 4.8 | **Structured errors + logLevel** | `feat/structured-errors-logging` | 🟢 Next (unblocked) | `ContextError` + native `Error.cause` chaining; `logLevel` config replaces `verbose: boolean`; level-aware `FormattedLogger.error()`. `feat:` → minor. No new deps. Testing prerequisite for WebSocket push. |
+| 4.9 | **Speaker zones** | `feat/speaker-zones` | 🟢 Next (unblocked) | `zones` config array; `SoundTouchZoneAccessory`; zone API activation at startup sync. `feat:` → minor. Zone API already implemented in `api/zone.ts`. |
+| 5 | **[07] WebSocket push (gabbo)** | `feat/websocket-push` | 🔴 Blocked | Blocked on disabled flag + structured-errors/logLevel (testing prerequisites) and Spike C Part 2 (real-device capture). Phased: P1 connection+lifecycle, P2 per-event mapping, P3 tune polling + edges. |
 | 6 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Independent of 01/02. Blocked on a **spike** (verify Television+InputSource on a real device; choose TV path vs per-source Switch fallback). Cannot be committed until the spike resolves the architecture choice. |
 | 7 | **[04] PWA — Phase 1** | `feat/pwa` | 🔴 Blocked (spike A) | Architecturally separate (new `web/` workspace + embedded HTTP server). Blocked on **spike A** (reverse-engineer the hotspot provisioning HTTP API at `http://192.0.2.1`). Phase 1 must ship before phases 2 and 3 (it creates the web scaffold and embedded server). |
 | 8 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via the zone API (`/getZone`, `/setZone`, etc. — already implemented in `src/devices/SoundTouch/api/zone.ts`). Needs the phase 1 PWA scaffold and embedded server to be in place. |

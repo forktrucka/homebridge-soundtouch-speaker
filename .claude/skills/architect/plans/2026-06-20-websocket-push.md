@@ -1,6 +1,6 @@
 ---
 feature: WebSocket push (gabbo) — event-driven characteristic refresh, augmenting HTTP polling
-status: planned # planned | in-progress | done | cancelled
+status: blocked # planned | in-progress | done | cancelled | blocked
 date: 2026-06-20
 branch: feat/websocket-push
 commit-type: feat
@@ -40,6 +40,7 @@ channel's real-device behaviour is confirmed.
 | 2026-06-20 | **Decision:** sequence after plan 06 (polling lifecycle); serialise, don't parallelise | The WS connection has the same lifecycle as the polling loop — open on `init`, tear down on unregister/`shutdown`. Plan 06 builds exactly that (retain wrappers in a `Map`, stop on unregister/shutdown). WS reuses it. Both touch `SoundTouchSpeakerPlatformAccessory.ts` + `platform.ts`, so they **must** serialise. Plan 06 also makes polling configurable, which is what turns polling into the relaxed fallback. | Parallel with plan 06 (guaranteed merge conflicts on shared lifecycle files); before plan 06 (would build connection-lifecycle twice) |
 | 2026-06-20 | **Decision (this session):** research/docs only — no probe or harness code yet | User directive. Record the spike definition, findings, and rollout plan; defer building the probe script and fake-gabbo harness until the spike is scheduled (and ideally a real device is available). | Building the Part-1 harness now (premature given no real-device validation lined up) |
 | 2026-06-20 | **Open (Spike C):** real-device behaviour is unverified | Heartbeat/idle cadence, socket behaviour on standby/power-off, reconnect/backoff semantics, and whether real frames match the v1.1 reference are all undocumented. These shape the reconnect strategy and the fallback interval. Must be answered before implementation. | Building on documented assumptions alone (higher risk of a reconnect-storm or missed-event bug) |
+| 2026-06-21 | **Blocked:** waiting on `disabled` flag and structured-errors/logLevel to ship first | User wants easier testing setup before validating WebSocket behaviour — disable speakers cleanly and read logs clearly during the real-device capture session (Spike C Part 2). | Starting implementation now — testing the WebSocket path is harder without the prerequisites. |
 
 ## If cancelled
 
