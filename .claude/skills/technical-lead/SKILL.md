@@ -61,7 +61,7 @@ For each plan in roadmap order, determine:
   no unresolved spike or open decision blocking it.
 - **Blocked:** depends on a spike, a prerequisite plan, or an open decision.
 - **In-progress:** `status: in-progress` — check if it's stalled or moving.
-- **Beta:** `status: beta` — merged to dev and released to the beta channel; awaiting promotion to `latest`. The status comment includes the version (e.g. `# v0.3.0-beta.1`). Skip for planning purposes — work is done; only promotion remains.
+- **Beta:** `status: beta` — merged to dev and released to the beta channel; awaiting promotion to `latest`. The status comment includes the version (e.g. `# v0.3.0-beta.1`). Skip for planning purposes — work is done; only promotion remains. **However:** if `latest` has already been cut at or above that version (check `package.json` `version` or the ROADMAP "Current state" section), the plan should be updated to `status: done` and moved to `plans/done/` — do this as part of the survey, on the same planning branch as any other roadmap updates.
 - **Done / cancelled:** skip.
 
 The ROADMAP table captures anticipated order, but re-check: if a dependency has
@@ -221,8 +221,15 @@ opened. If the plan lists additional manual verification steps, list them.
 When handing off to the engineer, set `status: in-progress` in the plan file
 frontmatter. When the PR is merged to dev and a beta release is cut, set
 `status: beta` with the version in a comment (e.g. `# v0.3.0-beta.1`). When
-promoted to `latest`, set `status: done`. If the work is cancelled or found
-impossible, set `status: cancelled` and fill in the plan's "If cancelled" section.
+promoted to `latest`, set `status: done` and move the file to `plans/done/`. If
+the work is cancelled or found impossible, set `status: cancelled`, fill in the
+plan's "If cancelled" section, and move the file to `plans/cancelled/`.
+
+**Closure sweep (do this during every survey):** for each plan in `plans/done/`
+with `status: beta`, check whether `latest` has shipped at or above that version.
+If it has, update the frontmatter to `status: done`. Do not leave plans at
+`status: beta` after their version has promoted — stale statuses make the
+survey unreliable.
 
 When delivery order changes, update `ROADMAP.md`. The roadmap is your
 document — keep it current.

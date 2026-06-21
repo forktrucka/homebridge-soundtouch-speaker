@@ -1,6 +1,6 @@
 ---
 feature: Volume control — Lightbulb Brightness (Lightbulb mode)
-status: beta # v0.3.0-beta.1 — feat: add volume control via Lightbulb brightness (#86); fix: race (#91)
+status: done
 date: 2026-06-19
 updated: 2026-06-20
 branch: feat/lightbulb-brightness-volume

@@ -1,6 +1,6 @@
 ---
 feature: Configurable accessory type — Switch or Lightbulb
-status: beta # v0.3.0-beta.1 — feat: let each speaker be a Switch or a Lightbulb accessory (#72)
+status: done
 date: 2026-06-19
 branch: feat/accessory-type
 commit-type: feat
