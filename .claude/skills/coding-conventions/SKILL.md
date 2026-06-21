@@ -18,6 +18,53 @@ The canonical, language/tooling-level conventions for this repo. Domain skills
 (`homebridge-developer`, `soundtouch-api-expert`) and `architect` link here
 rather than restating this — keep style/build/test rules in this one place.
 
+## Class instantiation — static factory methods
+
+All new classes expose their creation through **named static factory methods**,
+not through direct `new ClassName(...)` at call sites. This is already the
+universal pattern in the codebase:
+
+| Class | Factory method(s) |
+| --- | --- |
+| `PlatformConfiguration` | `fromExternalConfiguration()` |
+| `DeviceConfiguration` | `fromAccessoryConfiguration()`, `create()`, `createForRoom()`, `createForIp()` |
+| `Logger` | `forHomebridgeLogger()` |
+| `DeviceLogger` | `fromLogger()` |
+| `SoundTouchDevice` | `fromConfiguredAccessory()`, `fromDiscoveredAccessory()` |
+| `SoundTouchSpeakerPlatformAccessory` | `createAccessory()` |
+
+**Rules:**
+
+- Every new class **must** expose at least one named static factory.
+- The constructor is **`private`** (or `protected` for classes designed to be
+  subclassed). Direct `new ClassName(...)` may only appear *inside* the class
+  itself — never at external call sites.
+- Factory names follow the existing vocabulary:
+  - `static fromX(x: X): ClassName` — when creating from a source object
+  - `static create(...): ClassName` — for general construction
+  - `static forX(...): ClassName` — for context-specific construction
+- **`Error` subclasses are a partial exception** — `throw new MyError(...)` is
+  idiomatic JS and acceptable at throw sites. Still provide a `static wrap()`
+  or `static create()` when the construction arguments are complex or repeated.
+
+**Example:**
+
+```ts
+export class SoundTouchZoneAccessory {
+  private constructor(
+    private readonly device: SoundTouchDevice,
+    private readonly slaves: SoundTouchDevice[],
+  ) {}
+
+  static create(props: {
+    device: SoundTouchDevice;
+    slaves: SoundTouchDevice[];
+  }): SoundTouchZoneAccessory {
+    return new SoundTouchZoneAccessory(props.device, props.slaves);
+  }
+}
+```
+
 ## TypeScript & ESM (do not skip)
 
 - `package.json` has `"type": "module"`; TypeScript emits ESM.
