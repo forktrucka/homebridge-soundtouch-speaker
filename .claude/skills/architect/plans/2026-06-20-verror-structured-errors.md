@@ -1,12 +1,12 @@
 ---
-feature: Replace bare Error with VError for structured, chained errors
+feature: Replace bare Error with structured, chained errors using native Error.cause
 status: planned
 date: 2026-06-20
 branch: refactor/verror-structured-errors
 commit-type: refactor
 ---
 
-# Replace bare Error with VError for structured, chained errors
+# Replace bare Error with structured, chained errors using native Error.cause
 
 ## Context
 
@@ -18,26 +18,31 @@ boundaries (API → device → accessory → platform), each catch site re-logs
 without chaining — making it hard to correlate a user-visible failure back
 to its root cause.
 
-[`verror`](https://github.com/oven-sh/verror) (Joyent/Node.js community
-standard) adds three primitives we need:
+The fix uses two zero-dependency building blocks already available in this repo:
 
-- **Cause chaining** — `new VError(cause, 'doing X for device %s', name)`
-  preserves the original error and its stack as `.cause`.
-- **Structured info** — `new VError({ cause, info: { deviceId, ip } }, '…')`
-  attaches arbitrary metadata retrievable via `VError.info(err)`.
-- **Full stack** — `VError.fullStack(err)` emits the complete causal chain in
-  one string, making logs immediately actionable.
+- **Native `Error.cause`** (ES2022, Node 18+) — `new Error('doing X for Kitchen
+  Speaker', { cause: originalError })` chains errors without any library. The
+  repo's `tsconfig.json` targets ES2022 and `lib: ["ES2022"]`; Node 22+ at
+  runtime. Zero new dependencies.
+- **`homebridge-lib`'s `formatError()`** (already a runtime dep) — handles
+  system errors (ECONNREFUSED, etc.), axios errors, and plain Errors with
+  consistent human-readable output. Used per-node when traversing the `.cause`
+  chain in `FormattedLogger`.
+
+Together they give cause chaining and readable structured output without adding
+any package.
 
 ## Decisions & findings
 
 | Date | Decision / finding | Rationale / evidence | Alternatives rejected |
 | --- | --- | --- | --- |
 | 2026-06-20 | Use `refactor:` commit type — no release | Error structure is internal; no user-facing API or behaviour changes | `fix:` (not a bug fix, no observable behaviour change for users) |
-| 2026-06-20 | Keep `APIErrors extends Error` as-is | It carries structured SoundTouch API payload (`errors: APIError[]`, `deviceId`) that has no VError analogue. Wrap it at catch sites with VError rather than extending VError. | Rewriting `APIErrors` to extend `VError` (high churn, loses typed `.errors` array accessor) |
-| 2026-06-20 | Import as `import VError from 'verror'` (default import) | `verror` is CommonJS; `esModuleInterop: true` + `allowSyntheticDefaultImports: true` in `tsconfig.json` enable this in the NodeNext module resolution already used by the repo. | Named import `import { VError } from 'verror'` (not exported that way from the CJS module) |
-| 2026-06-20 | Add `@types/verror` as devDependency | `verror` ships no built-in types; `@types/verror` provides them. | Inline `declare module` shim (fragile, not maintained) |
-| 2026-06-20 | Improve `FormattedLogger.error` to emit `VError.fullStack()` when available | The call sites already pass the raw error object as the second arg; upgrading the logger centralises the improvement without touching every call site individually. | Updating every `logger.error(msg, e)` call site to call `VError.fullStack(e)` inline (repetitive, easy to miss new sites) |
-| 2026-06-20 | Do NOT add VError to HAP characteristic throws | `HapStatusError` is a HAP protocol requirement and must remain unwrapped — HomeKit depends on its exact shape. Only the `logger.error` call before the throw gains context. | Wrapping HapStatusError in VError (breaks HAP) |
+| 2026-06-20 | Keep `APIErrors extends Error` as-is | It carries structured SoundTouch API payload (`errors: APIError[]`, `deviceId`) that has no native-cause analogue. Wrap it at catch sites rather than rewriting the class. | Rewriting `APIErrors` (high churn, loses typed `.errors` array accessor) |
+| 2026-06-20 | **Drop `verror`** — use native `Error.cause` (ES2022) instead | `verror` is a third-party CJS dependency. Native `Error.cause` is available in ES2022 (this repo's TS target) and Node 18+ (runtime is Node 22). Zero new runtime or dev deps required. `{ cause }` option accepted by all `Error` subclasses natively. | `verror` (external dep, CJS interop complexity); `pino`/`winston` (heavy, wrong layer — logging not error chaining) |
+| 2026-06-20 | Use `homebridge-lib`'s `formatError()` per node in the cause chain | `homebridge-lib` is already a runtime dep (v8.1.1). Its `formatError(e, useChalk?)` handles ECONNREFUSED, axios errors, and plain errors better than `.message` alone. Calling it on each node in the `.cause` chain gives better output than either `.message` or `.stack` alone. | Reimplementing formatError ourselves (duplication); calling `.stack` raw (verbose, hard to read for ECONNREFUSED) |
+| 2026-06-20 | `FormattedLogger.error()` traverses the `.cause` chain centrally | Call sites already pass the raw error as the second arg. Upgrading the logger centralises the improvement without touching every call site. Output: `message: top-level message\n  caused by: cause message\n  caused by: root message`. | Updating every `logger.error(msg, e)` call site inline (repetitive, easy to miss new sites) |
+| 2026-06-20 | Context goes in the Error message string, not in structured metadata | `Error.cause` carries no structured `info` bag (unlike `verror`). Device name / endpoint are interpolated directly into the message string at throw time: `new Error(\`polling refresh for ${device.name}\`, { cause: e })`. Sufficient for log readability; metadata queries are not used anywhere in this codebase. | Adding a custom `ContextError extends Error` with an `info` map (over-engineering for current needs) |
+| 2026-06-20 | Do NOT add cause-wrapping to HAP characteristic throws | `HapStatusError` is a HAP protocol requirement and must remain unwrapped. Only the `logger.error` call *before* the `throw HapStatusError` gains the contextual Error. | Wrapping HapStatusError in a cause chain (breaks HAP) |
 | 2026-06-20 | `SoundTouchSpeakerOnCharacteristic.getOn()` has no catch — leave it | The method returns `false` on `deviceIsOn()` failure (silent catch inside `SoundTouchDevice`); there is no logged error to enrich. | Adding a wrapping catch (adds behaviour, out of scope for a refactor) |
 
 ## If cancelled
@@ -46,41 +51,56 @@ standard) adds three primitives we need:
 
 ## Affected areas
 
-### New dependency
+### No new dependencies
 
-- `package.json` — add `"verror": "^1.10.1"` to `dependencies` and
-  `"@types/verror": "^1.10.6"` to `devDependencies`.
+No `npm install` step. `Error.cause` is built into Node 22+ / ES2022.
+`formatError` is already exported from `homebridge-lib`.
 
 ### Changed files
 
-- `src/errors.ts` — `apiNotFoundWithName` returns `new VError({ info: { name } }, "Can't find device using the name '%s' on your network", name)`.
-- `src/utils/FormattedLogger.ts` — `error(msg, err?)`: when `err` is an
-  `Error`, emit `VError.fullStack(err)` (falls back gracefully for non-VError
-  instances since `VError.fullStack` handles plain `Error` too).
+- `src/utils/FormattedLogger.ts` — enhance `error(msg, err?)`:
+  ```ts
+  import { formatError } from 'homebridge-lib';
+
+  // In error():
+  if (err instanceof Error) {
+    let node: unknown = err;
+    const lines: string[] = [];
+    while (node instanceof Error) {
+      lines.push(formatError(node));
+      node = node.cause;
+    }
+    this._log(LogLevel.ERROR, `${msg}: ${lines.join('\n  caused by: ')}`);
+  } else {
+    this._log(LogLevel.ERROR, msg);
+  }
+  ```
+- `src/errors.ts` — `apiNotFoundWithName`: `new Error(
+  \`Can't find device using the name '${name}' on your network\`)` stays
+  unchanged (no cause here — it is the root). No change needed.
 - `src/devices/SoundTouch/SoundTouchDevice.ts`
-  - `discoverAllAccessories` catch: wrap with `new VError(e, 'creating device %s', device.ip ?? device.name)`.
-  - `fromConfiguredAccessory` throws: replace `new Error('Could not find a device')` / `new Error('Could not find device info')` with `VError` with `{ info: { name, room, ip } }`.
+  - `discoverAllAccessories` catch: `new Error(\`creating device ${device.ip ?? device.name}\`, { cause: e })` (log only, don't rethrow).
+  - `fromConfiguredAccessory` throws: `new Error(\`Could not find a device for room '${accessoryConfig.room}'\`)` and `new Error('Could not find device info', { cause: undefined })` — add room/name context to message.
 - `src/devices/SoundTouch/api/api.ts`
-  - `_req` catch: wrap non-response network errors — `throw new VError(err, 'network request to %s failed', endpoint)`.
+  - `_req` catch (non-response network error): `throw new Error(\`network request to ${endpoint} failed\`, { cause: err })`.
 - `src/accessories/SoundTouchSpeakerPlatformAccessory.ts`
-  - Polling catch: `new VError(e as Error, 'polling refresh for %s', this.accessory.displayName)` (log, don't rethrow).
+  - Polling catch: log `new Error(\`polling refresh for ${this.accessory.displayName}\`, { cause: e as Error })`.
 - `src/platform.ts`
-  - `searchDevices` catch in `allSettled` handler: `new VError(result.reason, 'loading configured accessory %s', name)`.
+  - `searchDevices` allSettled handler: `new Error(\`loading configured accessory ${name}\`, { cause: result.reason })`.
   - `discoverDevices` two catch sites: wrap with device name context.
 - `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts`
-  - Both catch blocks: log `new VError(e as Error, 'brightness %s for %s', action, deviceName)` before throwing `HapStatusError`.
+  - Both catch blocks: log wrapped error before throwing `HapStatusError`.
 - `src/accessories/services/SoundTouchSpeakerOnCharacteristic.ts`
-  - `setOn` catch: log `new VError(e as Error, 'setOn for %s', deviceName)` before throwing `HapStatusError`.
+  - `setOn` catch: log wrapped error before throwing `HapStatusError`.
 - `src/accessories/services/SoundTouchSpeakerInformationCharacteristic.ts`
-  - `new Error('No information service found')` → `new VError('no HAP information service registered for %s', accessoryName)`.
+  - `new Error('No information service found')` → add accessory name to message.
 
 ### Test files to add / update
 
-- `src/utils/__tests__/FormattedLogger.test.ts` — add cases: `error()` with a
-  plain `Error`, a `VError` chain, and no error arg; assert the full-stack
-  output appears.
-- `src/devices/SoundTouch/__tests__/SoundTouchDeviceConfiguration.test.ts` —
-  no change needed (config, not errors).
+- `src/utils/__tests__/FormattedLogger.test.ts` — add cases:
+  - `error()` with a plain `Error` (no cause)
+  - `error()` with a two-level cause chain — assert "caused by:" appears
+  - `error()` with no error arg
 - `src/devices/SoundTouch/api/__tests__/error.test.ts` — `APIErrors` unchanged,
   existing tests stay green as-is.
 - Integration tests: error-path branches in the existing integration suites
@@ -92,24 +112,23 @@ standard) adds three primitives we need:
 - **Commit type:** `refactor:` → no release.
 - **Config schema touched:** no.
 - **Tests to add/update:** `src/utils/__tests__/FormattedLogger.test.ts` (new
-  VError cases); integration tests pass unchanged (smoke check).
+  cause-chain cases); integration tests pass unchanged (smoke check).
 - **Target branch:** `dev` (squash-merged; PR title is the released commit
   message).
 
 ## Implementation checklist
 
-- [ ] `npm install verror && npm install --save-dev @types/verror`
-- [ ] Update `src/utils/FormattedLogger.ts` — emit `VError.fullStack()` in `error()`
-- [ ] Update `src/errors.ts` — `apiNotFoundWithName` → `VError` with `info: { name }`
-- [ ] Update `src/devices/SoundTouch/SoundTouchDevice.ts` — wrap throws and catch sites
+- [ ] Update `src/utils/FormattedLogger.ts` — traverse `.cause` chain using
+      `homebridge-lib`'s `formatError()` in `error()`
+- [ ] Update `src/devices/SoundTouch/SoundTouchDevice.ts` — add context to
+      throws and catch site
 - [ ] Update `src/devices/SoundTouch/api/api.ts` — wrap network error in `_req`
 - [ ] Update `src/platform.ts` — wrap both catch sites with device-name context
 - [ ] Update `src/accessories/SoundTouchSpeakerPlatformAccessory.ts` — polling catch
 - [ ] Update `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts`
 - [ ] Update `src/accessories/services/SoundTouchSpeakerOnCharacteristic.ts`
 - [ ] Update `src/accessories/services/SoundTouchSpeakerInformationCharacteristic.ts`
-- [ ] Add/update `FormattedLogger` tests for VError chain output
-- [ ] Run `npm run knip` — confirm `verror` is not flagged as unused
+- [ ] Add/update `FormattedLogger` tests for cause chain output
 - [ ] `npm run typecheck && npm run lint && npm test`
 
 ## Verification
@@ -117,11 +136,12 @@ standard) adds three primitives we need:
 - [ ] `npm run lint`
 - [ ] `npm run build`
 - [ ] `npm test`
-- [ ] Confirm `VError.fullStack()` output appears in logs during `npm run watch`
-  (e.g. simulate a device unreachable by pointing config at a bad IP)
+- [ ] Confirm cause chain appears in logs during `npm run watch` — simulate
+      unreachable device (bad IP in config); expect `network request to /volume
+      failed\n  caused by: ECONNREFUSED …`
 
 ## PR / release notes
 
 - **PR title (Conventional Commit, becomes the release commit):**
-  `refactor: replace bare Error with VError for structured, chained errors`
+  `refactor: chain errors with native Error.cause and log full cause chain`
 - **Targets:** `dev`
