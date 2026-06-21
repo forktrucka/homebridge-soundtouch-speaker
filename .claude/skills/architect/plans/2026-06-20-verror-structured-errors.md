@@ -1,49 +1,61 @@
 ---
-feature: Replace bare Error with structured, chained errors using native Error.cause
+feature: Structured error chaining, context fields, and fine-grained log-level control
 status: planned
 date: 2026-06-20
-branch: refactor/verror-structured-errors
-commit-type: refactor
+branch: feat/structured-errors-logging
+commit-type: feat
 ---
 
-# Replace bare Error with structured, chained errors using native Error.cause
+# Structured error chaining, context fields, and fine-grained log-level control
 
 ## Context
 
-Error messages today lose context as they propagate up the stack. A polling
-failure logs `'Polling refresh failed' <Error: ...>` with no trace of which
-device was involved or what the underlying API call was. A discovery failure
-logs the raw axios error with no device-name context. When errors cross
-boundaries (API → device → accessory → platform), each catch site re-logs
-without chaining — making it hard to correlate a user-visible failure back
-to its root cause.
+Two related problems in the current codebase:
 
-The fix uses two zero-dependency building blocks already available in this repo:
+**1. Errors lose context as they propagate.** A polling failure logs `'Polling
+refresh failed' <Error: ...>` with no trace of which device was involved or what
+the underlying API call was. A discovery failure logs the raw axios error with no
+device-name context. When errors cross boundaries (API → device → accessory →
+platform), each catch site re-logs without chaining — making it hard to correlate
+a user-visible failure back to its root cause.
+
+**2. Logging granularity is binary.** The only dial is `verbose: boolean` in
+config — `true` enables DEBUG, `false` enables INFO and above. Users can't say
+"show warnings and errors only" or "I want error output but not the debug noise."
+Additionally, when an error IS logged, the output is equally terse regardless of
+whether the user opted into verbose mode.
+
+This plan addresses both with zero new dependencies:
 
 - **Native `Error.cause`** (ES2022, Node 18+) — `new Error('doing X for Kitchen
-  Speaker', { cause: originalError })` chains errors without any library. The
-  repo's `tsconfig.json` targets ES2022 and `lib: ["ES2022"]`; Node 22+ at
-  runtime. Zero new dependencies.
-- **`homebridge-lib`'s `formatError()`** (already a runtime dep) — handles
-  system errors (ECONNREFUSED, etc.), axios errors, and plain Errors with
-  consistent human-readable output. Used per-node when traversing the `.cause`
-  chain in `FormattedLogger`.
-
-Together they give cause chaining and readable structured output without adding
-any package.
+  Speaker', { cause: originalError })` chains errors without any library.
+- **`ContextError` class** (new, ~10 lines) — extends `Error` with a typed
+  `context: Record<string, string>` bag for structured metadata (device name,
+  endpoint, room) that survives cause-chain traversal.
+- **`homebridge-lib`'s `formatError()`** (already a runtime dep) — used per-node
+  when traversing the `.cause` chain in `FormattedLogger`.
+- **`logLevel` config option** — replaces the binary `verbose` flag with a
+  four-value enum (`'debug' | 'info' | 'warn' | 'error'`). `verbose: true`
+  continues to work as a deprecated alias for `'debug'`.
+- **Level-aware error formatting in `FormattedLogger`** — at DEBUG, `error()` shows
+  the full cause chain and stack traces; at INFO/WARN/ERROR it shows the top-level
+  message and the immediate cause only.
 
 ## Decisions & findings
 
 | Date | Decision / finding | Rationale / evidence | Alternatives rejected |
 | --- | --- | --- | --- |
-| 2026-06-20 | Use `refactor:` commit type — no release | Error structure is internal; no user-facing API or behaviour changes | `fix:` (not a bug fix, no observable behaviour change for users) |
+| 2026-06-20 | **Drop `verror`** — use native `Error.cause` (ES2022) instead | `verror` is a third-party CJS dependency. Native `Error.cause` is available in ES2022 (this repo's TS target) and Node 18+ (runtime is Node 22). Zero new runtime or dev deps required. | `verror` (external dep, CJS interop complexity); `pino`/`winston` (heavy, wrong layer) |
 | 2026-06-20 | Keep `APIErrors extends Error` as-is | It carries structured SoundTouch API payload (`errors: APIError[]`, `deviceId`) that has no native-cause analogue. Wrap it at catch sites rather than rewriting the class. | Rewriting `APIErrors` (high churn, loses typed `.errors` array accessor) |
-| 2026-06-20 | **Drop `verror`** — use native `Error.cause` (ES2022) instead | `verror` is a third-party CJS dependency. Native `Error.cause` is available in ES2022 (this repo's TS target) and Node 18+ (runtime is Node 22). Zero new runtime or dev deps required. `{ cause }` option accepted by all `Error` subclasses natively. | `verror` (external dep, CJS interop complexity); `pino`/`winston` (heavy, wrong layer — logging not error chaining) |
-| 2026-06-20 | Use `homebridge-lib`'s `formatError()` per node in the cause chain | `homebridge-lib` is already a runtime dep (v8.1.1). Its `formatError(e, useChalk?)` handles ECONNREFUSED, axios errors, and plain errors better than `.message` alone. Calling it on each node in the `.cause` chain gives better output than either `.message` or `.stack` alone. | Reimplementing formatError ourselves (duplication); calling `.stack` raw (verbose, hard to read for ECONNREFUSED) |
-| 2026-06-20 | `FormattedLogger.error()` traverses the `.cause` chain centrally | Call sites already pass the raw error as the second arg. Upgrading the logger centralises the improvement without touching every call site. Output: `message: top-level message\n  caused by: cause message\n  caused by: root message`. | Updating every `logger.error(msg, e)` call site inline (repetitive, easy to miss new sites) |
-| 2026-06-20 | Context goes in the Error message string, not in structured metadata | `Error.cause` carries no structured `info` bag (unlike `verror`). Device name / endpoint are interpolated directly into the message string at throw time: `new Error(\`polling refresh for ${device.name}\`, { cause: e })`. Sufficient for log readability; metadata queries are not used anywhere in this codebase. | Adding a custom `ContextError extends Error` with an `info` map (over-engineering for current needs) |
 | 2026-06-20 | Do NOT add cause-wrapping to HAP characteristic throws | `HapStatusError` is a HAP protocol requirement and must remain unwrapped. Only the `logger.error` call *before* the `throw HapStatusError` gains the contextual Error. | Wrapping HapStatusError in a cause chain (breaks HAP) |
-| 2026-06-20 | `SoundTouchSpeakerOnCharacteristic.getOn()` has no catch — leave it | The method returns `false` on `deviceIsOn()` failure (silent catch inside `SoundTouchDevice`); there is no logged error to enrich. | Adding a wrapping catch (adds behaviour, out of scope for a refactor) |
+| 2026-06-20 | `SoundTouchSpeakerOnCharacteristic.getOn()` has no catch — leave it | The method returns `false` on `deviceIsOn()` failure (silent catch inside `SoundTouchDevice`); there is no logged error to enrich. | Adding a wrapping catch (adds behaviour, out of scope) |
+| 2026-06-21 | `logLevel: 'debug' \| 'info' \| 'warn' \| 'error'` replaces `verbose: boolean` | Four values cover all practical needs. `verbose: true` stays as a deprecated alias for `'debug'` so existing configs don't break. `LogLevel` from homebridge maps directly: `DEBUG / INFO / WARN / ERROR`. | Keeping `verbose` only (too coarse); per-channel toggles (over-engineered) |
+| 2026-06-21 | `logLevel` is a top-level `global` config option, threaded through `PlatformConfiguration` | Consistent with `pollingInterval`, `accessoryType`, and `verbose` — all live under `global`. `PlatformConfiguration.logLevel` replaces `verbose` internally; `verbose` is read only as an alias. | Per-accessory `logLevel` (log level is a platform concern, not per-device) |
+| 2026-06-21 | Level-aware error output in `Logger.error()`: DEBUG → full cause chain + stacks; others → top message + immediate cause | Users in verbose/debug mode need root-cause visibility; users in default INFO mode need a concise signal. Same call site, output determined by `requiredLogLevel`. | Separate `logger.verboseError()` method (leaks implementation detail into call sites); always-verbose (noisy for default users) |
+| 2026-06-21 | Introduce `ContextError extends Error` with `context: Record<string, string>` | Device name is already handled by `DeviceLogger` prefix. `ContextError` handles endpoint, room, operation — metadata that belongs with the error itself, not in the message string. `FormattedLogger` detects `instanceof ContextError` and renders context fields inline. | Interpolating everything into the message string (loses structure, can't filter/reformat); custom `info` map on all errors (requires touching more files) |
+| 2026-06-21 | `ContextError` lives in `src/errors.ts` alongside `apiNotFoundWithName` | One place for shared error primitives. | New file `src/utils/ContextError.ts` (unnecessary file for 10 lines) |
+| 2026-06-21 | commit-type is `feat:` — minor release | `logLevel` config option is user-visible and expands capability. | `refactor:` (wrong — user-facing config change) |
+| 2026-06-21 | Use `homebridge-lib`'s `formatError()` per node in the cause chain | Already a runtime dep. Handles ECONNREFUSED, axios errors, plain Errors consistently. | Reimplementing formatError (duplication); `.stack` raw (verbose, unreadable for ECONNREFUSED) |
 
 ## If cancelled
 
@@ -51,97 +63,195 @@ any package.
 
 ## Affected areas
 
-### No new dependencies
+### No new npm dependencies
 
-No `npm install` step. `Error.cause` is built into Node 22+ / ES2022.
-`formatError` is already exported from `homebridge-lib`.
+`Error.cause` and `ContextError` are zero-dep. `formatError` is from `homebridge-lib`
+(already installed). `logLevel` maps to homebridge's existing `LogLevel` enum.
 
-### Changed files
+### New / changed source files
 
-- `src/utils/FormattedLogger.ts` — enhance `error(msg, err?)`:
-  ```ts
-  import { formatError } from 'homebridge-lib';
+#### `src/errors.ts` — add `ContextError`
 
-  // In error():
-  if (err instanceof Error) {
-    let node: unknown = err;
+```ts
+export class ContextError extends Error {
+  readonly context: Record<string, string>;
+  constructor(
+    message: string,
+    context: Record<string, string>,
+    options?: ErrorOptions
+  ) {
+    super(message, options);
+    this.name = 'ContextError';
+    this.context = context;
+  }
+}
+
+export function apiNotFoundWithName(name: string): Error {
+  return new Error(`Can't find device using the name '${name}' on your network`);
+}
+```
+
+#### `src/ExternalPlatformConfig.ts` — add `logLevel`
+
+```ts
+interface BaseGlobalConfig {
+  readonly verbose?: boolean;  // deprecated alias for logLevel: 'debug'
+  readonly logLevel?: 'debug' | 'info' | 'warn' | 'error';
+}
+```
+
+#### `src/PlatformConfiguration.ts` — thread `logLevel`
+
+- Add `logLevel: LogLevel` property (internal, typed).
+- In `fromExternalConfiguration`: resolve `logLevel` from `props.global.logLevel`
+  first; fall back to `verbose: true → 'debug'`; default to `'info'`.
+- Map string → `LogLevel` enum: `'debug' → LogLevel.DEBUG`, etc.
+- Remove the `verbose` property (replaced internally by `logLevel`).
+
+#### `config.schema.json` — expose `logLevel`
+
+Add to `global` object:
+```json
+"logLevel": {
+  "type": "string",
+  "enum": ["debug", "info", "warn", "error"],
+  "default": "info",
+  "description": "Minimum log level written to the Homebridge console."
+}
+```
+
+#### `src/utils/FormattedLogger.ts` — level-aware error formatting
+
+```ts
+import { formatError } from 'homebridge-lib';
+import { ContextError } from '../errors.js';
+
+// Replace the existing error() body:
+error(message: string, err?: unknown): void {
+  if (!(err instanceof Error)) {
+    this.log(LogLevel.ERROR, message);
+    return;
+  }
+
+  const isDebug = !Logger.excludeLog(LogLevel.DEBUG, this.requiredLogLevel);
+
+  if (isDebug) {
+    // Full cause chain + context fields + stack at debug verbosity
     const lines: string[] = [];
+    let node: unknown = err;
     while (node instanceof Error) {
-      lines.push(formatError(node));
+      const ctx = node instanceof ContextError
+        ? ` [${Object.entries(node.context).map(([k, v]) => `${k}: ${v}`).join(', ')}]`
+        : '';
+      lines.push(`${formatError(node)}${ctx}`);
+      if (node.stack) lines.push(`  ${node.stack.split('\n').slice(1, 4).join('\n  ')}`);
       node = node.cause;
     }
-    this._log(LogLevel.ERROR, `${msg}: ${lines.join('\n  caused by: ')}`);
+    this.log(LogLevel.ERROR, `${message}:\n  ${lines.join('\n  caused by:\n  ')}`);
   } else {
-    this._log(LogLevel.ERROR, msg);
+    // Concise: top message + immediate cause
+    const ctx = err instanceof ContextError
+      ? ` [${Object.entries(err.context).map(([k, v]) => `${k}: ${v}`).join(', ')}]`
+      : '';
+    const cause = err.cause instanceof Error ? `\n  caused by: ${formatError(err.cause)}` : '';
+    this.log(LogLevel.ERROR, `${message}: ${formatError(err)}${ctx}${cause}`);
   }
-  ```
-- `src/errors.ts` — `apiNotFoundWithName`: `new Error(
-  \`Can't find device using the name '${name}' on your network\`)` stays
-  unchanged (no cause here — it is the root). No change needed.
+}
+```
+
+#### `src/platform.ts` — use `configuration.logLevel`
+
+Replace:
+```ts
+level: this.configuration.verbose ? LogLevel.DEBUG : LogLevel.INFO,
+```
+With:
+```ts
+level: this.configuration.logLevel,
+```
+
+#### Call sites — wrap errors with `Error.cause` and `ContextError`
+
 - `src/devices/SoundTouch/SoundTouchDevice.ts`
-  - `discoverAllAccessories` catch: `new Error(\`creating device ${device.ip ?? device.name}\`, { cause: e })` (log only, don't rethrow).
-  - `fromConfiguredAccessory` throws: `new Error(\`Could not find a device for room '${accessoryConfig.room}'\`)` and `new Error('Could not find device info', { cause: undefined })` — add room/name context to message.
+  - `discoverAllAccessories` catch: `new ContextError('creating device', { ip: device.ip ?? '', name: device.name ?? '' }, { cause: e })`
+  - `fromConfiguredAccessory` throws: add room/name to existing message strings.
 - `src/devices/SoundTouch/api/api.ts`
-  - `_req` catch (non-response network error): `throw new Error(\`network request to ${endpoint} failed\`, { cause: err })`.
+  - `_req` catch: `throw new ContextError('network request failed', { endpoint }, { cause: err })`.
 - `src/accessories/SoundTouchSpeakerPlatformAccessory.ts`
-  - Polling catch: log `new Error(\`polling refresh for ${this.accessory.displayName}\`, { cause: e as Error })`.
+  - Polling catch: `new ContextError('polling refresh', { device: this.accessory.displayName }, { cause: e as Error })`.
 - `src/platform.ts`
-  - `searchDevices` allSettled handler: `new Error(\`loading configured accessory ${name}\`, { cause: result.reason })`.
-  - `discoverDevices` two catch sites: wrap with device name context.
+  - `searchDevices` allSettled handler: `new ContextError('loading configured accessory', { name }, { cause: result.reason })`.
+  - `discoverDevices` catch sites: wrap with device name context.
 - `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts`
   - Both catch blocks: log wrapped error before throwing `HapStatusError`.
 - `src/accessories/services/SoundTouchSpeakerOnCharacteristic.ts`
   - `setOn` catch: log wrapped error before throwing `HapStatusError`.
 - `src/accessories/services/SoundTouchSpeakerInformationCharacteristic.ts`
-  - `new Error('No information service found')` → add accessory name to message.
+  - Add accessory name to existing message string.
 
 ### Test files to add / update
 
-- `src/utils/__tests__/FormattedLogger.test.ts` — add cases:
-  - `error()` with a plain `Error` (no cause)
-  - `error()` with a two-level cause chain — assert "caused by:" appears
-  - `error()` with no error arg
-- `src/devices/SoundTouch/api/__tests__/error.test.ts` — `APIErrors` unchanged,
-  existing tests stay green as-is.
-- Integration tests: error-path branches in the existing integration suites
-  (`platform-lifecycle.integration.test.ts`) exercise the error paths through
-  the platform; verify they still pass with the new wrapping.
+- `src/utils/__tests__/FormattedLogger.test.ts`
+  - `error()` with plain `Error` (no cause) — concise path
+  - `error()` with `ContextError` — context fields appear in output
+  - `error()` with two-level cause chain at DEBUG level — full chain + "caused by:" appears
+  - `error()` with two-level cause chain at INFO level — only top + immediate cause
+  - `error()` with no error arg — message only
+- `src/__tests__/PlatformConfiguration.test.ts`
+  - `logLevel: 'warn'` maps to `LogLevel.WARN`
+  - `verbose: true` maps to `LogLevel.DEBUG` (backward compat)
+  - Default is `LogLevel.INFO`
+- `src/devices/SoundTouch/api/__tests__/error.test.ts` — `APIErrors` unchanged; existing tests stay green.
+- Integration tests: `platform-lifecycle.integration.test.ts` error paths pass unchanged (smoke check).
 
 ## Conventions for this change
 
-- **Commit type:** `refactor:` → no release.
-- **Config schema touched:** no.
-- **Tests to add/update:** `src/utils/__tests__/FormattedLogger.test.ts` (new
-  cause-chain cases); integration tests pass unchanged (smoke check).
-- **Target branch:** `dev` (squash-merged; PR title is the released commit
-  message).
+- **Commit type:** `feat:` → minor release.
+- **Config schema touched:** yes — `config.schema.json` (`logLevel`), `ExternalPlatformConfig`
+  (`logLevel`), `PlatformConfiguration` (`logLevel`, drop `verbose`), and their tests.
+- **Tests to add/update:** `FormattedLogger.test.ts`, `PlatformConfiguration.test.ts`.
+- **Target branch:** `dev` (squash-merged; PR title is the released commit message).
+- **ESM import rule:** `import { ContextError } from '../errors.js'` — don't omit `.js`.
+- **Domain skill to re-read before implementing:** `coding-conventions` (level-aware
+  logging, test structure).
 
 ## Implementation checklist
 
-- [ ] Update `src/utils/FormattedLogger.ts` — traverse `.cause` chain using
-      `homebridge-lib`'s `formatError()` in `error()`
-- [ ] Update `src/devices/SoundTouch/SoundTouchDevice.ts` — add context to
-      throws and catch site
-- [ ] Update `src/devices/SoundTouch/api/api.ts` — wrap network error in `_req`
-- [ ] Update `src/platform.ts` — wrap both catch sites with device-name context
+- [ ] Add `ContextError` class to `src/errors.ts`
+- [ ] Add `logLevel` to `ExternalPlatformConfig.ts` (keep `verbose` as deprecated alias)
+- [ ] Update `PlatformConfiguration.ts` — add `logLevel: LogLevel`, resolve from config,
+      remove `verbose` property
+- [ ] Update `config.schema.json` — add `logLevel` enum to `global`
+- [ ] Update `src/platform.ts` — use `configuration.logLevel` instead of
+      `configuration.verbose ? DEBUG : INFO`
+- [ ] Update `src/utils/FormattedLogger.ts` — level-aware `error()` with cause chain
+      traversal and `ContextError` context rendering
+- [ ] Update `src/devices/SoundTouch/SoundTouchDevice.ts` — wrap catch/throw sites
+- [ ] Update `src/devices/SoundTouch/api/api.ts` — wrap `_req` network error
+- [ ] Update `src/platform.ts` — wrap both catch sites with `ContextError`
 - [ ] Update `src/accessories/SoundTouchSpeakerPlatformAccessory.ts` — polling catch
 - [ ] Update `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts`
 - [ ] Update `src/accessories/services/SoundTouchSpeakerOnCharacteristic.ts`
 - [ ] Update `src/accessories/services/SoundTouchSpeakerInformationCharacteristic.ts`
-- [ ] Add/update `FormattedLogger` tests for cause chain output
+- [ ] Add/update `FormattedLogger` tests (plain, ContextError, chain at DEBUG, chain at INFO)
+- [ ] Add `PlatformConfiguration` tests for `logLevel` resolution
 - [ ] `npm run typecheck && npm run lint && npm test`
+- [ ] `npm run knip` — confirm no unused exports
 
 ## Verification
 
 - [ ] `npm run lint`
 - [ ] `npm run build`
 - [ ] `npm test`
-- [ ] Confirm cause chain appears in logs during `npm run watch` — simulate
-      unreachable device (bad IP in config); expect `network request to /volume
-      failed\n  caused by: ECONNREFUSED …`
+- [ ] `npm run watch` with `logLevel: 'debug'` + bad IP — expect full chain:
+      `network request failed [endpoint: /volume]\n  caused by: ECONNREFUSED …`
+- [ ] `npm run watch` with `logLevel: 'info'` (default) — same scenario shows concise:
+      `polling refresh [device: Kitchen]: network request failed [endpoint: /volume]\n  caused by: ECONNREFUSED …`
+- [ ] `npm run watch` with `logLevel: 'warn'` — info messages suppressed, errors still appear
+- [ ] Confirm `verbose: true` still works (backward compat alias for `debug`)
 
 ## PR / release notes
 
 - **PR title (Conventional Commit, becomes the release commit):**
-  `refactor: chain errors with native Error.cause and log full cause chain`
+  `feat: add logLevel config and structured error chaining with cause context`
 - **Targets:** `dev`
