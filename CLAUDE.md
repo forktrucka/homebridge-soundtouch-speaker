@@ -13,7 +13,7 @@ git fetch origin dev
 git checkout -b <type>/<slug> origin/dev
 ```
 
-`main` is release-only and is never worked on directly.
+The release branches (`latest` and `beta`) are managed by semantic-release and are never worked on directly.
 
 ## Use the skills
 
@@ -29,7 +29,7 @@ skill **before** acting — don't rely on memory for these:
   and how it maps to `src/devices/SoundTouch/api/`.
 - **architect** (`/architect`) — plan and track a new feature; owns the
   branching/release flow (conventional commits, semantic-release
-  `latest`→`dev`→`beta`). See also `CONTRIBUTING.md`.
+  `dev`→`beta` and `dev`→`latest`). See also `CONTRIBUTING.md`.
 - **technical-lead** — surveys the roadmap and plans, identifies the next
   unblocked item, resolves/surfaces blockers, and produces engineering briefs.
   Can brief multiple engineers in parallel when work is independent.

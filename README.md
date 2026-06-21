@@ -27,55 +27,66 @@ hb-service add homebridge-soundtouchspeaker
 hb-service add homebridge-soundtouchspeaker@beta
 ```
 ## Configuration
-Example `config.json` to discover all SoundTouch accessories
+
+Discover all SoundTouch speakers on the network automatically:
 
 ```json
 {
     "platform": "SoundTouchHomebridgePlugin",
-    "discoverAllAccessories": true
+    "discoverAllAccessories": true,
+    "global": {
+        "accessoryType": "lightbulb"
+    }
 }
 ```
 
-Example `config.json` to register a SoundTouch accessory using the speaker name from the Bose Soundtouch app:
+Register specific speakers by room name (as set in the Bose app):
 
 ```json
 {
     "platform": "SoundTouchHomebridgePlugin",
-    "discoverAllAccessories": false,
     "accessories": [
         {
             "name": "Kitchen Speaker",
-            "room": "Kitchen"
+            "room": "Kitchen",
+            "accessoryType": "lightbulb"
         }
     ]
 }
 ```
 
-Example `config.json` to register a SoundTouch accessory using the ip address of the speaker:
+Register speakers by IP address:
 
 ```json
 {
     "platform": "SoundTouchHomebridgePlugin",
-    "discoverAllAccessories": false,
     "accessories": [
         {
             "name": "Kitchen Speaker",
-            "ip": "<ip>"
+            "ip": "192.168.1.100",
+            "accessoryType": "lightbulb"
+        },
+        {
+            "name": "Living Room Speaker",
+            "ip": "192.168.1.101"
         }
     ]
 }
 ```
 
-Example `config.json` for multiple speakers:
+Mix of IP and room, with global defaults:
 
 ```json
 {
     "platform": "SoundTouchHomebridgePlugin",
-    "discoverAllAccessories": false,
+    "global": {
+        "accessoryType": "lightbulb",
+        "pollingInterval": 5000
+    },
     "accessories": [
         {
             "name": "Kitchen Speaker",
-            "ip": "<ip>"
+            "ip": "192.168.1.100"
         },
         {
             "name": "Living Room Speaker",
