@@ -1,6 +1,6 @@
 ---
 feature: Volume control — Lightbulb Brightness (Lightbulb mode)
-status: done
+status: done # 2026-06-21
 date: 2026-06-19
 updated: 2026-06-20
 branch: feat/lightbulb-brightness-volume

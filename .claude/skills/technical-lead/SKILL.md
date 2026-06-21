@@ -61,7 +61,7 @@ For each plan in roadmap order, determine:
   no unresolved spike or open decision blocking it.
 - **Blocked:** depends on a spike, a prerequisite plan, or an open decision.
 - **In-progress:** `status: in-progress` — check if it's stalled or moving.
-- **Beta:** `status: beta` — merged to dev and released to the beta channel; awaiting promotion to `latest`. The status comment includes the version (e.g. `# v0.3.0-beta.1`). Skip for planning purposes — work is done; only promotion remains. **However:** if `latest` has already been cut at or above that version (check `package.json` `version` or the ROADMAP "Current state" section), the plan should be updated to `status: done` and moved to `plans/done/` — do this as part of the survey, on the same planning branch as any other roadmap updates.
+- **Beta:** `status: beta` — merged to dev and released to the beta channel; awaiting promotion to `latest`. The status comment includes the version (e.g. `# v0.3.0-beta.1`). Skip for planning purposes — work is done; only promotion remains. **However:** if `latest` has already been cut at or above that version (run `npm view homebridge-soundtouchspeaker dist-tags` to check), update the plan to `status: done # <YYYY-MM-DD>` (the date promotion was confirmed) and move it to `plans/done/` — do this as part of the survey, on the same planning branch as any other roadmap updates.
 - **Done / cancelled:** skip.
 
 The ROADMAP table captures anticipated order, but re-check: if a dependency has
@@ -228,10 +228,11 @@ delivery sequence. If the work is cancelled or found impossible, set
 to `plans/cancelled/`, and likewise remove it from the ROADMAP.
 
 **Closure sweep (do this during every survey):** for each plan in `plans/done/`
-with `status: beta`, check whether `latest` has shipped at or above that version.
-If it has, update the frontmatter to `status: done` and remove the item from
-`ROADMAP.md`. Do not leave done or beta plans in the ROADMAP — they add noise
-and make the active delivery sequence harder to read.
+with `status: beta`, run `npm view homebridge-soundtouchspeaker dist-tags` to
+check whether `latest` has shipped at or above that version. If it has, update
+the frontmatter to `status: done # <YYYY-MM-DD>` (today's date) and remove the
+item from `ROADMAP.md`. Do not leave done or beta plans in the ROADMAP — they
+add noise and make the active delivery sequence harder to read.
 
 When delivery order changes, update `ROADMAP.md`. The roadmap is your
 document — keep it current.

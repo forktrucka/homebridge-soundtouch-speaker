@@ -1,6 +1,6 @@
 ---
 feature: Configurable accessory type — Switch or Lightbulb
-status: done
+status: done # 2026-06-21
 date: 2026-06-19
 branch: feat/accessory-type
 commit-type: feat

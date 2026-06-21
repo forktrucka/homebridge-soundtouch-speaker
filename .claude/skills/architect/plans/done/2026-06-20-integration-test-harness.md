@@ -1,6 +1,6 @@
 ---
 feature: Integration test harness for end-to-end plugin coverage
-status: done
+status: done # 2026-06-21
 date: 2026-06-20
 branch: test/integration-harness
 commit-type: test

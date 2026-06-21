@@ -1,6 +1,6 @@
 ---
 feature: Polling lifecycle — stop polling on accessory removal/shutdown and make it configurable
-status: done
+status: done # 2026-06-21
 date: 2026-06-20
 branch: fix/polling-lifecycle
 commit-type: fix

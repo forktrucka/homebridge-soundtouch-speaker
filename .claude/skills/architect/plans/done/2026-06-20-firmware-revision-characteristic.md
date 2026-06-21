@@ -1,6 +1,6 @@
 ---
 feature: Publish firmware version as FirmwareRevision characteristic
-status: done
+status: done # 2026-06-21
 date: 2026-06-20
 branch: test/firmware-revision-coverage
 commit-type: test
