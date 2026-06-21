@@ -17,7 +17,8 @@ npm run watch    # build, npm link, and reload on change for live testing
 
 ## Branching model
 
-The release pipeline flows **`latest` → `dev` → `beta` → `latest`**.
+Feature work lands in `dev`. From `dev` you promote to `beta` for pre-release
+testing or directly to `latest` for a stable release.
 
 | Branch           | Purpose                              | On push                                  |
 | ---------------- | ------------------------------------ | ---------------------------------------- |
@@ -31,11 +32,13 @@ Typical cycle:
 1. `dev` is cut from `latest` and tracks the next release.
 2. Branch feature work off `dev` and open a pull request **into `dev`**. CI
    lints, builds, and tests it.
-3. Promote `dev` → `beta`. Merging publishes a pre-release to npm `@beta`.
-4. Once the pre-release is proven, promote `beta` → `latest`. Merging
-   publishes the stable release to npm `@latest`.
+3. **Promote `dev` → `beta`** — merging publishes a pre-release to npm `@beta`
+   so the change can be verified on a real device before going stable.
+4. **Promote `dev` → `latest`** — merging publishes the stable release to npm
+   `@latest`. Run this after beta has been verified (or for doc/CI-only changes
+   that don't need beta testing).
 
-> Use a regular merge (not squash) for the `dev → beta` and `beta → latest`
+> Use a regular merge (not squash) for `dev → beta` and `dev → latest`
 > promotions so release tags stay reachable. Feature PRs into `dev` are
 > squash-merged.
 
