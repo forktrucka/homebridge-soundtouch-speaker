@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-06-21 (post v0.3.0 stable release)
+Last updated: 2026-06-21
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
