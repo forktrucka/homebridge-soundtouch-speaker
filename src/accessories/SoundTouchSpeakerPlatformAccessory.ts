@@ -67,7 +67,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       } catch (e: unknown) {
         this.log.error(
           'Polling refresh failed',
-          AppError.create({ name: 'PollingRefreshFailed', message: 'polling refresh failed', info: { device: this.accessory.displayName }, cause: e })
+          AppError.create({  name: 'PollingRefreshFailed', device: this.accessory.displayName , cause: e })
         );
       }
     }

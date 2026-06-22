@@ -2,8 +2,6 @@ import { describe, expect, jest, it } from '@jest/globals';
 import { DeviceLogger, Logger } from '../FormattedLogger.js';
 import { LogLevel, type Logging } from 'homebridge';
 import { AppError } from '../../errors.js';
-import { DeviceConfiguration } from '../../devices/SoundTouch/SoundTouchDeviceConfiguration.js';
-import { API as SoundTouchApi } from '../../devices/SoundTouch/api/index.js';
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 
 function makeMockLogger(): jest.Mocked<Logging> {
@@ -19,13 +17,7 @@ function makeMockLogger(): jest.Mocked<Logging> {
 }
 
 function makeDevice(name: string): SoundTouchDevice {
-  return new SoundTouchDevice({
-    api: new SoundTouchApi('192.168.1.1'),
-    model: 'SoundTouch 10',
-    id: 'test-id',
-    name,
-    configuration: DeviceConfiguration.create({ name }),
-  });
+  return { name } as unknown as SoundTouchDevice;
 }
 
 describe('FormattedLogger', () => {
@@ -163,7 +155,7 @@ describe('FormattedLogger', () => {
         logger: homebridgeLogger,
         level: LogLevel.INFO,
       });
-      const err = AppError.create({ name: 'GetVolumeFailed', message: 'get volume failed', info: { device: 'Kitchen', endpoint: '/volume' }, cause: new Error('ECONNREFUSED') });
+      const err = AppError.create({ name: 'GetVolumeFailed', device: 'Kitchen', endpoint: '/volume', cause: new Error('ECONNREFUSED') });
 
       logger.error('polling failed', err);
 
@@ -180,13 +172,13 @@ describe('FormattedLogger', () => {
         level: LogLevel.DEBUG,
       });
       const root = new Error('ECONNREFUSED');
-      const wrapped = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', info: { endpoint: '/volume' }, cause: root });
+      const wrapped = AppError.create({ name: 'NetworkRequestFailed', endpoint: '/volume', cause: root });
 
       logger.error('polling failed', wrapped);
 
       const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
       expect(level).toBe(LogLevel.ERROR);
-      expect(msg).toContain('network request failed');
+      expect(msg).toContain('NetworkRequestFailed');
       expect(msg).toContain('endpoint: /volume');
       expect(msg).toContain('caused by:');
       expect(msg).toContain('ECONNREFUSED');
@@ -199,17 +191,17 @@ describe('FormattedLogger', () => {
         level: LogLevel.INFO,
       });
       const root = new Error('ECONNREFUSED');
-      const mid = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', info: { endpoint: '/volume' }, cause: root });
-      const top = AppError.create({ name: 'PollingRefreshFailed', message: 'polling refresh failed', info: { device: 'Kitchen' }, cause: mid });
+      const mid = AppError.create({ name: 'NetworkRequestFailed', endpoint: '/volume', cause: root });
+      const top = AppError.create({ name: 'PollingRefreshFailed', device: 'Kitchen', cause: mid });
 
       logger.error('device error', top);
 
       const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
       expect(level).toBe(LogLevel.ERROR);
-      expect(msg).toContain('polling refresh');
+      expect(msg).toContain('PollingRefreshFailed');
       expect(msg).toContain('device: Kitchen');
       // The immediate cause appears
-      expect(msg).toContain('network request failed');
+      expect(msg).toContain('NetworkRequestFailed');
       // But NOT the deep root cause message (only one level of cause shown)
       expect(msg).not.toMatch(/caused by:.*caused by:/s);
     });
@@ -235,13 +227,13 @@ describe('FormattedLogger', () => {
         level: LogLevel.DEBUG,
       });
       const root = new Error('ECONNREFUSED');
-      const err = AppError.create({ name: 'GetBrightnessFailed', message: 'get brightness failed', info: { device: 'Kitchen' }, cause: root });
+      const err = AppError.create({ name: 'GetBrightnessFailed', device: 'Kitchen', cause: root });
 
       logger.debug('error getting brightness', err);
 
       const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
       expect(level).toBe(LogLevel.DEBUG);
-      expect(msg).toContain('get brightness');
+      expect(msg).toContain('GetBrightnessFailed');
       expect(msg).toContain('device: Kitchen');
       expect(msg).toContain('caused by:');
       expect(msg).toContain('ECONNREFUSED');

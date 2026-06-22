@@ -1,29 +1,24 @@
 export class AppError extends Error {
   readonly info: Record<string, unknown>;
 
-  private constructor(
-    name: string,
-    message: string,
-    info: Record<string, unknown>,
-    options?: ErrorOptions
-  ) {
-    super(message, options);
-    this.name = name;
+  private constructor(info: Record<string, unknown>, cause: unknown) {
+    super((info.msg ?? info.name) as string, cause !== undefined ? { cause } : undefined);
+    this.name = info.name as string;
     this.info = info;
   }
 
   static create({
     name,
-    message,
-    info = {},
+    msg,
     cause,
+    ...rest
   }: {
     name: string;
-    message: string;
-    info?: Record<string, unknown>;
+    msg?: string;
     cause?: unknown;
+    [key: string]: unknown;
   }): AppError {
-    return new AppError(name, message, info, { cause });
+    return new AppError({ name, ...(msg !== undefined ? { msg } : {}), ...rest }, cause);
   }
 
   /** Collects info from every AppError in the cause chain, nearest wins. */

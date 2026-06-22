@@ -137,7 +137,7 @@ export class SoundTouchDevice implements BaseDevice {
       } catch (e) {
         logger.error(
           'Error while creating soundtouch device',
-          AppError.create({ name: 'CreateDeviceFailed', message: 'creating device failed', cause: e })
+          AppError.create({  name: 'CreateDeviceFailed' , cause: e })
         );
       }
     }
@@ -158,15 +158,15 @@ export class SoundTouchDevice implements BaseDevice {
     } else if (accessoryConfig.room) {
       api = await SoundTouchDiscovery.find(accessoryConfig.room);
       if (!api) {
-        throw AppError.create({ name: 'DeviceNotFound', message: `Can't find device '${accessoryConfig.name || '(undefined)'}' on your network`, info: { name: accessoryConfig.name || '(undefined)' } });
+        throw AppError.create({  name: 'DeviceNotFound', device: accessoryConfig.name || '(undefined)' });
       }
     }
     if (!api) {
-      throw AppError.create({ name: 'DeviceNotFound', message: `Can't find device '${accessoryConfig.name ?? '(undefined)'}' on your network`, info: { name: accessoryConfig.name ?? '(undefined)' } });
+      throw AppError.create({  name: 'DeviceNotFound', device: accessoryConfig.name ?? '(undefined)' });
     }
     const info = await api.getInfo();
     if (!info) {
-      throw AppError.create({ name: 'DeviceInfoFailed', message: `Could not fetch device info for '${accessoryConfig.name ?? '(undefined)'}'`, info: { name: accessoryConfig.name ?? '(undefined)' } });
+      throw AppError.create({  name: 'DeviceInfoFailed', device: accessoryConfig.name ?? '(undefined)' });
     }
     return SoundTouchDevice.fromDiscoveredAccessory({
       api,
