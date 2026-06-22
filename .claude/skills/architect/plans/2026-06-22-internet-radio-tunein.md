@@ -44,7 +44,9 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
 | 2026-06-22 | Resolve TuneIn IDs via RadioTime OPML API: `https://opml.radiotime.com/Tune.ashx?id=<id>&render=json&formats=mp3,aac&partnerId=RadioTime` | Used by node-tunein-api (Constants.js) and by soundcork internally; no new dep, `axios` is already a runtime dep | TuneIn Profiles API (`api.tunein.com`) — more complex for stream URL extraction |
 | 2026-06-22 | Serve station JSON via Node.js built-in `http.createServer()` on a configurable port (default 18090) | SoundTouch must fetch the JSON over HTTP from a LAN-reachable URL; `node:http` is a built-in — zero new dependencies | Express/Fastify — transitive deps not justified for a 3-route server |
 | 2026-06-22 | Stream URLs inside the station JSON must be HTTP, not HTTPS | SoundTouch hardware limitation per reference gist; soundcork has explicit `ssl_downgrade` logic for the same reason; RadioTime API may return HTTPS — user should provide `streamUrl` directly in that case | n/a |
-| 2026-06-22 | `serverHost` auto-detects the first non-loopback IPv4 via `os.networkInterfaces()` but is user-overridable | SoundTouch device needs a reachable LAN IP, not `127.0.0.1` | Hard-code `127.0.0.1` — always fails (speaker can't reach loopback) |
+| 2026-06-22 | `serverHost` auto-detects the first non-loopback IPv4 via `os.networkInterfaces()` but is user-overridable | SoundTouch device needs a reachable LAN IP, not `127.0.0.1` | Hard-code `127.0.0.1` — always fails (speaker can't reach loopback); `homebridge.local` (mDNS) — see next row |
+| 2026-06-22 | Finding: "Mode C" (plugin acting as soundcork, speaker redirected to Homebridge) requires the **same invasive SSH setup as soundcork** — enable SSH via USB stick, remount speaker fs `rw`, edit `/opt/Bose/etc/SoundTouchSdkPrivateCfg.xml` (4 hardcoded Bose server URLs), reboot. The plugin cannot do this automatically. Server side would also need to implement soundcork's BMX endpoints (`/marge/streaming/...`, `/bmx/...`). Not a simplification over running soundcork itself. | soundcork `docs/speaker-setup.md` — speaker uses hardcoded URLs in its config file, not DNS-based discovery; no SoundTouch local API endpoint to redirect the cloud server | Mode C deferred indefinitely — if the user is willing to SSH into the speaker, soundcork is the right tool; Mode C adds no value over Mode A |
+| 2026-06-22 | `homebridge.local` (mDNS) as `serverHost` is appealing but needs a spike | Would eliminate the `serverHost` config requirement entirely; `bonjour` is already a dep so the plugin could advertise itself; but it's unknown whether the SoundTouch device's DNS resolver can resolve `.local` addresses | Use it by default without spike — if `.local` fails silently the station JSON 404s and the user has no clear error |
 | 2026-06-22 | Expose stations as individual Switch accessories per speaker | Simplest; avoids TV-service complexity; no dependency on source-selection plan | Television + InputSource — depends on 2026-06-19-source-selection.md landing first |
 | 2026-06-22 | Station config lives under `global.internetRadio` (not per-accessory) | Same station list regardless of which speaker plays; per-speaker control is via which Switch is toggled | Per-accessory block — redundant config for multi-speaker setups |
 | 2026-06-22 | `getOn()` checks `nowPlaying.source === 'LOCAL_INTERNET_RADIO'` AND `nowPlaying.contentItem.location` contains the station's JSON URL | Only way to reflect which station is currently playing | Stateless `getOn() → false` — tile never shows active state |
@@ -162,6 +164,10 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
       port 18090 (or check whether a firewall rule is needed).
 - [ ] Call RadioTime OPML API for `s24861` (BBC World Service); confirm the
       response shape and whether `body[].url` is HTTP or HTTPS.
+- [ ] Check whether the SoundTouch device can resolve `homebridge.local` (mDNS
+      `.local` address) — use it as `location` in a test ContentItem and observe
+      whether the speaker successfully fetches the JSON. If yes, `serverHost`
+      config can be dropped entirely in favour of mDNS auto-detection.
 
 ### ContentItem extension
 
