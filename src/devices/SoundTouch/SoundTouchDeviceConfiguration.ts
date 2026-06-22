@@ -34,7 +34,7 @@ export class DeviceConfiguration {
   readonly verboseLogging: boolean;
   readonly accessoryType: AccessoryType;
 
-  constructor(props: {
+  private constructor(props: {
     type: 'room' | 'ip' | 'discovered';
     name?: string;
     room?: string;

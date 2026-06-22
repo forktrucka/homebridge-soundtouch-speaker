@@ -9,7 +9,7 @@ function _APIFromService(service?: any): API | undefined {
     service.addresses.length > 0
   ) {
     const ipAddress = service.addresses[0];
-    return new API(ipAddress, service.port);
+    return API.create(ipAddress, service.port);
   }
   return undefined;
 }

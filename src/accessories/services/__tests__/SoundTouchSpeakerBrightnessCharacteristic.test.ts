@@ -7,7 +7,7 @@ class FakeHapStatusError extends Error {
   }
 }
 
-function build({ volume = 50 }: { volume?: number } = {}) {
+async function build({ volume = 50 }: { volume?: number } = {}) {
   const updateValue = jest.fn();
   const hapCharacteristic = {
     value: volume as number | boolean,
@@ -56,7 +56,7 @@ function build({ volume = 50 }: { volume?: number } = {}) {
     logger: { homebridgeLogger: { log: jest.fn() }, requiredLogLevel: 'debug' },
   };
 
-  const subject = new SoundTouchSpeakerBrightnessCharacteristic({
+  const subject = await SoundTouchSpeakerBrightnessCharacteristic.create({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     service: service as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,7 +84,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
 
   describe('#init', () => {
     it('refreshes the characteristic value on init', async () => {
-      const { subject, hapCharacteristic, updateValue } = build({ volume: 42 });
+      const { subject, hapCharacteristic, updateValue } = await build({ volume: 42 });
       hapCharacteristic.value = 0;
 
       await subject.init();
@@ -95,7 +95,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
 
   describe('#refresh', () => {
     it('updates the HAP value with the actual volume from the device', async () => {
-      const { subject, hapCharacteristic, updateValue } = build({ volume: 60 });
+      const { subject, hapCharacteristic, updateValue } = await build({ volume: 60 });
       hapCharacteristic.value = 40;
 
       await subject.refresh();
@@ -104,7 +104,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
     });
 
     it('does not update the HAP value when it has not changed', async () => {
-      const { subject, hapCharacteristic, updateValue } = build({ volume: 50 });
+      const { subject, hapCharacteristic, updateValue } = await build({ volume: 50 });
       hapCharacteristic.value = 50;
 
       await subject.refresh();
@@ -113,7 +113,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
     });
 
     it('does not throw when the device returns no volume', async () => {
-      const { subject, getVolume } = build();
+      const { subject, getVolume } = await build();
       getVolume.mockResolvedValue(undefined as never);
 
       await expect(subject.refresh()).resolves.not.toThrow();
@@ -122,7 +122,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
 
   describe('#getBrightness', () => {
     it('returns the actual volume from the device', async () => {
-      const { subject } = build({ volume: 75 });
+      const { subject } = await build({ volume: 75 });
 
       const result = await subject.getBrightness();
 
@@ -130,7 +130,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
     });
 
     it('throws HapStatusError when the device is unreachable', async () => {
-      const { subject, getVolume } = build();
+      const { subject, getVolume } = await build();
       getVolume.mockRejectedValue(new Error('network error'));
 
       await expect(subject.getBrightness()).rejects.toBeInstanceOf(
@@ -142,7 +142,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
   describe('#setBrightness', () => {
     describe('when value is 0', () => {
       it('is a no-op — power-off is owned by setOn', async () => {
-        const { subject, pressKey, setVolume } = build();
+        const { subject, pressKey, setVolume } = await build();
 
         await subject.setBrightness(0);
 
@@ -153,7 +153,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
 
     describe('when value is greater than 0', () => {
       it('sets the volume to the given value', async () => {
-        const { subject, setVolume } = build();
+        const { subject, setVolume } = await build();
 
         await subject.setBrightness(65);
 
@@ -161,7 +161,7 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
       });
 
       it('throws HapStatusError when the volume set fails', async () => {
-        const { subject, setVolume } = build();
+        const { subject, setVolume } = await build();
         setVolume.mockRejectedValue(new Error('network error'));
 
         await expect(subject.setBrightness(65)).rejects.toBeInstanceOf(

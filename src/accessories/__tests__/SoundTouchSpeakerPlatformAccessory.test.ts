@@ -12,7 +12,7 @@ function build(pollingInterval: number) {
     logger: { homebridgeLogger: { log: jest.fn() }, requiredLogLevel: 'debug' },
   };
 
-  const subject = new SoundTouchSpeakerPlatformAccessory({
+  const subject = SoundTouchSpeakerPlatformAccessory.createWithCharacteristics({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     accessory: {} as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

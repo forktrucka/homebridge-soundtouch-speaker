@@ -22,10 +22,14 @@ export class APIErrors extends Error {
   readonly deviceId?: string;
   readonly errors: APIError[];
 
-  constructor(errors: APIError[], deviceId?: string) {
+  private constructor(errors: APIError[], deviceId?: string) {
     super(`Occurred on device ${deviceId}: ${JSON.stringify(errors)}`);
     this.deviceId = deviceId;
     this.errors = errors;
+  }
+
+  static create(errors: APIError[], deviceId?: string): APIErrors {
+    return new APIErrors(errors, deviceId);
   }
 
   static fromElement(element: XMLElement): APIErrors | undefined {

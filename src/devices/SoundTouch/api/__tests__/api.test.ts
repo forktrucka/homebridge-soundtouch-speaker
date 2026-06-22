@@ -15,7 +15,7 @@ describe('API', () => {
   beforeEach(() => {
     const instance = axios.create();
     mock = new MockAdapter(instance);
-    api = new API(HOST, 8090, instance);
+    api = API.create(HOST, 8090, instance);
   });
 
   afterEach(() => {
@@ -32,7 +32,7 @@ describe('API', () => {
     it('honours a custom port', async () => {
       const instance = axios.create();
       const customMock = new MockAdapter(instance);
-      const customApi = new API('10.0.0.9', 9999, instance);
+      const customApi = API.create('10.0.0.9', 9999, instance);
       customMock
         .onGet('http://10.0.0.9:9999/volume')
         .reply(200, '<volume deviceID="D"></volume>');

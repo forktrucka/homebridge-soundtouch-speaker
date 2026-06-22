@@ -14,7 +14,7 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
 
   private characteristic: Characteristic;
 
-  constructor({
+  private constructor({
     service,
     ...props
   }: {

@@ -14,7 +14,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
   private readonly speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
   private _isPolling = false;
 
-  constructor({
+  private constructor({
     speakerCharacteristics,
     ...props
   }: {
@@ -67,6 +67,15 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
         this.log.error('Polling refresh failed', e);
       }
     }
+  }
+
+  static createWithCharacteristics(props: {
+    accessory: PlatformAccessory;
+    device: SoundTouchDevice;
+    platform: SoundTouchHomebridgePlatform;
+    speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
+  }): SoundTouchSpeakerPlatformAccessory {
+    return new SoundTouchSpeakerPlatformAccessory(props);
   }
 
   static async createAccessory(props: {

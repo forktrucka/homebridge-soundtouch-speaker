@@ -29,7 +29,7 @@ export class SoundTouchDevice implements BaseDevice {
   id: string;
   name: string;
 
-  constructor(props: SoundTouchSpeakerPlatformAccessoryProps) {
+  private constructor(props: SoundTouchSpeakerPlatformAccessoryProps) {
     this.api = props.api;
     this.model = props.model;
     this.version = props.version;
@@ -147,7 +147,7 @@ export class SoundTouchDevice implements BaseDevice {
   }): Promise<SoundTouchDevice> {
     let api;
     if (accessoryConfig.ip) {
-      api = new SoundTouchApi(accessoryConfig.ip, accessoryConfig.port);
+      api = SoundTouchApi.create(accessoryConfig.ip, accessoryConfig.port);
     } else if (accessoryConfig.room) {
       api = await SoundTouchDiscovery.find(accessoryConfig.room);
       if (!api) {

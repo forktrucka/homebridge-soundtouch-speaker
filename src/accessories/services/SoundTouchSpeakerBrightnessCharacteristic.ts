@@ -12,7 +12,7 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
   private readonly service: Service;
   private characteristic: Characteristic;
 
-  constructor({
+  private constructor({
     service,
     ...props
   }: {
