@@ -45,7 +45,7 @@ flowchart TD
 | 5 | **Speaker zones** | `feat/speaker-zones` | 🟢 Unblocked | `zones` config array; `SoundTouchZoneAccessory`; zone API activation at startup sync. `feat:` → minor. Zone API already implemented in `api/zone.ts`. |
 | 5.5 | **[08] Typed preset management** | `feat/typed-preset-management` | 🟢 Unblocked | `PresetServer` (HTTP station JSON + stream proxy), `PresetManager` (startup + scheduled sync), `TuneInClient` (RadioTime OPML→stream URL), `storePreset` API extension, `LOCAL_INTERNET_RADIO` ContentItem. No HomeKit characteristics in this plan. `feat:` → minor. Independent of all other plans. |
 | 6 | **Spike C Part 2** | — | 🟡 Unblocked (needs real device) | Real-device gabbo capture session. Run after disabled flag + logging land. Unblocks [07] WebSocket push. |
-| 7 | **[07] WebSocket push (gabbo)** | `feat/websocket-push` | 🔴 Blocked | Blocked on disabled flag + logging (testing prerequisites) and Spike C Part 2. Phased: P1 connection+lifecycle, P2 per-event mapping, P3 tune polling + edges. |
+| 7 | **[07] WebSocket push (gabbo)** | `feat/websocket-push` | 🟡 Partially unblocked | Testing prerequisites (disabled flag + logging) still required. Spike C Part 2 (real-device) **no longer blocks Phase 1** — `gabbo` sub-protocol and all major event shapes confirmed by reference implementation (`Dress13/homebridge-bose-soundtouch`). Phase 3 (standby edges, reconnect tuning) still benefits from real-device capture. Phased: P1 connection+lifecycle, P2 per-event mapping, P3 tune polling + edges. |
 | 8 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Blocked on TV-vs-Switch spike (verify Television+InputSource on a real device). |
 | 9 | **[04] PWA — Phase 1** | `feat/pwa` | 🔴 Blocked (spike A) | Blocked on spike A (reverse-engineer hotspot provisioning HTTP API at `http://192.0.2.1`). |
 | 10 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via zone API. Needs phase 1 scaffold. |
@@ -106,14 +106,17 @@ What must be resolved:
 2. Does Homebridge Config UI X watch for external config changes and reload, or is a restart always required?
 
 ### Spike C Part 2 — gabbo WebSocket real-device capture
-**Blocks:** [07] WebSocket push. Part 1 complete (#66). Run after disabled flag + logging land.
+**Blocks:** [07] WebSocket Phase 3 only (Phase 1 is now unblocked — see below). Part 1 complete (#66).
 
-Run `node scripts/gabbo-probe.mjs <ip>` against the device while toggling volume/power/source/preset from the Bose app. Capture and record in plan 07's findings:
-1. Is the `gabbo` sub-protocol accepted on connect?
-2. Do real frames match the v1.1 reference shapes?
-3. Heartbeat / empty-update cadence and idle-timeout behaviour.
-4. What happens to the socket on standby/power-off — closed? silent? Reconnect trigger?
-5. Reconnect/backoff behaviour after a drop; multi-device behaviour.
+**Status (2026-06-22):** Questions 1 and 2 below are **confirmed** by reference implementation `Dress13/homebridge-bose-soundtouch` (TypeScript, real-device tested): `gabbo` sub-protocol accepted; all major event shapes match the v1.1 reference; several carry inline data (volume, nowPlaying, presets, zone, bass). Fixed 5 s reconnect + 30 s client-side ping confirmed sufficient in practice.
+
+Remaining open questions (still need real-device capture — run after disabled flag + logging land):
+
+3. Heartbeat / empty-update cadence and server-side idle-timeout behaviour.
+4. What happens to the socket on **standby/power-off** — closed? silent? Reconnect trigger?
+5. Multi-device reconnect behaviour after a drop.
+
+Run `node scripts/gabbo-probe.mjs <ip>` against the device while toggling volume/power/source/preset and putting it into standby.
 
 **Time-box:** one capture session.
 
