@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a2e">
+  <link rel="manifest" href="/manifest.json">
+  <title>Homebridge SoundTouch</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #eee; margin: 0; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    p { color: #aaa; font-size: 0.9rem; }
+    .card { background: #16213e; border-radius: 12px; padding: 1.5rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>🔊 SoundTouch</h1>
+  <p>Homebridge plugin management</p>
+  <div class="card">
+    <h2>Internet Radio Presets</h2>
+    <p>Configure internet radio stations in your Homebridge config under <code>global.presets</code>.</p>
+  </div>
+  <div class="card">
+    <h2>Zone Management</h2>
+    <p>Coming soon — manage multi-room speaker groups.</p>
+  </div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>

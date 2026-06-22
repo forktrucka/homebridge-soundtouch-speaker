@@ -15,6 +15,7 @@ export class PlatformConfiguration {
   accessories: DeviceConfiguration[];
   pollingInterval: number;
   verbose: boolean;
+  webPort: number | undefined;
 
   constructor(props: {
     name: string;
@@ -22,12 +23,14 @@ export class PlatformConfiguration {
     accessories: DeviceConfiguration[] | undefined;
     pollingInterval: number;
     verbose: boolean;
+    webPort: number | undefined;
   }) {
     this.name = props.name;
     this.discoverAllAccessories = props.discoverAllAccessories;
     this.accessories = props?.accessories ?? [];
     this.pollingInterval = props.pollingInterval;
     this.verbose = props.verbose;
+    this.webPort = props.webPort;
   }
 
   toJson() {
@@ -35,6 +38,10 @@ export class PlatformConfiguration {
   }
 
   static fromExternalConfiguration(props: ExternalPlatformConfig) {
+    const rawWebPort = props.global?.webPort;
+    const webPort =
+      rawWebPort !== undefined && rawWebPort > 0 ? rawWebPort : undefined;
+
     return new PlatformConfiguration({
       discoverAllAccessories:
         props.discoverAllAccessories ?? DEFAULT_DISCOVER_ALL_ACCESSORIES,
@@ -61,6 +68,7 @@ export class PlatformConfiguration {
           })
           ?.filter((d) => !!d) ?? [],
       name: props.name ?? PLATFORM_NAME,
+      webPort,
     });
   }
 }

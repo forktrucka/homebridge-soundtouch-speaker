@@ -5,7 +5,7 @@ import pluginJest from 'eslint-plugin-jest';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', '.claude/**'],
+    ignores: ['dist/**', '.claude/**', 'src/web/**'],
   },
   {
     languageOptions: {

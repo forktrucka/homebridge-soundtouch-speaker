@@ -13,6 +13,7 @@ import { SoundTouchSpeakerPlatformAccessory } from './accessories/SoundTouchSpea
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { Logger } from './utils/FormattedLogger.js';
 import { PlatformConfiguration } from './PlatformConfiguration.js';
+import { WebServer } from './server/WebServer.js';
 
 export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly service: typeof Service;
@@ -53,6 +54,21 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     this.api.on('didFinishLaunching', async () => {
       this.logger.debug('Started didFinishLaunching callback');
       await this.discoverDevices();
+
+      if (this.configuration.webPort) {
+        try {
+          const server = WebServer.create({ port: this.configuration.webPort });
+          await server.listen();
+          this.logger.info(`PWA available at ${server.url}`);
+
+          this.api.on('shutdown', async () => {
+            await server.close();
+          });
+        } catch (e: unknown) {
+          this.logger.error('Failed to start web server', e);
+        }
+      }
+
       this.logger.debug('Finished didFinishLaunching callback');
     });
 

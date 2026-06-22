@@ -11,6 +11,7 @@ interface BaseGlobalConfig {
 interface GlobalConfig extends BaseGlobalConfig {
   readonly pollingInterval?: number;
   readonly accessoryType?: 'switch' | 'lightbulb';
+  readonly webPort?: number;
 }
 
 export interface AccessoryConfig extends GlobalConfig {

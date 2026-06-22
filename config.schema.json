@@ -29,6 +29,13 @@
             "enum": ["switch", "lightbulb"],
             "default": "switch",
             "description": "Default HomeKit accessory type for all speakers. 'lightbulb' exposes volume via Brightness."
+          },
+          "webPort": {
+            "title": "Web UI Port",
+            "description": "Port for the built-in web interface (PWA). Leave unset or 0 to disable. Default: 8095 when enabled.",
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 65535
           }
         }
       },

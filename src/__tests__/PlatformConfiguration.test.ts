@@ -164,6 +164,32 @@ describe('PlatformConfiguration', () => {
       expect(config.accessories[0].type).toBe('ip');
       expect(config.accessories[1].type).toBe('room');
     });
+
+    it('stores webPort when provided', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { webPort: 8095 },
+      });
+
+      expect(config.webPort).toBe(8095);
+    });
+
+    it('leaves webPort undefined when absent', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.webPort).toBeUndefined();
+    });
+
+    it('leaves webPort undefined when 0', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { webPort: 0 },
+      });
+
+      expect(config.webPort).toBeUndefined();
+    });
   });
 
   describe('toJson', () => {

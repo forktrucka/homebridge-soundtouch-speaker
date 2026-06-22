@@ -26,7 +26,8 @@
   },
   "scripts": {
     "clean": "rimraf ./dist",
-    "build": "npm run clean && tsc",
+    "copy:web": "cp -r src/web dist/web",
+    "build": "npm run clean && tsc && npm run copy:web",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings=0 --fix .",
     "format": "prettier --write .",
