@@ -63,13 +63,17 @@ export class Logger implements Partial<Logging> {
   }
 
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn(message: string, ...parameters: any[]): void {
-    this.log(LogLevel.WARN, message, ...parameters);
+  warn(messageOrErr: string | Error, ...parameters: any[]): void {
+    if (messageOrErr instanceof Error) {
+      this._logAtLevel(LogLevel.WARN, messageOrErr, undefined);
+      return;
+    }
+    this.log(LogLevel.WARN, messageOrErr, ...parameters);
   }
 
   error(messageOrErr: string | Error, err?: unknown): void {
     if (messageOrErr instanceof Error) {
-      this._logError(messageOrErr, undefined);
+      this._logAtLevel(LogLevel.ERROR, messageOrErr, undefined);
       return;
     }
     const message = messageOrErr;
@@ -77,10 +81,10 @@ export class Logger implements Partial<Logging> {
       this.log(LogLevel.ERROR, message);
       return;
     }
-    this._logError(err, message);
+    this._logAtLevel(LogLevel.ERROR, err, message);
   }
 
-  private _logError(err: Error, prefix: string | undefined): void {
+  private _logAtLevel(level: LogLevel, err: Error, prefix: string | undefined): void {
     const isDebug = !Logger.excludeLog(LogLevel.DEBUG, this.requiredLogLevel);
 
     if (isDebug) {
@@ -91,7 +95,7 @@ export class Logger implements Partial<Logging> {
         node = node.cause;
       }
       const chain = lines.join('\n  caused by:\n  ');
-      this.log(LogLevel.ERROR, prefix ? `${prefix}:\n  ${chain}` : chain);
+      this.log(level, prefix ? `${prefix}:\n  ${chain}` : chain);
     } else {
       const ctx = renderContext(err);
       const cause =
@@ -99,7 +103,7 @@ export class Logger implements Partial<Logging> {
           ? `\n  caused by: ${formatError(err.cause)}`
           : '';
       const formatted = `${formatError(err)}${ctx}${cause}`;
-      this.log(LogLevel.ERROR, prefix ? `${prefix}: ${formatted}` : formatted);
+      this.log(level, prefix ? `${prefix}: ${formatted}` : formatted);
     }
   }
 
