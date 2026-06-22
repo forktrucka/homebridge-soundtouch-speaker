@@ -1,6 +1,6 @@
 import { BaseDevice } from 'homebridge-base-platform';
 import { LogLevel } from 'homebridge';
-import { ContextError, DeviceInfoError, DeviceNotFoundError } from '../../errors.js';
+import { AppError } from '../../errors.js';
 import {
   API as SoundTouchApi,
   APIDiscovery as SoundTouchDiscovery,
@@ -137,7 +137,7 @@ export class SoundTouchDevice implements BaseDevice {
       } catch (e) {
         logger.error(
           'Error while creating soundtouch device',
-          ContextError.wrap('creating device', {}, e)
+          AppError.create({ name: 'CreateDeviceFailed', message: 'creating device failed', cause: e })
         );
       }
     }
@@ -158,15 +158,15 @@ export class SoundTouchDevice implements BaseDevice {
     } else if (accessoryConfig.room) {
       api = await SoundTouchDiscovery.find(accessoryConfig.room);
       if (!api) {
-        throw new DeviceNotFoundError(accessoryConfig.name || '(undefined)');
+        throw AppError.create({ name: 'DeviceNotFound', message: `Can't find device '${accessoryConfig.name || '(undefined)'}' on your network`, info: { name: accessoryConfig.name || '(undefined)' } });
       }
     }
     if (!api) {
-      throw new DeviceNotFoundError(accessoryConfig.name ?? '(undefined)');
+      throw AppError.create({ name: 'DeviceNotFound', message: `Can't find device '${accessoryConfig.name ?? '(undefined)'}' on your network`, info: { name: accessoryConfig.name ?? '(undefined)' } });
     }
     const info = await api.getInfo();
     if (!info) {
-      throw new DeviceInfoError(accessoryConfig.name ?? '(undefined)');
+      throw AppError.create({ name: 'DeviceInfoFailed', message: `Could not fetch device info for '${accessoryConfig.name ?? '(undefined)'}'`, info: { name: accessoryConfig.name ?? '(undefined)' } });
     }
     return SoundTouchDevice.fromDiscoveredAccessory({
       api,

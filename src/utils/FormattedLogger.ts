@@ -1,7 +1,7 @@
 import { Logging, LogLevel } from 'homebridge';
 import { formatError } from 'homebridge-lib';
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
-import { ContextError } from '../errors.js';
+import { AppError } from '../errors.js';
 
 const logLevelSeverityMap = {
   [LogLevel.DEBUG]: 0,
@@ -12,8 +12,8 @@ const logLevelSeverityMap = {
 };
 
 function renderContext(err: Error): string {
-  if (err instanceof ContextError) {
-    const entries = Object.entries(err.context);
+  if (err instanceof AppError) {
+    const entries = Object.entries(err.info);
     if (entries.length > 0) {
       return ` [${entries.map(([k, v]) => `${k}: ${v}`).join(', ')}]`;
     }

@@ -1,7 +1,7 @@
 import { describe, expect, jest, it } from '@jest/globals';
 import { DeviceLogger, Logger } from '../FormattedLogger.js';
 import { LogLevel, type Logging } from 'homebridge';
-import { ContextError } from '../../errors.js';
+import { AppError } from '../../errors.js';
 import { DeviceConfiguration } from '../../devices/SoundTouch/SoundTouchDeviceConfiguration.js';
 import { API as SoundTouchApi } from '../../devices/SoundTouch/api/index.js';
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
@@ -163,7 +163,7 @@ describe('FormattedLogger', () => {
         logger: homebridgeLogger,
         level: LogLevel.INFO,
       });
-      const err = ContextError.wrap('get volume', { device: 'Kitchen', endpoint: '/volume' }, new Error('ECONNREFUSED'));
+      const err = AppError.create({ name: 'GetVolumeFailed', message: 'get volume failed', info: { device: 'Kitchen', endpoint: '/volume' }, cause: new Error('ECONNREFUSED') });
 
       logger.error('polling failed', err);
 
@@ -180,7 +180,7 @@ describe('FormattedLogger', () => {
         level: LogLevel.DEBUG,
       });
       const root = new Error('ECONNREFUSED');
-      const wrapped = ContextError.wrap('network request failed', { endpoint: '/volume' }, root);
+      const wrapped = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', info: { endpoint: '/volume' }, cause: root });
 
       logger.error('polling failed', wrapped);
 
@@ -199,8 +199,8 @@ describe('FormattedLogger', () => {
         level: LogLevel.INFO,
       });
       const root = new Error('ECONNREFUSED');
-      const mid = ContextError.wrap('network request failed', { endpoint: '/volume' }, root);
-      const top = ContextError.wrap('polling refresh', { device: 'Kitchen' }, mid);
+      const mid = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', info: { endpoint: '/volume' }, cause: root });
+      const top = AppError.create({ name: 'PollingRefreshFailed', message: 'polling refresh failed', info: { device: 'Kitchen' }, cause: mid });
 
       logger.error('device error', top);
 
@@ -235,7 +235,7 @@ describe('FormattedLogger', () => {
         level: LogLevel.DEBUG,
       });
       const root = new Error('ECONNREFUSED');
-      const err = ContextError.wrap('get brightness', { device: 'Kitchen' }, root);
+      const err = AppError.create({ name: 'GetBrightnessFailed', message: 'get brightness failed', info: { device: 'Kitchen' }, cause: root });
 
       logger.debug('error getting brightness', err);
 

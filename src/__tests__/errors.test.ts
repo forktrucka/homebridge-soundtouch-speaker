@@ -1,60 +1,64 @@
 import { describe, expect, it } from '@jest/globals';
-import {
-  ContextError,
-  DeviceInfoError,
-  DeviceNotFoundError,
-  NetworkRequestError,
-} from '../errors.js';
+import { AppError } from '../errors.js';
 
-describe('ContextError', () => {
-  describe('.wrap', () => {
-    it('creates a ContextError with cause and context', () => {
-      const cause = new Error('ECONNREFUSED');
-      const err = ContextError.wrap('network request failed', { endpoint: '/volume' }, cause);
+describe('AppError', () => {
+  describe('.create', () => {
+    it('sets name, message, and info', () => {
+      const err = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', info: { endpoint: '/volume' } });
 
-      expect(err).toBeInstanceOf(ContextError);
+      expect(err).toBeInstanceOf(AppError);
+      expect(err).toBeInstanceOf(Error);
+      expect(err.name).toBe('NetworkRequestFailed');
       expect(err.message).toBe('network request failed');
-      expect(err.context).toEqual({ endpoint: '/volume' });
+      expect(err.info).toEqual({ endpoint: '/volume' });
+    });
+
+    it('attaches a cause', () => {
+      const cause = new Error('ECONNREFUSED');
+      const err = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', cause });
+
       expect(err.cause).toBe(cause);
     });
 
-    it('wraps a non-Error cause without throwing', () => {
-      const err = ContextError.wrap('failed', {}, 'string cause');
+    it('defaults info to an empty object when omitted', () => {
+      const err = AppError.create({ name: 'SomethingBroke', message: 'it broke' });
+
+      expect(err.info).toEqual({});
+    });
+
+    it('accepts a non-Error cause', () => {
+      const err = AppError.create({ name: 'SomethingBroke', message: 'it broke', cause: 'string cause' });
 
       expect(err.cause).toBe('string cause');
     });
   });
-});
 
-describe('NetworkRequestError', () => {
-  it('is a ContextError with the endpoint in context', () => {
-    const cause = new Error('socket hang up');
-    const err = new NetworkRequestError('/volume', cause);
+  describe('.collect', () => {
+    it('returns own info for a single AppError', () => {
+      const err = AppError.create({ name: 'Foo', message: 'foo', info: { device: 'Kitchen' } });
 
-    expect(err).toBeInstanceOf(ContextError);
-    expect(err.name).toBe('NetworkRequestError');
-    expect(err.message).toBe('network request failed');
-    expect(err.context).toEqual({ endpoint: '/volume' });
-    expect(err.cause).toBe(cause);
-  });
-});
+      expect(AppError.collect(err)).toEqual({ device: 'Kitchen' });
+    });
 
-describe('DeviceNotFoundError', () => {
-  it('is an Error with a descriptive message and correct name', () => {
-    const err = new DeviceNotFoundError('Kitchen');
+    it('merges info from every AppError in the cause chain', () => {
+      const root = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', info: { endpoint: '/volume' } });
+      const wrapped = AppError.create({ name: 'PollingRefreshFailed', message: 'polling refresh failed', info: { device: 'Kitchen' }, cause: root });
 
-    expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe('DeviceNotFoundError');
-    expect(err.message).toContain('Kitchen');
-  });
-});
+      expect(AppError.collect(wrapped)).toEqual({ device: 'Kitchen', endpoint: '/volume' });
+    });
 
-describe('DeviceInfoError', () => {
-  it('is an Error with a descriptive message and correct name', () => {
-    const err = new DeviceInfoError('Kitchen');
+    it('nearest error wins when keys overlap', () => {
+      const root = AppError.create({ name: 'Root', message: 'root', info: { device: 'old' } });
+      const top = AppError.create({ name: 'Top', message: 'top', info: { device: 'Kitchen' }, cause: root });
 
-    expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe('DeviceInfoError');
-    expect(err.message).toContain('Kitchen');
+      expect(AppError.collect(top).device).toBe('Kitchen');
+    });
+
+    it('skips plain Errors in the chain', () => {
+      const plain = new Error('ECONNREFUSED');
+      const wrapped = AppError.create({ name: 'NetworkRequestFailed', message: 'network request failed', info: { endpoint: '/volume' }, cause: plain });
+
+      expect(AppError.collect(wrapped)).toEqual({ endpoint: '/volume' });
+    });
   });
 });

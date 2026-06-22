@@ -1,42 +1,41 @@
-export class ContextError extends Error {
-  readonly context: Record<string, string>;
+export class AppError extends Error {
+  readonly info: Record<string, unknown>;
 
-  protected constructor(
+  private constructor(
+    name: string,
     message: string,
-    context: Record<string, string>,
+    info: Record<string, unknown>,
     options?: ErrorOptions
   ) {
     super(message, options);
-    this.name = 'ContextError';
-    this.context = context;
+    this.name = name;
+    this.info = info;
   }
 
-  static wrap(
-    message: string,
-    context: Record<string, string>,
-    cause: unknown
-  ): ContextError {
-    return new ContextError(message, context, { cause });
+  static create({
+    name,
+    message,
+    info = {},
+    cause,
+  }: {
+    name: string;
+    message: string;
+    info?: Record<string, unknown>;
+    cause?: unknown;
+  }): AppError {
+    return new AppError(name, message, info, { cause });
   }
-}
 
-export class NetworkRequestError extends ContextError {
-  constructor(endpoint: string, cause: unknown) {
-    super('network request failed', { endpoint }, { cause });
-    this.name = 'NetworkRequestError';
-  }
-}
-
-export class DeviceNotFoundError extends Error {
-  constructor(name: string) {
-    super(`Can't find device '${name}' on your network`);
-    this.name = 'DeviceNotFoundError';
-  }
-}
-
-export class DeviceInfoError extends Error {
-  constructor(name: string) {
-    super(`Could not fetch device info for '${name}'`);
-    this.name = 'DeviceInfoError';
+  /** Collects info from every AppError in the cause chain, nearest wins. */
+  static collect(err: Error): Record<string, unknown> {
+    let result: Record<string, unknown> = {};
+    let node: unknown = err;
+    while (node instanceof Error) {
+      if (node instanceof AppError) {
+        result = { ...node.info, ...result };
+      }
+      node = node.cause;
+    }
+    return result;
   }
 }

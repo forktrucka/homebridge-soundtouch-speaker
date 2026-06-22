@@ -1,7 +1,7 @@
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 import { PlatformAccessory, type Service } from 'homebridge';
 import { SoundTouchHomebridgePlatform } from '../platform.js';
-import { ContextError } from '../errors.js';
+import { AppError } from '../errors.js';
 import {
   getServiceName,
   ServiceType,
@@ -67,7 +67,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       } catch (e: unknown) {
         this.log.error(
           'Polling refresh failed',
-          ContextError.wrap('polling refresh', { device: this.accessory.displayName }, e)
+          AppError.create({ name: 'PollingRefreshFailed', message: 'polling refresh failed', info: { device: this.accessory.displayName }, cause: e })
         );
       }
     }
