@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { PlatformConfiguration } from '../PlatformConfiguration.js';
 import { PLATFORM_NAME } from '../settings.js';
+import { LogLevel } from 'homebridge';
 
 describe('PlatformConfiguration', () => {
   describe('fromExternalConfiguration', () => {
@@ -10,7 +11,7 @@ describe('PlatformConfiguration', () => {
       });
 
       expect(config.discoverAllAccessories).toBe(false);
-      expect(config.verbose).toBe(false);
+      expect(config.logLevel).toBe(LogLevel.INFO);
       expect(config.pollingInterval).toBe(2000);
       expect(config.accessories).toEqual([]);
       expect(config.name).toBe(PLATFORM_NAME);
@@ -77,13 +78,58 @@ describe('PlatformConfiguration', () => {
       expect(config.pollingInterval).toBe(5000);
     });
 
-    it('honours global.verbose at the platform level', () => {
+    it('maps logLevel: warn to LogLevel.WARN', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { logLevel: 'warn' },
+      });
+
+      expect(config.logLevel).toBe(LogLevel.WARN);
+    });
+
+    it('maps verbose: true to LogLevel.DEBUG (backward compat alias)', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
         global: { verbose: true },
       });
 
-      expect(config.verbose).toBe(true);
+      expect(config.logLevel).toBe(LogLevel.DEBUG);
+    });
+
+    it('logLevel takes precedence over verbose when both are set', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { logLevel: 'error', verbose: true },
+      });
+
+      expect(config.logLevel).toBe(LogLevel.ERROR);
+    });
+
+    it('maps logLevel: debug to LogLevel.DEBUG', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { logLevel: 'debug' },
+      });
+
+      expect(config.logLevel).toBe(LogLevel.DEBUG);
+    });
+
+    it('maps logLevel: info to LogLevel.INFO', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { logLevel: 'info' },
+      });
+
+      expect(config.logLevel).toBe(LogLevel.INFO);
+    });
+
+    it('maps logLevel: error to LogLevel.ERROR', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { logLevel: 'error' },
+      });
+
+      expect(config.logLevel).toBe(LogLevel.ERROR);
     });
 
     it('preserves an explicit pollingInterval of 0 (disabled)', () => {

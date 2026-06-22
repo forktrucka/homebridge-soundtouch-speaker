@@ -11,6 +11,7 @@ const common: Config = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^homebridge$': '<rootDir>/__mocks__/homebridge.js',
+    '^homebridge-lib$': '<rootDir>/__mocks__/homebridge-lib.js',
   },
 
   // Transform TypeScript using @swc/jest (replaces ts-jest)

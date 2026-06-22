@@ -1,5 +1,6 @@
 import { BaseDevice } from 'homebridge-base-platform';
-import { apiNotFoundWithName } from '../../errors.js';
+import { LogLevel } from 'homebridge';
+import { apiNotFoundWithName, ContextError } from '../../errors.js';
 import {
   API as SoundTouchApi,
   APIDiscovery as SoundTouchDiscovery,
@@ -57,7 +58,10 @@ export class SoundTouchDevice implements BaseDevice {
       logger.debug('found matching config - %s', matchedConfig.toJson());
 
       const resultingAccessoryConfig = flattenAccessoryConfiguration({
-        globalConfig: config,
+        globalConfig: {
+          pollingInterval: config.pollingInterval,
+          verbose: config.logLevel === LogLevel.DEBUG,
+        },
         accessory: matchedConfig,
       });
 
@@ -68,7 +72,7 @@ export class SoundTouchDevice implements BaseDevice {
           })
         : DeviceConfiguration.create({
             name,
-            verboseLogging: config.verbose,
+            verboseLogging: config.logLevel === LogLevel.DEBUG,
             pollingInterval: config.pollingInterval,
           });
 
@@ -88,7 +92,7 @@ export class SoundTouchDevice implements BaseDevice {
 
     return DeviceConfiguration.create({
       name,
-      verboseLogging: config.verbose,
+      verboseLogging: config.logLevel === LogLevel.DEBUG,
       pollingInterval: config.pollingInterval,
     });
   }
@@ -131,7 +135,10 @@ export class SoundTouchDevice implements BaseDevice {
 
         devices.push(device);
       } catch (e) {
-        logger.error('Error while creating soundtouch device', e);
+        logger.error(
+          'Error while creating soundtouch device',
+          ContextError.wrap('creating device', {}, e)
+        );
       }
     }
 
@@ -155,11 +162,15 @@ export class SoundTouchDevice implements BaseDevice {
       }
     }
     if (!api) {
-      throw new Error('Could not find a device');
+      throw new Error(
+        `Could not find a device for '${accessoryConfig.name ?? '(undefined)'}'`
+      );
     }
     const info = await api.getInfo();
     if (!info) {
-      throw new Error('Could not find device info');
+      throw new Error(
+        `Could not find device info for '${accessoryConfig.name ?? '(undefined)'}'`
+      );
     }
     return SoundTouchDevice.fromDiscoveredAccessory({
       api,

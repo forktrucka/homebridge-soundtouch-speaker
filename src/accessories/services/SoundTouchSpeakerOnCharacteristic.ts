@@ -8,6 +8,7 @@ import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { KeyValue } from '../../devices/SoundTouch/api/index.js';
 import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
+import { ContextError } from '../../errors.js';
 
 export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
@@ -57,7 +58,10 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
       }
       this.log.debug('set status - %s', desiredPowerStatus ? 'on' : 'off');
     } catch (e: unknown) {
-      this.log.error('error setting on status', e);
+      this.log.error(
+        'error setting on status',
+        ContextError.wrap('set on', { device: this.device.name }, e)
+      );
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
       );

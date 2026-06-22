@@ -3,7 +3,6 @@ import {
   Characteristic,
   DynamicPlatformPlugin,
   Logging,
-  LogLevel,
   PlatformAccessory,
   Service,
 } from 'homebridge';
@@ -13,6 +12,7 @@ import { SoundTouchSpeakerPlatformAccessory } from './accessories/SoundTouchSpea
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { Logger } from './utils/FormattedLogger.js';
 import { PlatformConfiguration } from './PlatformConfiguration.js';
+import { ContextError } from './errors.js';
 
 export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly service: typeof Service;
@@ -42,7 +42,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
 
     this.logger = Logger.forHomebridgeLogger({
       logger: homebridgeLogger,
-      level: this.configuration.verbose ? LogLevel.DEBUG : LogLevel.INFO,
+      level: this.configuration.logLevel,
     });
 
     this.logger.info(
@@ -88,11 +88,15 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       )
     );
 
-    return results.flatMap((result) => {
+    return results.flatMap((result, index) => {
       if (result.status === 'fulfilled') {
         return [result.value];
       }
-      this.logger.error('Failed to load configured accessory', result.reason);
+      const name = this.configuration.accessories[index]?.name ?? '(unknown)';
+      this.logger.error(
+        'Failed to load configured accessory',
+        ContextError.wrap('loading configured accessory', { name }, result.reason)
+      );
       return [];
     });
   }
@@ -104,7 +108,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     try {
       accessories = await this.searchDevices();
     } catch (e: unknown) {
-      this.logger.error('Device discovery failed', e);
+      this.logger.error(
+        'Device discovery failed',
+        ContextError.wrap('device discovery', {}, e)
+      );
       return;
     }
 

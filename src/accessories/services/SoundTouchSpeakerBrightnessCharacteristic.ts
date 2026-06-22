@@ -7,6 +7,7 @@ import {
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
+import { ContextError } from '../../errors.js';
 
 export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
@@ -54,7 +55,10 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
       this.log.debug('get brightness', actual);
       return actual;
     } catch (e: unknown) {
-      this.log.error('error getting brightness', e);
+      this.log.error(
+        'error getting brightness',
+        ContextError.wrap('get brightness', { device: this.device.name }, e)
+      );
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
       );
@@ -71,7 +75,10 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
       await this.device.api.setVolume(brightness);
       this.log.debug('set brightness - %s', brightness);
     } catch (e: unknown) {
-      this.log.error('error setting brightness', e);
+      this.log.error(
+        'error setting brightness',
+        ContextError.wrap('set brightness', { device: this.device.name }, e)
+      );
       throw new this.platform.api.hap.HapStatusError(
         this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
       );

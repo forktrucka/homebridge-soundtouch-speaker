@@ -1,5 +1,7 @@
 import { Logging, LogLevel } from 'homebridge';
+import { formatError } from 'homebridge-lib';
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
+import { ContextError } from '../errors.js';
 
 const logLevelSeverityMap = {
   [LogLevel.DEBUG]: 0,
@@ -8,6 +10,22 @@ const logLevelSeverityMap = {
   [LogLevel.WARN]: 2,
   [LogLevel.ERROR]: 3,
 };
+
+function renderContext(err: Error): string {
+  if (err instanceof ContextError) {
+    const entries = Object.entries(err.context);
+    if (entries.length > 0) {
+      return ` [${entries.map(([k, v]) => `${k}: ${v}`).join(', ')}]`;
+    }
+  }
+  return '';
+}
+
+function stackSnippet(err: Error): string {
+  if (!err.stack) return '';
+  const lines = err.stack.split('\n').slice(1, 4);
+  return lines.length > 0 ? `\n  ${lines.join('\n  ')}` : '';
+}
 
 export class Logger implements Partial<Logging> {
   readonly homebridgeLogger: Logging;
@@ -49,9 +67,38 @@ export class Logger implements Partial<Logging> {
     this.log(LogLevel.WARN, message, ...parameters);
   }
 
-  //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error(message: string, ...parameters: any[]): void {
-    this.log(LogLevel.ERROR, message, ...parameters);
+  error(message: string, err?: unknown): void {
+    if (!(err instanceof Error)) {
+      this.log(LogLevel.ERROR, message);
+      return;
+    }
+
+    const isDebug = !Logger.excludeLog(LogLevel.DEBUG, this.requiredLogLevel);
+
+    if (isDebug) {
+      // Full cause chain + context fields + stack snippet at debug verbosity
+      const lines: string[] = [];
+      let node: unknown = err;
+      while (node instanceof Error) {
+        lines.push(`${formatError(node)}${renderContext(node)}${stackSnippet(node)}`);
+        node = node.cause;
+      }
+      this.log(
+        LogLevel.ERROR,
+        `${message}:\n  ${lines.join('\n  caused by:\n  ')}`
+      );
+    } else {
+      // Concise: top message + immediate cause only
+      const ctx = renderContext(err);
+      const cause =
+        err.cause instanceof Error
+          ? `\n  caused by: ${formatError(err.cause)}`
+          : '';
+      this.log(
+        LogLevel.ERROR,
+        `${message}: ${formatError(err)}${ctx}${cause}`
+      );
+    }
   }
 
   //eslint-disable-next-line @typescript-eslint/no-explicit-any

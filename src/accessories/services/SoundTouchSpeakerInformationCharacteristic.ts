@@ -24,7 +24,9 @@ export class SoundTouchSpeakerInformationCharacteristic extends SoundTouchSpeake
       this.platform.service.AccessoryInformation
     );
     if (!informationService) {
-      throw new Error('No information service found');
+      throw new Error(
+        `No information service found for '${this.device.name}'`
+      );
     }
     informationService
       .setCharacteristic(this.platform.characteristic.Name, deviceName)
