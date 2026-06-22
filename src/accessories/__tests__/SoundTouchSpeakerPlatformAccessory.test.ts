@@ -7,7 +7,19 @@ function build(pollingInterval: number) {
   const init = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
   const characteristic = { init, refresh } as unknown as SoundTouchSpeakerCharacteristic;
 
-  const device = { name: 'Kitchen', configuration: { pollingInterval } };
+  const gabboOn = jest.fn();
+  const gabboDevice = {
+    on: gabboOn,
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+  };
+  const device = {
+    name: 'Kitchen',
+    configuration: { pollingInterval },
+    gabbo: gabboDevice,
+    connectGabbo: jest.fn(),
+    disconnectGabbo: jest.fn(),
+  };
   const platform = {
     logger: { homebridgeLogger: { log: jest.fn() }, requiredLogLevel: 'debug' },
   };

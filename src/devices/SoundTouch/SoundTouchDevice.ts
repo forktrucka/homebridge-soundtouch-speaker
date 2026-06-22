@@ -4,6 +4,7 @@ import { AppError } from '../../errors.js';
 import {
   API as SoundTouchApi,
   APIDiscovery as SoundTouchDiscovery,
+  GabboClient,
   Info,
   SourceStatus,
   NetworkInfo,
@@ -29,6 +30,7 @@ export class SoundTouchDevice implements BaseDevice {
   version?: string | undefined;
   id: string;
   name: string;
+  readonly gabbo: GabboClient;
 
   private constructor(props: SoundTouchSpeakerPlatformAccessoryProps) {
     this.api = props.api;
@@ -37,6 +39,15 @@ export class SoundTouchDevice implements BaseDevice {
     this.id = props.id;
     this.name = props.name;
     this.configuration = props.configuration;
+    this.gabbo = GabboClient.create(props.api.host);
+  }
+
+  connectGabbo(): void {
+    this.gabbo.connect();
+  }
+
+  disconnectGabbo(): void {
+    this.gabbo.disconnect();
   }
 
   static getOrCreateDeviceConfiguration({

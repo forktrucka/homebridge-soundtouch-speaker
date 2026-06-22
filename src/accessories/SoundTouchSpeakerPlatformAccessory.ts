@@ -42,6 +42,29 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       });
     }
 
+    this.device.gabbo.on('volumeUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+    this.device.gabbo.on('nowPlayingUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+    this.device.gabbo.on('bassUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+    this.device.gabbo.on('connectionStateUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+
+    this.device.connectGabbo();
+
     this.log.info(`Device ready`);
   }
 
@@ -55,6 +78,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
 
   stopPolling(): void {
     this._isPolling = false;
+    this.device.disconnectGabbo();
   }
 
   private async _refreshDeviceServices(): Promise<void> {

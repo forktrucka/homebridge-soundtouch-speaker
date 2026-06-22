@@ -2,6 +2,7 @@ export * from './utils/index.js';
 export * from './api.js';
 export * from './api-discovery.js';
 export * from './art.js';
+export * from './GabboClient.js';
 export * from './bass.js';
 export * from './bass-capabilities.js';
 export * from './component.js';

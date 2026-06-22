@@ -39,7 +39,7 @@ const parseXML = promisify(
 );
 
 export class API {
-  private readonly host: string;
+  readonly host: string;
   private readonly port: number;
   private readonly builder: XMLBuilder;
   private readonly axiosInstance: AxiosInstance;
