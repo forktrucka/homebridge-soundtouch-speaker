@@ -7,7 +7,7 @@ const SOUNDTOUCH_MANUFACTURER = 'Bose';
 
 export class SoundTouchSpeakerInformationCharacteristic extends SoundTouchSpeakerCharacteristic {
 
-  constructor(props: {
+  private constructor(props: {
     device: SoundTouchDevice;
     accessory: PlatformAccessory;
     platform: SoundTouchHomebridgePlatform;

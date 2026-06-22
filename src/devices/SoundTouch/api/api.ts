@@ -43,7 +43,15 @@ export class API {
   private readonly builder: XMLBuilder;
   private readonly axiosInstance: AxiosInstance;
 
-  constructor(
+  static create(
+    host: string,
+    port: number = 8090,
+    axiosInstance?: AxiosInstance
+  ): API {
+    return new API(host, port, axiosInstance);
+  }
+
+  private constructor(
     host: string,
     port: number = 8090,
     axiosInstance?: AxiosInstance
@@ -255,7 +263,7 @@ export class API {
       if (errElement) {
         const err = errorFromElement(errElement);
         if (err) {
-          throw new APIErrors([err]);
+          throw APIErrors.create([err]);
         }
       }
     }

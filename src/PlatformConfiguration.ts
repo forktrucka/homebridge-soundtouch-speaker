@@ -16,7 +16,7 @@ export class PlatformConfiguration {
   pollingInterval: number;
   verbose: boolean;
 
-  constructor(props: {
+  private constructor(props: {
     name: string;
     discoverAllAccessories: boolean;
     accessories: DeviceConfiguration[] | undefined;

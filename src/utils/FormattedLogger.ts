@@ -13,7 +13,7 @@ export class Logger implements Partial<Logging> {
   readonly homebridgeLogger: Logging;
   readonly requiredLogLevel: LogLevel;
 
-  constructor({
+  protected constructor({
     homebridgeLogger,
     level,
   }: {
@@ -73,7 +73,7 @@ export class Logger implements Partial<Logging> {
 export class DeviceLogger extends Logger {
   readonly device: SoundTouchDevice;
 
-  constructor({
+  private constructor({
     homebridgeLogger,
     level,
     device,

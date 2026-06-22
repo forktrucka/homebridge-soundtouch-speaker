@@ -55,7 +55,7 @@ describe('APIErrors', () => {
   });
 
   it('is an Error carrying device id and a descriptive message', () => {
-    const errors = new APIErrors(
+    const errors = APIErrors.create(
       [{ value: 1, name: 'A', severity: 'High' }],
       'DEV1'
     );
