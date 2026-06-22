@@ -2,7 +2,7 @@ export class AppError extends Error {
   readonly info: Record<string, unknown>;
 
   private constructor(info: Record<string, unknown>, cause: unknown) {
-    super((info.msg ?? info.name) as string, cause !== undefined ? { cause } : undefined);
+    super((info.msg ?? '') as string, cause !== undefined ? { cause } : undefined);
     this.name = info.name as string;
     this.info = info;
   }

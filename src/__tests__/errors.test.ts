@@ -3,16 +3,16 @@ import { AppError } from '../errors.js';
 
 describe('AppError', () => {
   describe('.create', () => {
-    it('uses name as both error.name and error.message when msg is absent', () => {
+    it('sets error.name from name and leaves message empty when msg is absent', () => {
       const err = AppError.create({ name: 'NetworkRequestFailed', endpoint: '/volume' });
 
       expect(err).toBeInstanceOf(AppError);
       expect(err).toBeInstanceOf(Error);
       expect(err.name).toBe('NetworkRequestFailed');
-      expect(err.message).toBe('NetworkRequestFailed');
+      expect(err.message).toBe('');
     });
 
-    it('uses msg as error.message when provided', () => {
+    it('sets error.message from msg when provided', () => {
       const err = AppError.create({ name: 'NetworkRequestFailed', msg: 'Could not reach device' });
 
       expect(err.name).toBe('NetworkRequestFailed');
