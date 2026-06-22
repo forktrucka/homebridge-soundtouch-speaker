@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-06-21
+Last updated: 2026-06-22
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
@@ -22,6 +22,7 @@ flowchart TD
     PWA1Node["[04] PWA – Phase 1\nWiFi provisioning"]
     PWA2Node["[04] PWA – Phase 2\nGroup management"]
     PWA3Node["[04] PWA – Phase 3\nConfig sync"]
+    PresetNode["[08] Typed preset management\nInternet radio / TuneIn"]
 
     DisabledNode --> SpikeC
     LoggingNode --> SpikeC
@@ -42,6 +43,7 @@ flowchart TD
 | 3 | **Structured errors + logLevel** | `feat/structured-errors-logging` | 🟢 Next (unblocked) | `ContextError` + native `Error.cause` chaining; `logLevel` config replaces `verbose: boolean`; level-aware `FormattedLogger.error()`. `feat:` → minor. Testing prerequisite for WebSocket push. |
 | 4 | **CHANGELOG** | `docs/changelog` | 🔵 In-progress (#111) | Introduce `CHANGELOG.md` + wire `@semantic-release/changelog` / `@semantic-release/git`. `docs:` → no release. |
 | 5 | **Speaker zones** | `feat/speaker-zones` | 🟢 Unblocked | `zones` config array; `SoundTouchZoneAccessory`; zone API activation at startup sync. `feat:` → minor. Zone API already implemented in `api/zone.ts`. |
+| 5.5 | **[08] Typed preset management** | `feat/typed-preset-management` | 🟢 Unblocked | `PresetServer` (HTTP station JSON + stream proxy), `PresetManager` (startup + scheduled sync), `TuneInClient` (RadioTime OPML→stream URL), `storePreset` API extension, `LOCAL_INTERNET_RADIO` ContentItem. No HomeKit characteristics in this plan. `feat:` → minor. Independent of all other plans. |
 | 6 | **Spike C Part 2** | — | 🟡 Unblocked (needs real device) | Real-device gabbo capture session. Run after disabled flag + logging land. Unblocks [07] WebSocket push. |
 | 7 | **[07] WebSocket push (gabbo)** | `feat/websocket-push` | 🔴 Blocked | Blocked on disabled flag + logging (testing prerequisites) and Spike C Part 2. Phased: P1 connection+lifecycle, P2 per-event mapping, P3 tune polling + edges. |
 | 8 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Blocked on TV-vs-Switch spike (verify Television+InputSource on a real device). |
@@ -62,6 +64,7 @@ count. Bands: **Small** (room to spare), **Medium** (one fits comfortably),
 | **Disabled flag** | Small | Additive config field + one branch in `discoverDevices()`. Low iteration risk. |
 | **Structured errors + logLevel** | Medium | New `ContextError` class + `logLevel` config threaded through `ExternalPlatformConfig` → `PlatformConfiguration` → `platform.ts`; `FormattedLogger.error()` rewrite. TDD on `ContextError` and the formatter is the main loop. |
 | **Speaker zones** | Heavy | New `ZoneConfig` type + config schema; `zones` threaded through `PlatformConfiguration`; `SoundTouchZoneAccessory` + `SoundTouchZoneOnCharacteristic`; startup `getZone()` sync; zone set/dissolve via `setZone`/`removeZoneSlave`. |
+| **[08] Typed preset management** | Heavy | 4 new modules (`PresetStation`, `TuneInClient`, `PresetServer`, `PresetManager`); extend `ContentItem` with `type` field; new `storePreset` API method; config threading through `ExternalPlatformConfig`→`PlatformConfiguration`→`platform.ts`; HTTP server with stream proxy; startup + scheduled sync. TDD across all modules. High iteration risk on server/proxy and the RadioTime API integration. |
 | **[07] WebSocket push — Phase 1** | Heavy (est.) | New stateful per-device connection (connect/parse/reconnect/teardown), `ws`-backed fake-gabbo harness, async lifecycle threaded through `platform.ts`/accessory. Re-estimate after Spike C Part 2. |
 | **[03] Source selection** | TBD (blocked) | Estimate after TV-vs-Switch spike resolves the architecture. |
 | **[04] PWA — Phase 1–3** | TBD (blocked) | New `web/` workspace + embedded `src/server/`. Each phase its own session minimum. |
@@ -119,3 +122,4 @@ Run `node scripts/gabbo-probe.mjs <ip>` against the device while toggling volume
 - **WebSocket push (plan 07) augments polling — it does not replace it.** Polling stays as a relaxed-interval fallback for dropped sockets / missed tickles.
 - **Source selection is the highest-risk HomeKit feature.** The Television+InputSource pattern has real caveats (external publishing, `Active`/`On` power model clash, buried UX). The per-source Switch fallback is Plan B if the TV path is too rough.
 - **The PWA is architecturally independent** from the HomeKit features. It introduces a new `web/` workspace and `src/server/` embedded HTTP server — no overlap with the HAP characteristic layer.
+- **Typed preset management (plan 08) is architecturally independent.** It introduces a new `src/presets/` module and a local HTTP server, but touches no HomeKit characteristics and does not depend on the polling/WebSocket or accessory-type work. It does extend `ContentItem` in `src/devices/SoundTouch/api/content-item.ts` (adds `type` field) and adds `storePreset` to `api.ts` and `Endpoints` — any branch that also touches those files will need to rebase. A future plan can wire up HomeKit controls (preset select, station status) once this plan's stable URL + server foundation is in place.
