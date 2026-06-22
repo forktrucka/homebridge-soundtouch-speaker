@@ -43,7 +43,7 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
 | 2026-06-22 | `isPresetable="true"` should be set on radio station ContentItems | soundcork Presets.xml shows this on every TuneIn preset | Omitting — may prevent device from accepting the ContentItem |
 | 2026-06-22 | Resolve TuneIn IDs via RadioTime OPML API: `https://opml.radiotime.com/Tune.ashx?id=<id>&render=json&formats=mp3,aac&partnerId=RadioTime` | Used by node-tunein-api (Constants.js) and by soundcork internally; no new dep, `axios` is already a runtime dep | TuneIn Profiles API (`api.tunein.com`) — more complex for stream URL extraction |
 | 2026-06-22 | Serve station JSON via Node.js built-in `http.createServer()` on a configurable port (default 18090) | SoundTouch must fetch the JSON over HTTP from a LAN-reachable URL; `node:http` is a built-in — zero new dependencies | Express/Fastify — transitive deps not justified for a 3-route server |
-| 2026-06-22 | Stream URLs inside the station JSON must be HTTP, not HTTPS | SoundTouch hardware limitation per reference gist; soundcork has explicit `ssl_downgrade` logic for the same reason; RadioTime API may return HTTPS — user should provide `streamUrl` directly in that case | n/a |
+| 2026-06-22 | **Stream proxy in the local server** — `GET /stream/:id` pipes the resolved upstream URL (HTTP or HTTPS) back to the speaker as HTTP | Eliminates the HTTPS constraint entirely: station JSON always uses `http://host:port/stream/:id`; the plugin fetches whatever URL TuneIn returns. Zero new deps — Node built-in `https.get()` + `pipe()`. Must clean up upstream connection on client disconnect to avoid zombie streams. `streamUrl` config entries (user-supplied) also route through the proxy unless they are already HTTP, in which case we can serve them directly | Serving the upstream URL verbatim in the JSON — fails when it's HTTPS; instructing users to find an HTTP URL — poor UX |
 | 2026-06-22 | `serverHost` auto-detects the first non-loopback IPv4 via `os.networkInterfaces()` but is user-overridable | SoundTouch device needs a reachable LAN IP, not `127.0.0.1` | Hard-code `127.0.0.1` — always fails (speaker can't reach loopback); `homebridge.local` (mDNS) — see next row |
 | 2026-06-22 | Finding: "Mode C" (plugin acting as soundcork, speaker redirected to Homebridge) requires the **same invasive SSH setup as soundcork** — enable SSH via USB stick, remount speaker fs `rw`, edit `/opt/Bose/etc/SoundTouchSdkPrivateCfg.xml` (4 hardcoded Bose server URLs), reboot. The plugin cannot do this automatically. Server side would also need to implement soundcork's BMX endpoints (`/marge/streaming/...`, `/bmx/...`). Not a simplification over running soundcork itself. | soundcork `docs/speaker-setup.md` — speaker uses hardcoded URLs in its config file, not DNS-based discovery; no SoundTouch local API endpoint to redirect the cloud server | Mode C deferred indefinitely — if the user is willing to SSH into the speaker, soundcork is the right tool; Mode C adds no value over Mode A |
 | 2026-06-22 | `homebridge.local` (mDNS) as `serverHost` is appealing but needs a spike | Would eliminate the `serverHost` config requirement entirely; `bonjour` is already a dep so the plugin could advertise itself; but it's unknown whether the SoundTouch device's DNS resolver can resolve `.local` addresses | Use it by default without spike — if `.local` fails silently the station JSON 404s and the user has no clear error |
@@ -65,16 +65,23 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
   Static `fromConfig(id, raw)` validates `name` + at least one of `tuneInId`/`streamUrl`.
 - `src/internetRadio/TuneInClient.ts` — `static create(axiosInstance?)`.
   `resolveStationUrl(tuneInId: string): Promise<string | null>` — calls the
-  RadioTime OPML API, returns the first `body[].url`. Logs a warning if the
-  URL is HTTPS (SoundTouch can't play it; user should supply `streamUrl` instead).
+  RadioTime OPML API, returns the first `body[].url`. HTTP or HTTPS — both are
+  handled by the stream proxy; no warning needed.
 - `src/internetRadio/InternetRadioServer.ts` — `static create({ port, host, stations })`.
-  Wraps `node:http`; serves `GET /station/:id.json` with:
-  ```json
-  { "audio": { "hasPlaylist": false, "isRealtime": true, "streamUrl": "http://..." },
-    "imageUrl": "", "name": "...", "streamType": "liveRadio" }
-  ```
-  `listen(): Promise<void>`, `close(): Promise<void>`,
-  `getStationUrl(id: string): string` (returns the full LAN URL).
+  Wraps `node:http`; serves two routes:
+  - `GET /station/:id.json` — station descriptor. `streamUrl` always points at the
+    local proxy: `http://host:port/stream/:id`. Shape:
+    ```json
+    { "audio": { "hasPlaylist": false, "isRealtime": true, "streamUrl": "http://host:port/stream/s24861" },
+      "imageUrl": "", "name": "...", "streamType": "liveRadio" }
+    ```
+  - `GET /stream/:id` — stream proxy. Fetches `station.resolvedStreamUrl` (HTTP or
+    HTTPS) using `node:http` or `node:https` accordingly and pipes the response
+    body back to the SoundTouch as HTTP. Passes through `Content-Type` and
+    `icy-*` headers (Icecast metadata). Destroys the upstream request when the
+    client disconnects (`req.on('close', ...)`).
+  - `listen(): Promise<void>`, `close(): Promise<void>`,
+    `getStationUrl(id: string): string` (full URL to `/station/:id.json`).
 - `src/internetRadio/index.ts` — barrel export.
 - `src/internetRadio/__tests__/TuneInClient.test.ts`
 - `src/internetRadio/__tests__/InternetRadioServer.test.ts`
@@ -128,9 +135,9 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
   - `serverHost` (string, optional) — "LAN IP of this Homebridge host.
     Auto-detected if omitted."
   - `stations[]` — `name` (string, required), `tuneInId` (string, optional,
-    e.g. `"s24861"`), `streamUrl` (string, optional, "Direct HTTP stream URL;
-    use when the TuneIn ID is unknown or the resolved URL is HTTPS"),
-    `imageUrl` (string, optional).
+    e.g. `"s24861"`), `streamUrl` (string, optional, "Direct stream URL; use
+    when the TuneIn ID is unknown. HTTP and HTTPS both work — the plugin proxies
+    the stream as HTTP to the speaker."), `imageUrl` (string, optional).
 
 ## Conventions for this change
 
@@ -163,7 +170,8 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
 - [ ] Confirm the SoundTouch device can reach the Homebridge host's LAN IP on
       port 18090 (or check whether a firewall rule is needed).
 - [ ] Call RadioTime OPML API for `s24861` (BBC World Service); confirm the
-      response shape and whether `body[].url` is HTTP or HTTPS.
+      response shape. HTTP or HTTPS in the resolved URL no longer matters — the
+      proxy handles both.
 - [ ] Check whether the SoundTouch device can resolve `homebridge.local` (mDNS
       `.local` address) — use it as `location` in a test ContentItem and observe
       whether the speaker successfully fetches the JSON. If yes, `serverHost`
@@ -200,16 +208,24 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
 - [ ] `src/internetRadio/__tests__/TuneInClient.test.ts`:
       - Returns first `body[].url` from a mocked RadioTime JSON response.
       - Returns `null` and logs on HTTP error or empty `body`.
-      - Logs a warning when the resolved URL is HTTPS.
 
-### Local HTTP server
+### Local HTTP server + stream proxy
 
 - [ ] `src/internetRadio/InternetRadioServer.ts` — `static create({ port, host, stations })`,
       `listen()`, `close()`, `getStationUrl(id)`.
-      Serve `GET /station/:id.json` with `Content-Type: application/json`; 404 for unknown IDs.
+  - `GET /station/:id.json` — serve station JSON; `streamUrl` always points to
+    `http://host:port/stream/:id` (local proxy, regardless of upstream scheme).
+  - `GET /stream/:id` — resolve `station.resolvedStreamUrl`, detect scheme,
+    use `node:https` or `node:http` to fetch upstream, pipe response to client.
+    Pass through `Content-Type` and `icy-*` headers.
+    Destroy upstream request on `req.on('close')`.
+    Return 404 for unknown IDs; 502 on upstream fetch error.
 - [ ] `src/internetRadio/__tests__/InternetRadioServer.test.ts`:
-      - Start on ephemeral port; GET known station URL; verify JSON shape.
-      - GET unknown station ID → 404.
+  - GET known station JSON → correct shape; `streamUrl` contains `/stream/<id>`.
+  - GET unknown station JSON → 404.
+  - GET `/stream/:id` → mocked upstream HTTP response piped through correctly.
+  - GET `/stream/:id` → mocked upstream HTTPS response piped through correctly.
+  - GET `/stream/:id` for unknown ID → 404.
 
 ### Platform wiring
 
