@@ -18,7 +18,7 @@
           "pollingInterval": {
             "type": "number",
             "description": "How often (ms) to poll each device for state. Set to 0 to disable polling.",
-            "placeholder": "2000"
+            "placeholder": "30000"
           },
           "verbose": {
             "type": "boolean",
@@ -69,7 +69,7 @@
             "pollingInterval": {
               "type": "integer",
               "description": "Override the polling interval (ms) for this device. Set to 0 to disable polling.",
-              "default": 2000
+              "default": 30000
             },
             "accessoryType": {
               "type": "string",
