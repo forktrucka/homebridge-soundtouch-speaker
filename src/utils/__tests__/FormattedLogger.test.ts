@@ -149,7 +149,7 @@ describe('FormattedLogger', () => {
       expect(msg).not.toContain('caused by:\n');
     });
 
-    it('includes context fields in output for ContextError at INFO level', () => {
+    it('includes context fields in output for AppError at INFO level (string prefix)', () => {
       const homebridgeLogger = makeMockLogger();
       const logger = Logger.forHomebridgeLogger({
         logger: homebridgeLogger,
@@ -163,6 +163,23 @@ describe('FormattedLogger', () => {
       expect(level).toBe(LogLevel.ERROR);
       expect(msg).toContain('device: Kitchen');
       expect(msg).toContain('endpoint: /volume');
+    });
+
+    it('renders AppError directly when called with just an error (no string prefix)', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+      const err = AppError.create({ name: 'PollingRefreshFailed', device: 'Kitchen', cause: new Error('ECONNREFUSED') });
+
+      logger.error(err);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.ERROR);
+      expect(msg).toContain('PollingRefreshFailed');
+      expect(msg).toContain('device: Kitchen');
+      expect(msg).not.toContain('polling failed:');
     });
 
     it('shows full cause chain at DEBUG level', () => {

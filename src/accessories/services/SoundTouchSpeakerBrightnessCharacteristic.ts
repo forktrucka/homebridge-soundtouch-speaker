@@ -7,7 +7,6 @@ import {
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
-import { AppError } from '../../errors.js';
 
 export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
@@ -28,8 +27,8 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
       this.platform.characteristic.Brightness
     );
     this.characteristic
-      .onSet(this.setBrightness.bind(this))
-      .onGet(this.getBrightness.bind(this));
+      .onSet(this.wrapHapSet('SetBrightnessFailed', this.setBrightness.bind(this)))
+      .onGet(this.wrapHapGet('GetBrightnessFailed', this.getBrightness.bind(this)));
   }
 
   async init(): Promise<void> {
@@ -49,17 +48,10 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
   }
 
   async getBrightness(): Promise<CharacteristicValue> {
-    try {
-      const volume = await this.device.api.getVolume();
-      const actual = volume?.actual ?? 0;
-      this.log.debug('get brightness', actual);
-      return actual;
-    } catch (e: unknown) {
-      this.log.debug('get brightness failed', AppError.create({ name: 'GetBrightnessFailed', cause: e }));
-      throw new this.platform.api.hap.HapStatusError(
-        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-      );
-    }
+    const volume = await this.device.api.getVolume();
+    const actual = volume?.actual ?? 0;
+    this.log.debug('get brightness', actual);
+    return actual;
   }
 
   async setBrightness(value: CharacteristicValue): Promise<void> {
@@ -68,15 +60,8 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
       // HomeKit always sends On=false alongside Brightness=0; setOn owns power-off.
       return;
     }
-    try {
-      await this.device.api.setVolume(brightness);
-      this.log.debug('set brightness - %s', brightness);
-    } catch (e: unknown) {
-      this.log.debug('set brightness failed', AppError.create({ name: 'SetBrightnessFailed', cause: e }));
-      throw new this.platform.api.hap.HapStatusError(
-        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-      );
-    }
+    await this.device.api.setVolume(brightness);
+    this.log.debug('set brightness - %s', brightness);
   }
 
   static async create(props: {

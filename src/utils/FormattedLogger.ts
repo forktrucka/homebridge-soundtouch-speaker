@@ -67,37 +67,39 @@ export class Logger implements Partial<Logging> {
     this.log(LogLevel.WARN, message, ...parameters);
   }
 
-  error(message: string, err?: unknown): void {
+  error(messageOrErr: string | Error, err?: unknown): void {
+    if (messageOrErr instanceof Error) {
+      this._logError(messageOrErr, undefined);
+      return;
+    }
+    const message = messageOrErr;
     if (!(err instanceof Error)) {
       this.log(LogLevel.ERROR, message);
       return;
     }
+    this._logError(err, message);
+  }
 
+  private _logError(err: Error, prefix: string | undefined): void {
     const isDebug = !Logger.excludeLog(LogLevel.DEBUG, this.requiredLogLevel);
 
     if (isDebug) {
-      // Full cause chain + context fields + stack snippet at debug verbosity
       const lines: string[] = [];
       let node: unknown = err;
       while (node instanceof Error) {
         lines.push(`${formatError(node)}${renderContext(node)}${stackSnippet(node)}`);
         node = node.cause;
       }
-      this.log(
-        LogLevel.ERROR,
-        `${message}:\n  ${lines.join('\n  caused by:\n  ')}`
-      );
+      const chain = lines.join('\n  caused by:\n  ');
+      this.log(LogLevel.ERROR, prefix ? `${prefix}:\n  ${chain}` : chain);
     } else {
-      // Concise: top message + immediate cause only
       const ctx = renderContext(err);
       const cause =
         err.cause instanceof Error
           ? `\n  caused by: ${formatError(err.cause)}`
           : '';
-      this.log(
-        LogLevel.ERROR,
-        `${message}: ${formatError(err)}${ctx}${cause}`
-      );
+      const formatted = `${formatError(err)}${ctx}${cause}`;
+      this.log(LogLevel.ERROR, prefix ? `${prefix}: ${formatted}` : formatted);
     }
   }
 

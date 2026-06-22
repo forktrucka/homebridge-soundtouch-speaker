@@ -135,10 +135,7 @@ export class SoundTouchDevice implements BaseDevice {
 
         devices.push(device);
       } catch (e) {
-        logger.error(
-          'Error while creating soundtouch device',
-          AppError.create({  name: 'CreateDeviceFailed' , cause: e })
-        );
+        logger.error(AppError.create({ name: 'CreateDeviceFailed', cause: e }));
       }
     }
 

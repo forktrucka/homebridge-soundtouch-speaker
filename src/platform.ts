@@ -93,10 +93,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         return [result.value];
       }
       const name = this.configuration.accessories[index]?.name ?? '(unknown)';
-      this.logger.error(
-        'Failed to load configured accessory',
-        AppError.create({  name: 'LoadAccessoryFailed', accessory: name , cause: result.reason })
-      );
+      this.logger.error(AppError.create({ name: 'LoadAccessoryFailed', accessory: name, cause: result.reason }));
       return [];
     });
   }
@@ -108,10 +105,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     try {
       accessories = await this.searchDevices();
     } catch (e: unknown) {
-      this.logger.error(
-        'Device discovery failed',
-        AppError.create({  name: 'DeviceDiscoveryFailed' , cause: e })
-      );
+      this.logger.error(AppError.create({ name: 'DeviceDiscoveryFailed', cause: e }));
       return;
     }
 
