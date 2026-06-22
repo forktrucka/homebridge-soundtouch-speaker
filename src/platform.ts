@@ -6,6 +6,7 @@ import {
   PlatformAccessory,
   Service,
 } from 'homebridge';
+import { networkInterfaces } from 'node:os';
 import { ExternalPlatformConfig } from './ExternalPlatformConfig.js';
 import { SoundTouchDevice } from './devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchSpeakerPlatformAccessory } from './accessories/SoundTouchSpeakerPlatformAccessory.js';
@@ -52,6 +53,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
 
     this.api.on('didFinishLaunching', async () => {
       this.logger.debug('Started didFinishLaunching callback');
+      this.logNetworkInterfaces();
       await this.discoverDevices();
       this.logger.debug('Finished didFinishLaunching callback');
     });
@@ -62,6 +64,18 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         wrapper.stopPolling();
       }
     });
+  }
+
+  private logNetworkInterfaces() {
+    const addresses = Object.entries(networkInterfaces()).flatMap(([iface, infos]) =>
+      (infos ?? [])
+        .filter((i) => i.family === 'IPv4' && !i.internal)
+        .map((i) => `${iface}: ${i.address}`)
+    );
+    this.logger.info(
+      'Network interfaces:',
+      addresses.length > 0 ? addresses.join(', ') : '(none found)'
+    );
   }
 
   configureAccessory(accessory: PlatformAccessory) {
