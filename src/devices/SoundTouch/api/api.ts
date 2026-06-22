@@ -1,5 +1,6 @@
 'use strict';
 
+import { AppError } from '../../../errors.js';
 import { Info, infoFromElement } from './info.js';
 import { APIErrors, errorFromElement } from './error.js';
 import { Endpoints } from './endpoints.js';
@@ -287,7 +288,7 @@ export class API {
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err.response) {
-        throw err;
+        throw AppError.create({  name: 'NetworkRequestFailed', endpoint , cause: err });
       }
       xml = err.response.data;
     }

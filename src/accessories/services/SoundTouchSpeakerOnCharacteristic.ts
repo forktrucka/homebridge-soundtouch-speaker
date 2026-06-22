@@ -31,8 +31,8 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
     );
 
     this.characteristic
-      .onSet(this.setOn.bind(this))
-      .onGet(this.getOn.bind(this));
+      .onSet(this.wrapHapSet(this.setOn.bind(this)))
+      .onGet(this.wrapHapGet(this.getOn.bind(this)));
   }
 
   async init(): Promise<void> {
@@ -50,18 +50,10 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
 
   async setOn(value: CharacteristicValue): Promise<void> {
     const desiredPowerStatus = value as boolean;
-
-    try {
-      if (this.characteristic.value !== desiredPowerStatus) {
-        await this.device.api.pressKey(KeyValue.power);
-      }
-      this.log.debug('set status - %s', desiredPowerStatus ? 'on' : 'off');
-    } catch (e: unknown) {
-      this.log.error('error setting on status', e);
-      throw new this.platform.api.hap.HapStatusError(
-        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE
-      );
+    if (this.characteristic.value !== desiredPowerStatus) {
+      await this.device.api.pressKey(KeyValue.power);
     }
+    this.log.debug('set status - %s', desiredPowerStatus ? 'on' : 'off');
   }
 
   async getOn(): Promise<CharacteristicValue> {

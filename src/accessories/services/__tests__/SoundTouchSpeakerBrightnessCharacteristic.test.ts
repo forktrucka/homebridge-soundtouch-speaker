@@ -129,13 +129,12 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
       expect(result).toBe(75);
     });
 
-    it('throws HapStatusError when the device is unreachable', async () => {
-      const { subject, getVolume } = await build();
+    it('throws HapStatusError via HAP binding when the device is unreachable', async () => {
+      const { hapCharacteristic, getVolume } = await build();
       getVolume.mockRejectedValue(new Error('network error'));
 
-      await expect(subject.getBrightness()).rejects.toBeInstanceOf(
-        FakeHapStatusError
-      );
+      const handler = hapCharacteristic.onGet.mock.calls[0]?.[0] as () => Promise<unknown>;
+      await expect(handler()).rejects.toBeInstanceOf(FakeHapStatusError);
     });
   });
 
@@ -160,13 +159,12 @@ describe('SoundTouchSpeakerBrightnessCharacteristic', () => {
         expect(setVolume).toHaveBeenCalledWith(65);
       });
 
-      it('throws HapStatusError when the volume set fails', async () => {
-        const { subject, setVolume } = await build();
+      it('throws HapStatusError via HAP binding when the volume set fails', async () => {
+        const { hapCharacteristic, setVolume } = await build();
         setVolume.mockRejectedValue(new Error('network error'));
 
-        await expect(subject.setBrightness(65)).rejects.toBeInstanceOf(
-          FakeHapStatusError
-        );
+        const handler = hapCharacteristic.onSet.mock.calls[0]?.[0] as (v: unknown) => Promise<void>;
+        await expect(handler(65)).rejects.toBeInstanceOf(FakeHapStatusError);
       });
     });
   });

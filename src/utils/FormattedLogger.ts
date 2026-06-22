@@ -1,5 +1,7 @@
 import { Logging, LogLevel } from 'homebridge';
+import { formatError } from 'homebridge-lib';
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
+import { AppError } from '../errors.js';
 
 const logLevelSeverityMap = {
   [LogLevel.DEBUG]: 0,
@@ -8,6 +10,22 @@ const logLevelSeverityMap = {
   [LogLevel.WARN]: 2,
   [LogLevel.ERROR]: 3,
 };
+
+function renderContext(err: Error): string {
+  if (err instanceof AppError) {
+    const entries = Object.entries(err.info).filter(([k]) => k !== 'name' && k !== 'msg');
+    if (entries.length > 0) {
+      return ` [${entries.map(([k, v]) => `${k}: ${v}`).join(', ')}]`;
+    }
+  }
+  return '';
+}
+
+function stackSnippet(err: Error): string {
+  if (!err.stack) return '';
+  const lines = err.stack.split('\n').slice(1, 4);
+  return lines.length > 0 ? `\n  ${lines.join('\n  ')}` : '';
+}
 
 export class Logger implements Partial<Logging> {
   readonly homebridgeLogger: Logging;
@@ -45,18 +63,63 @@ export class Logger implements Partial<Logging> {
   }
 
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn(message: string, ...parameters: any[]): void {
-    this.log(LogLevel.WARN, message, ...parameters);
+  warn(messageOrErr: string | Error, ...parameters: any[]): void {
+    if (messageOrErr instanceof Error) {
+      this._logAtLevel(LogLevel.WARN, messageOrErr, undefined);
+      return;
+    }
+    this.log(LogLevel.WARN, messageOrErr, ...parameters);
   }
 
-  //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error(message: string, ...parameters: any[]): void {
-    this.log(LogLevel.ERROR, message, ...parameters);
+  error(messageOrErr: string | Error, err?: unknown): void {
+    if (messageOrErr instanceof Error) {
+      this._logAtLevel(LogLevel.ERROR, messageOrErr, undefined);
+      return;
+    }
+    const message = messageOrErr;
+    if (!(err instanceof Error)) {
+      this.log(LogLevel.ERROR, message);
+      return;
+    }
+    this._logAtLevel(LogLevel.ERROR, err, message);
+  }
+
+  private _logAtLevel(level: LogLevel, err: Error, prefix: string | undefined): void {
+    const isDebug = !Logger.excludeLog(LogLevel.DEBUG, this.requiredLogLevel);
+
+    if (isDebug) {
+      const lines: string[] = [];
+      let node: unknown = err;
+      while (node instanceof Error) {
+        lines.push(`${formatError(node)}${renderContext(node)}${stackSnippet(node)}`);
+        node = node.cause;
+      }
+      const chain = lines.join('\n  caused by:\n  ');
+      this.log(level, prefix ? `${prefix}:\n  ${chain}` : chain);
+    } else {
+      const ctx = renderContext(err);
+      const cause =
+        err.cause instanceof Error
+          ? `\n  caused by: ${formatError(err.cause)}`
+          : '';
+      const formatted = `${formatError(err)}${ctx}${cause}`;
+      this.log(level, prefix ? `${prefix}: ${formatted}` : formatted);
+    }
   }
 
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
   debug(message: string, ...parameters: any[]): void {
-    this.log(LogLevel.DEBUG, message, ...parameters);
+    if (parameters.length === 1 && parameters[0] instanceof Error) {
+      const lines: string[] = [];
+      let node: unknown = parameters[0];
+      while (node instanceof Error) {
+        lines.push(`${formatError(node)}${renderContext(node)}${stackSnippet(node)}`);
+        node = node.cause;
+      }
+      this.log(LogLevel.DEBUG, `${message}:\n  ${lines.join('\n  caused by:\n  ')}`);
+    } else {
+      this.log(LogLevel.DEBUG, message, ...parameters);
+    }
   }
 
   static forHomebridgeLogger({

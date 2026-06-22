@@ -24,6 +24,12 @@
             "type": "boolean",
             "default": false
           },
+          "logLevel": {
+            "type": "string",
+            "enum": ["debug", "info", "warn", "error"],
+            "default": "info",
+            "description": "Minimum log level written to the Homebridge console."
+          },
           "accessoryType": {
             "type": "string",
             "enum": ["switch", "lightbulb"],

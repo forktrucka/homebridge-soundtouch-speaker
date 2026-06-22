@@ -2,6 +2,7 @@ import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacterist
 import { PlatformAccessory } from 'homebridge';
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
+import { AppError } from '../../errors.js';
 
 const SOUNDTOUCH_MANUFACTURER = 'Bose';
 
@@ -24,7 +25,7 @@ export class SoundTouchSpeakerInformationCharacteristic extends SoundTouchSpeake
       this.platform.service.AccessoryInformation
     );
     if (!informationService) {
-      throw new Error('No information service found');
+      throw AppError.create({ name: 'AccessoryInformationServiceMissing', device: this.device.name });
     }
     informationService
       .setCharacteristic(this.platform.characteristic.Name, deviceName)

@@ -5,7 +5,8 @@ interface BasePlatformConfig extends PlatformConfig {
 }
 
 interface BaseGlobalConfig {
-  readonly verbose?: boolean;
+  readonly verbose?: boolean; // deprecated alias for logLevel: 'debug'
+  readonly logLevel?: 'debug' | 'info' | 'warn' | 'error';
 }
 
 interface GlobalConfig extends BaseGlobalConfig {

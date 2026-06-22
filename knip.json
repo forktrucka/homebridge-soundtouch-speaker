@@ -2,7 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": "src/**",
   "ignoreDependencies": [
-    "homebridge-lib",
     "ts-node",
     "multicast-dns",
     "@commitlint/cli",

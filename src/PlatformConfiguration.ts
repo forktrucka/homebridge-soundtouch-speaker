@@ -1,3 +1,4 @@
+import { LogLevel } from 'homebridge';
 import {
   flattenAccessoryConfiguration,
   ExternalPlatformConfig,
@@ -7,27 +8,49 @@ import { PLATFORM_NAME } from './settings.js';
 
 const DEFAULT_POLLING_INTERVAL = 2 * 1000; // 2 seconds
 const DEFAULT_DISCOVER_ALL_ACCESSORIES = false;
-const DEFAULT_VERBOSE = false;
+const DEFAULT_LOG_LEVEL = LogLevel.INFO;
+
+function resolveLogLevel(
+  logLevel?: 'debug' | 'info' | 'warn' | 'error',
+  verbose?: boolean
+): LogLevel {
+  if (logLevel) {
+    switch (logLevel) {
+      case 'debug':
+        return LogLevel.DEBUG;
+      case 'info':
+        return LogLevel.INFO;
+      case 'warn':
+        return LogLevel.WARN;
+      case 'error':
+        return LogLevel.ERROR;
+    }
+  }
+  if (verbose === true) {
+    return LogLevel.DEBUG;
+  }
+  return DEFAULT_LOG_LEVEL;
+}
 
 export class PlatformConfiguration {
   name: string;
   discoverAllAccessories: boolean;
   accessories: DeviceConfiguration[];
   pollingInterval: number;
-  verbose: boolean;
+  logLevel: LogLevel;
 
   private constructor(props: {
     name: string;
     discoverAllAccessories: boolean;
     accessories: DeviceConfiguration[] | undefined;
     pollingInterval: number;
-    verbose: boolean;
+    logLevel: LogLevel;
   }) {
     this.name = props.name;
     this.discoverAllAccessories = props.discoverAllAccessories;
     this.accessories = props?.accessories ?? [];
     this.pollingInterval = props.pollingInterval;
-    this.verbose = props.verbose;
+    this.logLevel = props.logLevel;
   }
 
   toJson() {
@@ -38,7 +61,10 @@ export class PlatformConfiguration {
     return new PlatformConfiguration({
       discoverAllAccessories:
         props.discoverAllAccessories ?? DEFAULT_DISCOVER_ALL_ACCESSORIES,
-      verbose: props.global?.verbose ?? DEFAULT_VERBOSE,
+      logLevel: resolveLogLevel(
+        props.global?.logLevel,
+        props.global?.verbose
+      ),
       // `??` (not `||`) so an explicit `0` survives as "polling disabled".
       pollingInterval: props.global?.pollingInterval ?? DEFAULT_POLLING_INTERVAL,
       accessories:

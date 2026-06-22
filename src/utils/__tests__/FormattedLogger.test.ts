@@ -1,8 +1,7 @@
 import { describe, expect, jest, it } from '@jest/globals';
 import { DeviceLogger, Logger } from '../FormattedLogger.js';
 import { LogLevel, type Logging } from 'homebridge';
-import { DeviceConfiguration } from '../../devices/SoundTouch/SoundTouchDeviceConfiguration.js';
-import { API as SoundTouchApi } from '../../devices/SoundTouch/api/index.js';
+import { AppError } from '../../errors.js';
 import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 
 function makeMockLogger(): jest.Mocked<Logging> {
@@ -18,13 +17,7 @@ function makeMockLogger(): jest.Mocked<Logging> {
 }
 
 function makeDevice(name: string): SoundTouchDevice {
-  return new SoundTouchDevice({
-    api: new SoundTouchApi('192.168.1.1'),
-    model: 'SoundTouch 10',
-    id: 'test-id',
-    name,
-    configuration: DeviceConfiguration.create({ name }),
-  });
+  return { name } as unknown as SoundTouchDevice;
 }
 
 describe('FormattedLogger', () => {
@@ -120,6 +113,159 @@ describe('FormattedLogger', () => {
         LogLevel.SUCCESS,
         'success msg'
       );
+    });
+  });
+
+  describe('Logger.error', () => {
+    it('logs message only when no error argument is provided', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+
+      logger.error('something went wrong');
+
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(
+        LogLevel.ERROR,
+        'something went wrong'
+      );
+    });
+
+    it('logs concise message + formatError at INFO level with a plain Error', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+      const err = new Error('connection refused');
+
+      logger.error('request failed', err);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.ERROR);
+      expect(msg).toContain('request failed');
+      expect(msg).toContain('connection refused');
+      expect(msg).not.toContain('caused by:\n');
+    });
+
+    it('includes context fields in output for AppError at INFO level (string prefix)', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+      const err = AppError.create({ name: 'GetVolumeFailed', device: 'Kitchen', endpoint: '/volume', cause: new Error('ECONNREFUSED') });
+
+      logger.error('polling failed', err);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.ERROR);
+      expect(msg).toContain('device: Kitchen');
+      expect(msg).toContain('endpoint: /volume');
+    });
+
+    it('renders AppError directly when called with just an error (no string prefix)', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+      const err = AppError.create({ name: 'PollingRefreshFailed', device: 'Kitchen', cause: new Error('ECONNREFUSED') });
+
+      logger.error(err);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.ERROR);
+      expect(msg).toContain('PollingRefreshFailed');
+      expect(msg).toContain('device: Kitchen');
+      expect(msg).not.toContain('polling failed:');
+    });
+
+    it('shows full cause chain at DEBUG level', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+      const root = new Error('ECONNREFUSED');
+      const wrapped = AppError.create({ name: 'NetworkRequestFailed', endpoint: '/volume', cause: root });
+
+      logger.error('polling failed', wrapped);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.ERROR);
+      expect(msg).toContain('NetworkRequestFailed');
+      expect(msg).toContain('endpoint: /volume');
+      expect(msg).toContain('caused by:');
+      expect(msg).toContain('ECONNREFUSED');
+    });
+
+    it('shows only top message and immediate cause at INFO level for two-level chain', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+      const root = new Error('ECONNREFUSED');
+      const mid = AppError.create({ name: 'NetworkRequestFailed', endpoint: '/volume', cause: root });
+      const top = AppError.create({ name: 'PollingRefreshFailed', device: 'Kitchen', cause: mid });
+
+      logger.error('device error', top);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.ERROR);
+      expect(msg).toContain('PollingRefreshFailed');
+      expect(msg).toContain('device: Kitchen');
+      // The immediate cause appears
+      expect(msg).toContain('NetworkRequestFailed');
+      // But NOT the deep root cause message (only one level of cause shown)
+      expect(msg).not.toMatch(/caused by:.*caused by:/s);
+    });
+  });
+
+  describe('Logger.debug', () => {
+    it('passes non-error arguments through unchanged', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+
+      logger.debug('get volume', 42);
+
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(LogLevel.DEBUG, 'get volume', 42);
+    });
+
+    it('formats an Error argument with cause chain at DEBUG level', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+      const root = new Error('ECONNREFUSED');
+      const err = AppError.create({ name: 'GetBrightnessFailed', device: 'Kitchen', cause: root });
+
+      logger.debug('error getting brightness', err);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.DEBUG);
+      expect(msg).toContain('GetBrightnessFailed');
+      expect(msg).toContain('device: Kitchen');
+      expect(msg).toContain('caused by:');
+      expect(msg).toContain('ECONNREFUSED');
+    });
+
+    it('suppresses the debug call when level is above DEBUG', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+
+      logger.debug('error getting brightness', new Error('oops'));
+
+      expect(homebridgeLogger.log).not.toHaveBeenCalled();
     });
   });
 
