@@ -1,7 +1,7 @@
 export class ContextError extends Error {
   readonly context: Record<string, string>;
 
-  private constructor(
+  protected constructor(
     message: string,
     context: Record<string, string>,
     options?: ErrorOptions
@@ -20,8 +20,23 @@ export class ContextError extends Error {
   }
 }
 
-export function apiNotFoundWithName(name: string): Error {
-  return new Error(
-    `Can't find device using the name '${name}' on your network`
-  );
+export class NetworkRequestError extends ContextError {
+  constructor(endpoint: string, cause: unknown) {
+    super('network request failed', { endpoint }, { cause });
+    this.name = 'NetworkRequestError';
+  }
+}
+
+export class DeviceNotFoundError extends Error {
+  constructor(name: string) {
+    super(`Can't find device '${name}' on your network`);
+    this.name = 'DeviceNotFoundError';
+  }
+}
+
+export class DeviceInfoError extends Error {
+  constructor(name: string) {
+    super(`Could not fetch device info for '${name}'`);
+    this.name = 'DeviceInfoError';
+  }
 }

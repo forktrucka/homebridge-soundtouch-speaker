@@ -1,6 +1,6 @@
 'use strict';
 
-import { ContextError } from '../../../errors.js';
+import { NetworkRequestError } from '../../../errors.js';
 import { Info, infoFromElement } from './info.js';
 import { APIErrors, errorFromElement } from './error.js';
 import { Endpoints } from './endpoints.js';
@@ -288,7 +288,7 @@ export class API {
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err.response) {
-        throw ContextError.wrap('network request failed', { endpoint }, err);
+        throw new NetworkRequestError(endpoint, err);
       }
       xml = err.response.data;
     }

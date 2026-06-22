@@ -215,6 +215,51 @@ describe('FormattedLogger', () => {
     });
   });
 
+  describe('Logger.debug', () => {
+    it('passes non-error arguments through unchanged', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+
+      logger.debug('get volume', 42);
+
+      expect(homebridgeLogger.log).toHaveBeenCalledWith(LogLevel.DEBUG, 'get volume', 42);
+    });
+
+    it('formats an Error argument with cause chain at DEBUG level', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.DEBUG,
+      });
+      const root = new Error('ECONNREFUSED');
+      const err = ContextError.wrap('get brightness', { device: 'Kitchen' }, root);
+
+      logger.debug('error getting brightness', err);
+
+      const [level, msg] = (homebridgeLogger.log as jest.MockedFunction<typeof homebridgeLogger.log>).mock.calls[0] as [LogLevel, string];
+      expect(level).toBe(LogLevel.DEBUG);
+      expect(msg).toContain('get brightness');
+      expect(msg).toContain('device: Kitchen');
+      expect(msg).toContain('caused by:');
+      expect(msg).toContain('ECONNREFUSED');
+    });
+
+    it('suppresses the debug call when level is above DEBUG', () => {
+      const homebridgeLogger = makeMockLogger();
+      const logger = Logger.forHomebridgeLogger({
+        logger: homebridgeLogger,
+        level: LogLevel.INFO,
+      });
+
+      logger.debug('error getting brightness', new Error('oops'));
+
+      expect(homebridgeLogger.log).not.toHaveBeenCalled();
+    });
+  });
+
   describe('DeviceLogger', () => {
     it('prefixes messages with device name', () => {
       const homebridgeLogger = makeMockLogger();

@@ -103,7 +103,17 @@ export class Logger implements Partial<Logging> {
 
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
   debug(message: string, ...parameters: any[]): void {
-    this.log(LogLevel.DEBUG, message, ...parameters);
+    if (parameters.length === 1 && parameters[0] instanceof Error) {
+      const lines: string[] = [];
+      let node: unknown = parameters[0];
+      while (node instanceof Error) {
+        lines.push(`${formatError(node)}${renderContext(node)}${stackSnippet(node)}`);
+        node = node.cause;
+      }
+      this.log(LogLevel.DEBUG, `${message}:\n  ${lines.join('\n  caused by:\n  ')}`);
+    } else {
+      this.log(LogLevel.DEBUG, message, ...parameters);
+    }
   }
 
   static forHomebridgeLogger({

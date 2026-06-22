@@ -1,6 +1,6 @@
 import { BaseDevice } from 'homebridge-base-platform';
 import { LogLevel } from 'homebridge';
-import { apiNotFoundWithName, ContextError } from '../../errors.js';
+import { ContextError, DeviceInfoError, DeviceNotFoundError } from '../../errors.js';
 import {
   API as SoundTouchApi,
   APIDiscovery as SoundTouchDiscovery,
@@ -158,19 +158,15 @@ export class SoundTouchDevice implements BaseDevice {
     } else if (accessoryConfig.room) {
       api = await SoundTouchDiscovery.find(accessoryConfig.room);
       if (!api) {
-        throw apiNotFoundWithName(accessoryConfig.name || '(undefined)');
+        throw new DeviceNotFoundError(accessoryConfig.name || '(undefined)');
       }
     }
     if (!api) {
-      throw new Error(
-        `Could not find a device for '${accessoryConfig.name ?? '(undefined)'}'`
-      );
+      throw new DeviceNotFoundError(accessoryConfig.name ?? '(undefined)');
     }
     const info = await api.getInfo();
     if (!info) {
-      throw new Error(
-        `Could not find device info for '${accessoryConfig.name ?? '(undefined)'}'`
-      );
+      throw new DeviceInfoError(accessoryConfig.name ?? '(undefined)');
     }
     return SoundTouchDevice.fromDiscoveredAccessory({
       api,

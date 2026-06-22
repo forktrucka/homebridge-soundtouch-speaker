@@ -58,7 +58,7 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
       }
       this.log.debug('set status - %s', desiredPowerStatus ? 'on' : 'off');
     } catch (e: unknown) {
-      this.log.error(
+      this.log.debug(
         'error setting on status',
         ContextError.wrap('set on', { device: this.device.name }, e)
       );

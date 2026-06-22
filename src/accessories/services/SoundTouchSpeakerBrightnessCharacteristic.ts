@@ -55,7 +55,7 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
       this.log.debug('get brightness', actual);
       return actual;
     } catch (e: unknown) {
-      this.log.error(
+      this.log.debug(
         'error getting brightness',
         ContextError.wrap('get brightness', { device: this.device.name }, e)
       );
@@ -75,7 +75,7 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
       await this.device.api.setVolume(brightness);
       this.log.debug('set brightness - %s', brightness);
     } catch (e: unknown) {
-      this.log.error(
+      this.log.debug(
         'error setting brightness',
         ContextError.wrap('set brightness', { device: this.device.name }, e)
       );
