@@ -14,43 +14,61 @@ Bose's cloud services shut down in February 2026. The SoundTouch speaker's
 built-in TuneIn/internet-radio support relied on that cloud, so it no longer
 works out of the box.
 
-This feature lets users configure a list of internet radio stations (by TuneIn
-station ID, or by a raw HTTP stream URL) in their Homebridge config, and
-exposes each station as a Switch in HomeKit. At startup the plugin:
+This feature introduces a **typed preset management system** with internet radio
+stations as the first type. Users declare a list of preset slots (1–6) in their
+Homebridge config, each with a type and type-specific fields. For now the only
+type is `station` (internet radio); Spotify playlists and others may follow
+(possibly managed via the PWA — see plan `2026-06-19-progressive-web-app.md`).
 
-1. Resolves each TuneIn ID to a stream URL via the RadioTime OPML API.
-2. Starts a minimal Node.js HTTP server to serve per-station JSON files in the
-   format the SoundTouch expects for `LOCAL_INTERNET_RADIO`.
-3. When a Switch is turned on, sends `POST /select` with a `LOCAL_INTERNET_RADIO`
-   ContentItem pointing to the local server URL for that station.
+**How it works:**
+
+The plugin runs a local HTTP server with **stable, slot-based URLs**:
+- `GET /preset/:slot.json` — serves a SoundTouch station descriptor whose
+  `streamUrl` points to the proxy endpoint below.
+- `GET /stream/:slot` — proxies the resolved audio stream back as HTTP,
+  regardless of whether the upstream URL is HTTP or HTTPS.
+
+At startup (and on a configurable schedule), the plugin writes a
+`LOCAL_INTERNET_RADIO` preset to each configured slot on the SoundTouch device,
+with `location` pointing at the stable `http://host:port/preset/:slot.json` URL.
+Because the URL never changes, updating a station's content (new TuneIn ID,
+new stream URL) only requires updating the server's response — no device API
+call is needed.
+
+**No HomeKit characteristics are added in this plan.** The physical preset
+buttons on the speaker work immediately after preset writing. HomeKit integration
+is a future concern.
 
 **References used when designing this plan:**
 - `https://gist.github.com/rody64/98a59990ff60ea962cac72cbe93edf56` —
-  `LOCAL_INTERNET_RADIO` source format and cURL preset example.
+  `LOCAL_INTERNET_RADIO` source format, `storePreset` cURL example.
 - `https://github.com/Yimura/node-tunein-api/blob/master/src/Constants.js` —
   RadioTime OPML API endpoint and parameters.
-- `https://github.com/timvw/soundcork` — Python Bose cloud replacement. Its
-  `examples/Presets.xml` confirmed the native TuneIn ContentItem format and that
-  `type="stationurl"` + `isPresetable="true"` are required on ContentItems.
+- `https://github.com/timvw/soundcork` — Python Bose cloud replacement.
+  `examples/Presets.xml` confirmed `type="stationurl"` and `isPresetable="true"`
+  are required on ContentItems. `docs/speaker-setup.md` confirmed that redirecting
+  the speaker to a custom cloud server requires invasive SSH setup (Mode C ruled out).
 
 ## Decisions & findings
 
 | Date | Decision / finding | Rationale / evidence | Alternatives rejected |
 | --- | --- | --- | --- |
-| 2026-06-22 | Finding: native TuneIn ContentItem format is `source="TUNEIN"`, `type="stationurl"`, `location="/v1/playback/station/<id>"` | Confirmed by soundcork `examples/Presets.xml`; this requires a soundcork-style BMX server to resolve streams | n/a — informational |
-| 2026-06-22 | Use `LOCAL_INTERNET_RADIO` (standalone, no soundcork) | Plugin resolves stream URLs itself and serves them locally; no dependency on soundcork or any other service | `source="TUNEIN"` path deferred — requires a running soundcork/BMX server; may be added as a future mode |
-| 2026-06-22 | `ContentItem.type` is **confirmed required** — value `"stationurl"` for radio | Every ContentItem in soundcork Presets.xml carries `type`; the current `ContentItem` interface in `src/devices/SoundTouch/api/content-item.ts` lacks this field and must be extended | Spike had flagged this as uncertain; soundcork source resolves it |
-| 2026-06-22 | `isPresetable="true"` should be set on radio station ContentItems | soundcork Presets.xml shows this on every TuneIn preset | Omitting — may prevent device from accepting the ContentItem |
-| 2026-06-22 | Resolve TuneIn IDs via RadioTime OPML API: `https://opml.radiotime.com/Tune.ashx?id=<id>&render=json&formats=mp3,aac&partnerId=RadioTime` | Used by node-tunein-api (Constants.js) and by soundcork internally; no new dep, `axios` is already a runtime dep | TuneIn Profiles API (`api.tunein.com`) — more complex for stream URL extraction |
-| 2026-06-22 | Serve station JSON via Node.js built-in `http.createServer()` on a configurable port (default 18090) | SoundTouch must fetch the JSON over HTTP from a LAN-reachable URL; `node:http` is a built-in — zero new dependencies | Express/Fastify — transitive deps not justified for a 3-route server |
-| 2026-06-22 | **Stream proxy in the local server** — `GET /stream/:id` pipes the resolved upstream URL (HTTP or HTTPS) back to the speaker as HTTP | Eliminates the HTTPS constraint entirely: station JSON always uses `http://host:port/stream/:id`; the plugin fetches whatever URL TuneIn returns. Zero new deps — Node built-in `https.get()` + `pipe()`. Must clean up upstream connection on client disconnect to avoid zombie streams. `streamUrl` config entries (user-supplied) also route through the proxy unless they are already HTTP, in which case we can serve them directly | Serving the upstream URL verbatim in the JSON — fails when it's HTTPS; instructing users to find an HTTP URL — poor UX |
-| 2026-06-22 | `serverHost` auto-detects the first non-loopback IPv4 via `os.networkInterfaces()` but is user-overridable | SoundTouch device needs a reachable LAN IP, not `127.0.0.1` | Hard-code `127.0.0.1` — always fails (speaker can't reach loopback); `homebridge.local` (mDNS) — see next row |
-| 2026-06-22 | Finding: "Mode C" (plugin acting as soundcork, speaker redirected to Homebridge) requires the **same invasive SSH setup as soundcork** — enable SSH via USB stick, remount speaker fs `rw`, edit `/opt/Bose/etc/SoundTouchSdkPrivateCfg.xml` (4 hardcoded Bose server URLs), reboot. The plugin cannot do this automatically. Server side would also need to implement soundcork's BMX endpoints (`/marge/streaming/...`, `/bmx/...`). Not a simplification over running soundcork itself. | soundcork `docs/speaker-setup.md` — speaker uses hardcoded URLs in its config file, not DNS-based discovery; no SoundTouch local API endpoint to redirect the cloud server | Mode C deferred indefinitely — if the user is willing to SSH into the speaker, soundcork is the right tool; Mode C adds no value over Mode A |
-| 2026-06-22 | `homebridge.local` (mDNS) as `serverHost` is appealing but needs a spike | Would eliminate the `serverHost` config requirement entirely; `bonjour` is already a dep so the plugin could advertise itself; but it's unknown whether the SoundTouch device's DNS resolver can resolve `.local` addresses | Use it by default without spike — if `.local` fails silently the station JSON 404s and the user has no clear error |
-| 2026-06-22 | Expose stations as individual Switch accessories per speaker | Simplest; avoids TV-service complexity; no dependency on source-selection plan | Television + InputSource — depends on 2026-06-19-source-selection.md landing first |
-| 2026-06-22 | Station config lives under `global.internetRadio` (not per-accessory) | Same station list regardless of which speaker plays; per-speaker control is via which Switch is toggled | Per-accessory block — redundant config for multi-speaker setups |
-| 2026-06-22 | `getOn()` checks `nowPlaying.source === 'LOCAL_INTERNET_RADIO'` AND `nowPlaying.contentItem.location` contains the station's JSON URL | Only way to reflect which station is currently playing | Stateless `getOn() → false` — tile never shows active state |
-| 2026-06-22 | Zero new runtime npm packages | `axios` (resolution), `node:http` (server), `node:os` (IP detection) are all already available | `node-tunein-api` — adds transitive deps for one API call |
+| 2026-06-22 | Finding: native TuneIn ContentItem format is `source="TUNEIN"`, `type="stationurl"`, `location="/v1/playback/station/<id>"` | soundcork `examples/Presets.xml`; requires a soundcork-style BMX server | Informational — native TUNEIN source deferred; would need soundcork or equivalent |
+| 2026-06-22 | Use `LOCAL_INTERNET_RADIO` with a Homebridge-hosted server | Fully self-contained; no dependency on soundcork or any other service | `source="TUNEIN"` path — requires a running BMX server |
+| 2026-06-22 | `ContentItem.type` is **confirmed required** — `"stationurl"` for radio | Every ContentItem in soundcork Presets.xml carries `type`; current `ContentItem` interface lacks this field and must be extended | Omitting — soundcork evidence shows it is always present |
+| 2026-06-22 | `isPresetable="true"` required on ContentItems | soundcork Presets.xml shows this on every preset | Omitting — may prevent device from accepting/storing the ContentItem |
+| 2026-06-22 | **Stable slot-based URLs** — server URLs are `/preset/:slot.json` and `/stream/:slot`, keyed by slot number, not station identity | URL written into device preset never changes; updating station content (new TuneIn ID, stream URL, name) only requires updating the server response — no `storePreset` call needed | Station-ID-based URLs — changing a station's ID or TuneIn source would require re-writing the preset on the device |
+| 2026-06-22 | Write presets to the device **at startup and on a configurable schedule** | Device may reboot (clearing presets), Homebridge host IP may change via DHCP (making stored URLs stale), TuneIn stream URLs can rotate | Write once only — stale after device reboot or IP change |
+| 2026-06-22 | Preset re-write schedule separate from `pollingInterval` | `pollingInterval` drives characteristic refresh (seconds); preset re-write is a maintenance task (minutes/hours); conflating them would either over-write presets or under-refresh characteristics | Re-use `pollingInterval` — wrong frequency for both concerns |
+| 2026-06-22 | TuneIn IDs resolved via RadioTime OPML API: `https://opml.radiotime.com/Tune.ashx?id=<id>&render=json&formats=mp3,aac&partnerId=RadioTime` | Used by node-tunein-api and soundcork internally; no new dep — `axios` already present | TuneIn Profiles API — more complex extraction |
+| 2026-06-22 | **Stream proxy** — `/stream/:slot` fetches the resolved upstream URL (HTTP or HTTPS) and pipes it to the speaker as HTTP | Eliminates the HTTPS stream constraint entirely; station JSON always contains an HTTP URL | Serving upstream URL verbatim — fails when HTTPS; warning + manual fallback — poor UX |
+| 2026-06-22 | Serve station JSON and stream proxy via Node.js built-in `http.createServer()` | `node:http` and `node:https` are built-ins — zero new dependencies | Express/Fastify — transitive deps not justified for 3 routes |
+| 2026-06-22 | `serverHost` auto-detects first non-loopback IPv4 via `os.networkInterfaces()`, user-overridable | Speaker needs a reachable LAN IP; spike needed to verify whether `homebridge.local` (mDNS) is supported by the speaker's resolver | Hard-code `127.0.0.1` — always fails; `homebridge.local` without spike — silent failure if unsupported |
+| 2026-06-22 | User declares the slot number per preset entry in config | Makes ownership explicit; avoids silently overwriting slots the user cares about | Assign in order — opaque slot allocation |
+| 2026-06-22 | Preset config key is `global.presets[]` (typed) with `type: 'station'` | Makes the system extensible (Spotify, etc.); `type` gates which fields are read | `global.internetRadio` — too narrow; won't accommodate future preset types cleanly |
+| 2026-06-22 | No HomeKit characteristics in this plan | Physical preset buttons work immediately after preset writing; HomeKit integration is a separate concern; PWA may later manage preset config (see `2026-06-19-progressive-web-app.md`) | Adding switches now — premature; nothing is yet happening with the HomeKit device layer |
+| 2026-06-22 | Finding: Mode C (plugin acts as soundcork, speaker redirected to Homebridge) requires invasive SSH setup identical to soundcork — edit `/opt/Bose/etc/SoundTouchSdkPrivateCfg.xml` on the device, reboot | soundcork `docs/speaker-setup.md`; plugin cannot do this automatically | Mode C adds no value over running soundcork; deferred indefinitely |
+| 2026-06-22 | Zero new runtime npm packages | `axios` (TuneIn resolution), `node:http`/`node:https` (server + proxy), `node:os` (IP detection) — all already available | `node-tunein-api` — transitive deps for one API call |
 
 ## If cancelled
 
@@ -60,207 +78,215 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
 
 **New files:**
 
-- `src/internetRadio/InternetRadioStation.ts` — resolved station model:
-  `{ id: string; name: string; tuneInId?: string; resolvedStreamUrl?: string; imageUrl?: string }`.
-  Static `fromConfig(id, raw)` validates `name` + at least one of `tuneInId`/`streamUrl`.
-- `src/internetRadio/TuneInClient.ts` — `static create(axiosInstance?)`.
-  `resolveStationUrl(tuneInId: string): Promise<string | null>` — calls the
-  RadioTime OPML API, returns the first `body[].url`. HTTP or HTTPS — both are
-  handled by the stream proxy; no warning needed.
-- `src/internetRadio/InternetRadioServer.ts` — `static create({ port, host, stations })`.
-  Wraps `node:http`; serves two routes:
-  - `GET /station/:id.json` — station descriptor. `streamUrl` always points at the
-    local proxy: `http://host:port/stream/:id`. Shape:
+- `src/presets/PresetStation.ts` — resolved station model:
+  `{ slot: number; name: string; resolvedStreamUrl: string; imageUrl?: string }`.
+  Static `fromConfig(raw)` validates `slot` (1–6), `name`, and at least one of
+  `tuneInId`/`streamUrl`.
+- `src/presets/TuneInClient.ts` — `static create(axiosInstance?)`.
+  `resolveStationUrl(tuneInId: string): Promise<string | null>` calls the
+  RadioTime OPML API and returns the first `body[].url`. Returns `null` on
+  error (logged); HTTP or HTTPS both accepted (proxy handles it).
+- `src/presets/PresetServer.ts` — `static create({ port, host, stations })`.
+  Wraps `node:http`; serves:
+  - `GET /preset/:slot.json` — SoundTouch station descriptor. `streamUrl` always
+    points at the local proxy: `http://host:port/stream/:slot`. Shape:
     ```json
-    { "audio": { "hasPlaylist": false, "isRealtime": true, "streamUrl": "http://host:port/stream/s24861" },
+    { "audio": { "hasPlaylist": false, "isRealtime": true,
+                 "streamUrl": "http://host:port/stream/1" },
       "imageUrl": "", "name": "...", "streamType": "liveRadio" }
     ```
-  - `GET /stream/:id` — stream proxy. Fetches `station.resolvedStreamUrl` (HTTP or
-    HTTPS) using `node:http` or `node:https` accordingly and pipes the response
-    body back to the SoundTouch as HTTP. Passes through `Content-Type` and
-    `icy-*` headers (Icecast metadata). Destroys the upstream request when the
-    client disconnects (`req.on('close', ...)`).
+  - `GET /stream/:slot` — fetches `station.resolvedStreamUrl` via `node:https`
+    or `node:http` (scheme-detected), pipes response to client. Passes through
+    `Content-Type` and `icy-*` headers. Destroys upstream on `req.on('close')`.
+    Returns 404 for unknown slots; 502 on upstream error.
   - `listen(): Promise<void>`, `close(): Promise<void>`,
-    `getStationUrl(id: string): string` (full URL to `/station/:id.json`).
-- `src/internetRadio/index.ts` — barrel export.
-- `src/internetRadio/__tests__/TuneInClient.test.ts`
-- `src/internetRadio/__tests__/InternetRadioServer.test.ts`
-- `src/accessories/services/SoundTouchSpeakerInternetRadioCharacteristic.ts` —
-  one Switch service per station.
-  `static create({ station, stationJsonUrl, service, device, platform, accessory })`.
-  - `setOn(true)`: `api.selectSource({ source: 'LOCAL_INTERNET_RADIO', sourceAccount: '', type: 'stationurl', location: stationJsonUrl, itemName: station.name, isPresetable: true })`.
-  - `setOn(false)`: if currently playing this station, `api.pressKey(KeyValue.POWER)`; otherwise no-op.
-  - `refresh()`: `nowPlaying.source === 'LOCAL_INTERNET_RADIO'` && `nowPlaying.contentItem?.location` contains `stationJsonUrl`; call `characteristic.updateValue(isMatch)`.
-  - On API failure: throw `HapStatusError(SERVICE_COMMUNICATION_FAILURE)`.
-- `src/accessories/services/__tests__/SoundTouchSpeakerInternetRadioCharacteristic.test.ts`
+    `getPresetUrl(slot: number): string`.
+- `src/presets/PresetManager.ts` — `static create({ api, config })`. Owns the
+  preset write cycle:
+  - `sync(): Promise<void>` — resolves TuneIn IDs (parallel `Promise.all`),
+    calls `api.storePreset(slot, contentItem)` for each configured slot. Logs
+    results (success / failure per slot).
+  - `start(intervalMs: number): void` — calls `sync()` immediately, then on the
+    given interval.
+  - `stop(): void` — clears the interval.
+- `src/presets/index.ts` — barrel export.
+- `src/presets/__tests__/TuneInClient.test.ts`
+- `src/presets/__tests__/PresetServer.test.ts`
+- `src/presets/__tests__/PresetManager.test.ts`
 
 **Modified files:**
 
-- `src/devices/SoundTouch/api/content-item.ts` — add `readonly type?: string` to
-  the `ContentItem` interface; update `contentItemToElement()` to serialize it
-  as an XML attribute. Also verify `isPresetable` is serialized (it's in the
-  interface; confirm the serializer writes it).
+- `src/devices/SoundTouch/api/content-item.ts` — add `readonly type?: string`
+  to `ContentItem`; update `contentItemToElement()` to serialize it as an XML
+  attribute. Verify `isPresetable` is already serialized; fix if not.
+- `src/devices/SoundTouch/api/endpoints.ts` — add `storePreset = 'storePreset'`.
+- `src/devices/SoundTouch/api/api.ts` — add
+  `storePreset(slot: number, contentItem: ContentItem): Promise<boolean>`.
+  POSTs `<preset id="N"><ContentItem .../></preset>` to `/storePreset`.
 - `src/ExternalPlatformConfig.ts` — add config interfaces:
   ```ts
-  interface StationExternalConfig {
+  interface StationPresetConfig {
+    readonly type: 'station';
+    readonly slot: number;         // 1–6
     readonly name: string;
-    readonly tuneInId?: string;   // TuneIn station ID, e.g. "s24861"
-    readonly streamUrl?: string;  // Direct HTTP stream URL; bypasses TuneIn resolution
-    readonly imageUrl?: string;   // Optional artwork URL (HTTP)
+    readonly tuneInId?: string;    // e.g. "s24861"
+    readonly streamUrl?: string;   // direct URL; bypasses TuneIn resolution
+    readonly imageUrl?: string;
   }
-  interface InternetRadioConfig {
-    readonly serverPort?: number;   // default 18090
-    readonly serverHost?: string;   // auto-detected if omitted
-    readonly stations?: StationExternalConfig[];
+  // Union for future types:
+  type PresetConfig = StationPresetConfig; // | SpotifyPresetConfig | …
+
+  interface PresetsServerConfig {
+    readonly port?: number;       // default 18090
+    readonly host?: string;       // auto-detected if omitted
   }
+
   // GlobalConfig gains:
-  readonly internetRadio?: InternetRadioConfig;
+  readonly presetsServer?: PresetsServerConfig;
+  readonly presets?: PresetConfig[];
+  readonly presetSyncInterval?: number;  // ms; default 3600000 (1 hour); 0 = startup only
   ```
-- `src/PlatformConfiguration.ts` — parse `global.internetRadio`; validate each
-  station (`name` required; at least one of `tuneInId`/`streamUrl` required; drop
-  + warn on invalid entries); apply defaults (`serverPort: 18090`).
-  Add tests to `src/__tests__/PlatformConfiguration.test.ts`.
-- `src/accessories/SoundTouchSpeakerPlatformAccessory.ts` — in `createAccessory()`,
-  if `internetRadio.stations` is non-empty, add one Switch service per station
-  (labelled `<stationName> Radio`); prune orphaned services on config change.
-- `src/platform.ts` — in `didFinishLaunching`: skip if `internetRadio.stations`
-  is empty. Otherwise: `TuneInClient.create()` → resolve all `tuneInId` stations
-  in parallel (`Promise.all`); log failures and HTTPS warnings; filter out nulls.
-  `InternetRadioServer.create({ port, host, stations }).listen()`. Register
-  shutdown hook: `server.close()`. Pass `{ stations, server }` to `discoverDevices()`.
-- `config.schema.json` — add `global.internetRadio` section:
-  - `serverPort` (integer, default hint 18090) — "Port the plugin uses to serve
-    station JSON files to your speakers. Must be reachable from the speakers'
-    network segment."
-  - `serverHost` (string, optional) — "LAN IP of this Homebridge host.
-    Auto-detected if omitted."
-  - `stations[]` — `name` (string, required), `tuneInId` (string, optional,
-    e.g. `"s24861"`), `streamUrl` (string, optional, "Direct stream URL; use
-    when the TuneIn ID is unknown. HTTP and HTTPS both work — the plugin proxies
-    the stream as HTTP to the speaker."), `imageUrl` (string, optional).
+- `src/PlatformConfiguration.ts` — parse `global.presets` and
+  `global.presetsServer`; validate each entry (type present, slot 1–6, name,
+  at least one of `tuneInId`/`streamUrl` for `type: 'station'`); drop + warn on
+  invalid entries; apply defaults. Add tests to
+  `src/__tests__/PlatformConfiguration.test.ts`.
+- `src/platform.ts` — in `didFinishLaunching`, if `config.presets` is non-empty:
+  1. `TuneInClient.create()` → resolve all `tuneInId` entries in parallel.
+  2. `PresetServer.create({ port, host, stations }).listen()` — log address.
+  3. `PresetManager.create({ api, config }).start(presetSyncInterval)` — writes
+     presets to every discovered device; logs per-slot results.
+  4. Register shutdown hooks: `server.close()`, `manager.stop()`.
+- `config.schema.json` — add:
+  - `global.presetsServer.port` (integer, default 18090)
+  - `global.presetsServer.host` (string, optional)
+  - `global.presetSyncInterval` (integer ms, default 3600000)
+  - `global.presets[]` — each entry: `type` (required, currently `"station"`),
+    `slot` (integer 1–6, required), `name` (required), `tuneInId` (optional),
+    `streamUrl` (optional), `imageUrl` (optional).
 
 ## Conventions for this change
 
 - **Commit type:** `feat:` → minor release.
-- **Config schema touched:** yes — update `config.schema.json`,
-  `src/ExternalPlatformConfig.ts`, `src/PlatformConfiguration.ts`, and
+- **Config schema touched:** yes — `config.schema.json`,
+  `src/ExternalPlatformConfig.ts`, `src/PlatformConfiguration.ts`,
   `src/__tests__/PlatformConfiguration.test.ts`.
-- **No new runtime npm packages.** Uses `axios` (already a runtime dep),
-  `node:http`, and `node:os` (built-ins). Verify with `npm run knip` after
-  implementation.
-- **ESM `.js` extension rule:** all relative imports in new files must end `.js`.
-- **Static factory pattern:** all new classes use `private` constructors and
-  expose `static create(...)`.
+- **No new runtime npm packages.** `axios`, `node:http`, `node:https`, `node:os`
+  — all available. Verify with `npm run knip` after implementation.
+- **ESM `.js` extension rule** on all relative imports in new files.
+- **Static factory pattern** throughout — `private` constructors, `static create(...)`.
 - **Tests to add/update:**
-  - `src/devices/SoundTouch/api/__tests__/content-item.test.ts` (new or extend)
-  - `src/internetRadio/__tests__/TuneInClient.test.ts`
-  - `src/internetRadio/__tests__/InternetRadioServer.test.ts`
-  - `src/accessories/services/__tests__/SoundTouchSpeakerInternetRadioCharacteristic.test.ts`
-  - `src/__tests__/PlatformConfiguration.test.ts` (extend existing suite)
+  - `src/devices/SoundTouch/api/__tests__/content-item.test.ts` (type + isPresetable serialization)
+  - `src/devices/SoundTouch/api/__tests__/api.test.ts` (storePreset)
+  - `src/presets/__tests__/TuneInClient.test.ts`
+  - `src/presets/__tests__/PresetServer.test.ts`
+  - `src/presets/__tests__/PresetManager.test.ts`
+  - `src/__tests__/PlatformConfiguration.test.ts`
 - **Target branch:** `dev`.
-- **Dependency on other plans:** `2026-06-19-source-selection.md` is independent.
+- **Related plans:** `2026-06-19-progressive-web-app.md` — PWA may later provide
+  a UI for managing preset slot assignments, removing the need to edit
+  `config.json` directly.
 
 ## Implementation checklist
 
 ### Spike (verify on a real device before building out)
 
-- [ ] POST `/select` with `source="LOCAL_INTERNET_RADIO"`, `type="stationurl"`,
-      `location=<local-server-url>`, `isPresetable="true"`. Confirm the speaker
-      fetches the JSON and begins playing.
+- [ ] Call `POST /storePreset` with a `LOCAL_INTERNET_RADIO` ContentItem
+      (`type="stationurl"`, `isPresetable="true"`, `location=<local-server-url>`).
+      Confirm the preset is stored and the physical button plays the station.
 - [ ] Confirm the SoundTouch device can reach the Homebridge host's LAN IP on
-      port 18090 (or check whether a firewall rule is needed).
-- [ ] Call RadioTime OPML API for `s24861` (BBC World Service); confirm the
-      response shape. HTTP or HTTPS in the resolved URL no longer matters — the
-      proxy handles both.
-- [ ] Check whether the SoundTouch device can resolve `homebridge.local` (mDNS
-      `.local` address) — use it as `location` in a test ContentItem and observe
-      whether the speaker successfully fetches the JSON. If yes, `serverHost`
-      config can be dropped entirely in favour of mDNS auto-detection.
+      port 18090. Check whether a firewall rule is needed.
+- [ ] Call RadioTime OPML API for `s24861` (BBC World Service); confirm
+      `body[].url` response shape. HTTP or HTTPS — proxy handles both.
+- [ ] Check whether the SoundTouch can resolve `homebridge.local` (mDNS `.local`
+      address) — if so, `presetsServer.host` can be dropped from the schema.
+- [ ] Confirm what happens to stored presets when the device reboots — verify
+      whether presets persist or are cleared (determines how critical the sync
+      schedule is).
 
-### ContentItem extension
+### ContentItem + API extension
 
 - [ ] Add `readonly type?: string` to `ContentItem` in
-      `src/devices/SoundTouch/api/content-item.ts`.
-- [ ] Update `contentItemToElement()` to serialize `type` as an XML attribute.
-- [ ] Verify `isPresetable` is already serialized; fix if not.
-- [ ] Add/update unit tests covering `type` and `isPresetable` serialization.
+      `src/devices/SoundTouch/api/content-item.ts`; update `contentItemToElement()`.
+- [ ] Verify `isPresetable` is serialized; fix if not.
+- [ ] Add unit tests for `type` + `isPresetable` serialization.
+- [ ] Add `storePreset = 'storePreset'` to `src/devices/SoundTouch/api/endpoints.ts`.
+- [ ] Implement `api.storePreset(slot, contentItem)` in
+      `src/devices/SoundTouch/api/api.ts`; add unit test.
 
 ### Config types
 
-- [ ] Add `StationExternalConfig`, `InternetRadioConfig` to
-      `src/ExternalPlatformConfig.ts`; wire `internetRadio?` into `GlobalConfig`.
-- [ ] Parse and validate in `src/PlatformConfiguration.ts`; apply defaults.
+- [ ] Add `StationPresetConfig`, `PresetConfig`, `PresetsServerConfig` to
+      `src/ExternalPlatformConfig.ts`; wire into `GlobalConfig`.
+- [ ] Parse and validate in `src/PlatformConfiguration.ts`; apply defaults
+      (`port: 18090`, `presetSyncInterval: 3_600_000`).
 - [ ] `src/__tests__/PlatformConfiguration.test.ts`:
-      - Station with `tuneInId` only → accepted.
-      - Station with `streamUrl` only → accepted.
-      - Station with neither → dropped + warning logged.
-      - Default `serverPort` is `18090`.
-      - `serverHost` left as `undefined` (resolved at runtime).
-
-### Station model
-
-- [ ] `src/internetRadio/InternetRadioStation.ts` — `static fromConfig(id, raw)`.
-- [ ] `src/internetRadio/index.ts` — barrel export.
+      - Valid station entry accepted.
+      - Entry missing `slot` → dropped + warning.
+      - Entry missing both `tuneInId` and `streamUrl` → dropped + warning.
+      - Slot out of range (0, 7) → dropped + warning.
+      - Default `port` and `presetSyncInterval` applied when absent.
 
 ### TuneIn client
 
-- [ ] `src/internetRadio/TuneInClient.ts` — `static create()`, `resolveStationUrl(tuneInId)`.
-- [ ] `src/internetRadio/__tests__/TuneInClient.test.ts`:
-      - Returns first `body[].url` from a mocked RadioTime JSON response.
+- [ ] `src/presets/TuneInClient.ts` — `static create()`, `resolveStationUrl(tuneInId)`.
+- [ ] `src/presets/__tests__/TuneInClient.test.ts`:
+      - Returns first `body[].url` from mocked RadioTime JSON.
       - Returns `null` and logs on HTTP error or empty `body`.
 
-### Local HTTP server + stream proxy
+### Station model
 
-- [ ] `src/internetRadio/InternetRadioServer.ts` — `static create({ port, host, stations })`,
-      `listen()`, `close()`, `getStationUrl(id)`.
-  - `GET /station/:id.json` — serve station JSON; `streamUrl` always points to
-    `http://host:port/stream/:id` (local proxy, regardless of upstream scheme).
-  - `GET /stream/:id` — resolve `station.resolvedStreamUrl`, detect scheme,
-    use `node:https` or `node:http` to fetch upstream, pipe response to client.
-    Pass through `Content-Type` and `icy-*` headers.
-    Destroy upstream request on `req.on('close')`.
-    Return 404 for unknown IDs; 502 on upstream fetch error.
-- [ ] `src/internetRadio/__tests__/InternetRadioServer.test.ts`:
-  - GET known station JSON → correct shape; `streamUrl` contains `/stream/<id>`.
-  - GET unknown station JSON → 404.
-  - GET `/stream/:id` → mocked upstream HTTP response piped through correctly.
-  - GET `/stream/:id` → mocked upstream HTTPS response piped through correctly.
-  - GET `/stream/:id` for unknown ID → 404.
+- [ ] `src/presets/PresetStation.ts` — `static fromConfig(raw)`.
+- [ ] `src/presets/index.ts` — barrel export.
+
+### Preset server
+
+- [ ] `src/presets/PresetServer.ts` — `static create(...)`, `listen()`, `close()`,
+      `getPresetUrl(slot)`.
+  - Route `GET /preset/:slot.json`: serve station JSON with `streamUrl` pointing
+    to `/stream/:slot`.
+  - Route `GET /stream/:slot`: detect upstream scheme, pipe via `node:https` or
+    `node:http`, pass `Content-Type` + `icy-*`, destroy upstream on client close,
+    502 on upstream error.
+  - 404 for any unknown slot on either route.
+- [ ] `src/presets/__tests__/PresetServer.test.ts`:
+      - GET `/preset/1.json` → correct JSON shape; `streamUrl` is HTTP and
+        contains `/stream/1`.
+      - GET `/preset/99.json` → 404.
+      - GET `/stream/1` with mocked HTTP upstream → response piped through.
+      - GET `/stream/1` with mocked HTTPS upstream → response piped through.
+      - GET `/stream/99` → 404.
+
+### Preset manager
+
+- [ ] `src/presets/PresetManager.ts` — `static create(...)`, `sync()`, `start(intervalMs)`,
+      `stop()`.
+  - `sync()`: parallel `Promise.all` over configured slots; for each, call
+    `api.storePreset(slot, contentItem)` where `contentItem.location` is the
+    stable `getPresetUrl(slot)` URL; log success/failure per slot per device.
+  - `start(0)` → call `sync()` once, no interval.
+  - `start(N)` → call `sync()` immediately, then every N ms.
+- [ ] `src/presets/__tests__/PresetManager.test.ts`:
+      - `sync()` calls `storePreset` for each configured slot.
+      - `storePreset` failure on one slot is logged but does not abort others.
+      - `start(N)` triggers `sync()` on interval; `stop()` cancels it.
 
 ### Platform wiring
 
-- [ ] `src/platform.ts` — in `didFinishLaunching`:
-      1. Skip if `config.internetRadio.stations` is empty.
-      2. `TuneInClient.create()` → resolve `tuneInId` stations in parallel; warn + filter nulls.
-      3. `InternetRadioServer.create({ port, host, stations }).listen()`; log listening address.
-      4. Register shutdown hook: `server.close()`.
-      5. Pass `{ stations, server }` into `discoverDevices()`.
-
-### HomeKit characteristic
-
-- [ ] `src/accessories/services/SoundTouchSpeakerInternetRadioCharacteristic.ts` — `static create(...)`.
-      - `init()` → `refresh()`.
-      - `setOn(true)` → `api.selectSource(...)` with `LOCAL_INTERNET_RADIO` ContentItem.
-      - `setOn(false)` → POWER key if this station is currently playing; no-op otherwise.
-      - `refresh()` → compare `nowPlaying`; `characteristic.updateValue(isMatch)`.
-      - API failure → `HapStatusError(SERVICE_COMMUNICATION_FAILURE)`.
-- [ ] `src/accessories/services/__tests__/SoundTouchSpeakerInternetRadioCharacteristic.test.ts`:
-      - `setOn(true)` → `selectSource` called with correct ContentItem fields.
-      - `setOn(false)` while playing this station → POWER key sent.
-      - `setOn(false)` while a different source is playing → POWER key not sent.
-      - `refresh()` matching `nowPlaying` → characteristic `true`; mismatch → `false`.
-
-### Accessory wiring
-
-- [ ] `src/accessories/SoundTouchSpeakerPlatformAccessory.ts` — create one Switch
-      service per station in `createAccessory()`; prune orphaned radio services on
-      config change; create `SoundTouchSpeakerInternetRadioCharacteristic` per station.
+- [ ] `src/platform.ts` — in `didFinishLaunching`, skip entirely if
+      `config.presets` is empty. Otherwise:
+      1. `TuneInClient.create()` → resolve `tuneInId` entries in parallel;
+         filter nulls; log per-station failures.
+      2. Build `PresetStation[]` from resolved + raw `streamUrl` entries.
+      3. `PresetServer.create({ port, host, stations }).listen()`; log address.
+      4. `PresetManager.create({ devices, server }).start(presetSyncInterval)`.
+      5. Register shutdown hooks: `server.close()`, `manager.stop()`.
 
 ### Config schema
 
-- [ ] `config.schema.json` — add `global.internetRadio` block: `serverPort`,
-      `serverHost`, `stations[]` (`name` required; `tuneInId`, `streamUrl`,
-      `imageUrl` optional).
+- [ ] `config.schema.json` — add `global.presetsServer` (`port`, `host`),
+      `global.presetSyncInterval`, and `global.presets[]` (`type`, `slot`,
+      `name`, `tuneInId`, `streamUrl`, `imageUrl`).
 
 ## Verification
 
@@ -269,17 +295,17 @@ exposes each station as a Switch in HomeKit. At startup the plugin:
 - [ ] `npm test`
 - [ ] `npm run knip` — no new unused exports/deps.
 - [ ] `npm run watch` — with a real speaker:
-      - Configure one `tuneInId` station (e.g. `s24861` BBC World Service) and one
-        `streamUrl` station.
-      - Confirm two Switch tiles appear in the Home app.
-      - Toggle the TuneIn station on → speaker begins playing.
-      - Tile reflects active (On) while playing; Off after stopping.
-      - Toggle the direct-URL station → plays.
-      - Add/remove a station from config → cached accessory services updated
-        correctly (no orphaned or duplicate Switch services).
-      - Restart Homebridge → accessories rehydrate from cache correctly.
+      - Configure two station presets (one `tuneInId`, one `streamUrl`) on
+        different slots.
+      - Confirm the preset server starts and logs its address.
+      - Press the physical preset button on the speaker → station plays.
+      - Change the station's `tuneInId` in config, restart Homebridge → same
+        physical button plays the new station (server response updated; preset
+        URL unchanged on device).
+      - Simulate a device reboot; confirm `presetSyncInterval` re-writes the
+        preset without manual intervention.
 
 ## PR / release notes
 
-- **PR title:** `feat: add internet radio stations via TuneIn`
+- **PR title:** `feat: add typed preset management with internet radio stations`
 - **Targets:** `dev`
