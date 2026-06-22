@@ -188,6 +188,24 @@ describe('PlatformConfiguration', () => {
       expect(config.accessories[0].accessoryType).toBe('switch');
     });
 
+    it('propagates disabled: true to the accessory config', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        accessories: [{ name: 'Kitchen', ip: '192.168.1.10', disabled: true }],
+      });
+
+      expect(config.accessories[0].disabled).toBe(true);
+    });
+
+    it('defaults disabled to false when not set', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        accessories: [{ name: 'Kitchen', ip: '192.168.1.10' }],
+      });
+
+      expect(config.accessories[0].disabled).toBe(false);
+    });
+
     it('accessories without ip or room are excluded', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,

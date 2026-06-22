@@ -114,6 +114,21 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     for (const device of accessories) {
       const uuid = this.api.hap.uuid.generate(device.id);
 
+      if (device.configuration.disabled) {
+        this.logger.info('Skipping disabled accessory:', device.name);
+        const cachedAccessory = this._accessories.get(uuid);
+        if (cachedAccessory) {
+          this.logger.info(
+            'Unregistering cached disabled accessory:',
+            cachedAccessory.displayName
+          );
+          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
+            cachedAccessory,
+          ]);
+        }
+        continue;
+      }
+
       const existingAccessory = this._accessories.get(uuid);
 
       try {
