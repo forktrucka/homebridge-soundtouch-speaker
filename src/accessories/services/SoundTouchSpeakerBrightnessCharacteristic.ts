@@ -27,8 +27,8 @@ export class SoundTouchSpeakerBrightnessCharacteristic extends SoundTouchSpeaker
       this.platform.characteristic.Brightness
     );
     this.characteristic
-      .onSet(this.wrapHapSet('SetBrightnessFailed', this.setBrightness.bind(this)))
-      .onGet(this.wrapHapGet('GetBrightnessFailed', this.getBrightness.bind(this)));
+      .onSet(this.wrapHapSet(this.setBrightness.bind(this)))
+      .onGet(this.wrapHapGet(this.getBrightness.bind(this)));
   }
 
   async init(): Promise<void> {

@@ -39,30 +39,34 @@ export abstract class SoundTouchSpeakerCharacteristic {
   }
 
   protected wrapHapGet(
-    name: string,
     fn: () => Promise<CharacteristicValue>
   ): () => Promise<CharacteristicValue> {
     return async (): Promise<CharacteristicValue> => {
       try {
         return await fn();
       } catch (e: unknown) {
-        const appError = AppError.create({ name, cause: e });
-        this.log.debug(`${name} failed`, appError);
+        const appError =
+          e instanceof AppError
+            ? e
+            : AppError.create({ name: 'CharacteristicGetFailed', cause: e });
+        this.log.debug('characteristic get failed', appError);
         this.throwHapCommunicationFailure(appError);
       }
     };
   }
 
   protected wrapHapSet(
-    name: string,
     fn: (value: CharacteristicValue) => Promise<void>
   ): (value: CharacteristicValue) => Promise<void> {
     return async (value: CharacteristicValue): Promise<void> => {
       try {
         await fn(value);
       } catch (e: unknown) {
-        const appError = AppError.create({ name, cause: e });
-        this.log.debug(`${name} failed`, appError);
+        const appError =
+          e instanceof AppError
+            ? e
+            : AppError.create({ name: 'CharacteristicSetFailed', cause: e });
+        this.log.debug('characteristic set failed', appError);
         this.throwHapCommunicationFailure(appError);
       }
     };

@@ -31,8 +31,8 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
     );
 
     this.characteristic
-      .onSet(this.wrapHapSet('SetOnFailed', this.setOn.bind(this)))
-      .onGet(this.wrapHapGet('GetOnFailed', this.getOn.bind(this)));
+      .onSet(this.wrapHapSet(this.setOn.bind(this)))
+      .onGet(this.wrapHapGet(this.getOn.bind(this)));
   }
 
   async init(): Promise<void> {
