@@ -14,6 +14,25 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { Logger } from './utils/FormattedLogger.js';
 import { PlatformConfiguration } from './PlatformConfiguration.js';
 import { AppError } from './errors.js';
+import {
+  TuneInClient,
+  PresetServer,
+  PresetManager,
+  PresetStation,
+} from './presets/index.js';
+
+function detectLanIp(): string {
+  const interfaces = networkInterfaces();
+  for (const iface of Object.values(interfaces)) {
+    if (!iface) continue;
+    for (const entry of iface) {
+      if (entry.family === 'IPv4' && !entry.internal) {
+        return entry.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
 
 export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly service: typeof Service;
@@ -28,6 +47,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     SoundTouchSpeakerPlatformAccessory
   > = new Map();
   private readonly _discoveredCacheUUIDs: string[] = [];
+  private readonly _discoveredDevices: SoundTouchDevice[] = [];
+
+  private _presetServer: PresetServer | undefined;
+  private _presetManager: PresetManager | undefined;
 
   constructor(
     homebridgeLogger: Logging,
@@ -38,8 +61,11 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     this.service = this.api.hap.Service;
     this.characteristic = this.api.hap.Characteristic;
 
-    this.configuration =
-      PlatformConfiguration.fromExternalConfiguration(homebridgeConfig);
+    this.configuration = PlatformConfiguration.fromExternalConfiguration(
+      homebridgeConfig,
+      // Logger not yet initialised at this point; warnings emitted after logger is ready
+      undefined
+    );
 
     this.logger = Logger.forHomebridgeLogger({
       logger: homebridgeLogger,
@@ -55,6 +81,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this.logger.debug('Started didFinishLaunching callback');
       this.logNetworkInterfaces();
       await this.discoverDevices();
+      await this._setupPresets();
       this.logger.debug('Finished didFinishLaunching callback');
     });
 
@@ -62,6 +89,14 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this.logger.debug('Stopping polling on shutdown');
       for (const wrapper of this._accessoryWrappers.values()) {
         wrapper.stopPolling();
+      }
+      if (this._presetManager) {
+        this._presetManager.stop();
+      }
+      if (this._presetServer) {
+        this._presetServer.close().catch((err: unknown) => {
+          this.logger.error('Error closing preset server', err);
+        });
       }
     });
   }
@@ -171,6 +206,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         }
 
         this._discoveredCacheUUIDs.push(uuid);
+        this._discoveredDevices.push(device);
       } catch (e: unknown) {
         this.logger.error(`Failed to initialise accessory: ${device.name}`, e);
       }
@@ -196,5 +232,89 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         ]);
       }
     }
+  }
+
+  private async _setupPresets(): Promise<void> {
+    const { presets, presetsServer, presetSyncInterval } = this.configuration;
+
+    if (!presets || presets.length === 0) {
+      return;
+    }
+
+    // Determine the server host: user-configured > auto-detected LAN IP
+    const serverHost =
+      presetsServer.host && presetsServer.host !== ''
+        ? presetsServer.host
+        : detectLanIp();
+
+    const serverPort = presetsServer.port;
+
+    // 1. Resolve TuneIn IDs
+    const tuneInClient = TuneInClient.create();
+    const stations = new Map<number, PresetStation>();
+
+    await Promise.all(
+      presets.map(async (preset) => {
+        if (preset.type !== 'station') {
+          return;
+        }
+
+        let resolvedUrl: string | null = null;
+
+        if (preset.tuneInId) {
+          resolvedUrl = await tuneInClient.resolveStationUrl(preset.tuneInId);
+          if (!resolvedUrl) {
+            this.logger.warn(
+              `[Presets] Could not resolve TuneIn ID "${preset.tuneInId}" for slot ${preset.slot} ("${preset.name}") — skipping`
+            );
+          }
+        } else if (preset.streamUrl) {
+          resolvedUrl = preset.streamUrl;
+        }
+
+        if (!resolvedUrl) {
+          return;
+        }
+
+        stations.set(
+          preset.slot,
+          PresetStation.fromConfig(preset, resolvedUrl)
+        );
+      })
+    );
+
+    if (stations.size === 0) {
+      this.logger.warn('[Presets] No stations could be resolved — skipping preset server startup');
+      return;
+    }
+
+    // 2. Start preset server
+    const presetServer = PresetServer.create({
+      port: serverPort,
+      host: serverHost,
+      stations,
+    });
+
+    try {
+      await presetServer.listen();
+      this.logger.info(
+        `[Presets] Server listening at http://${serverHost}:${serverPort}`
+      );
+    } catch (err: unknown) {
+      this.logger.error('[Presets] Failed to start preset server', err);
+      return;
+    }
+
+    this._presetServer = presetServer;
+
+    // 3. Start preset manager
+    const presetManager = PresetManager.create({
+      devices: this._discoveredDevices,
+      server: presetServer,
+      stations,
+    });
+
+    this._presetManager = presetManager;
+    presetManager.start(presetSyncInterval);
   }
 }

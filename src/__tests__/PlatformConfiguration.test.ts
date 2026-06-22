@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { PlatformConfiguration } from '../PlatformConfiguration.js';
+import { PresetConfig } from '../ExternalPlatformConfig.js';
 import { PLATFORM_NAME } from '../settings.js';
 import { LogLevel } from 'homebridge';
 
@@ -237,6 +238,124 @@ describe('PlatformConfiguration', () => {
       });
 
       expect(() => JSON.parse(config.toJson())).not.toThrow();
+    });
+  });
+
+  describe('preset config', () => {
+    it('accepts a valid station preset entry', () => {
+      const presets: PresetConfig[] = [
+        { type: 'station', slot: 1, name: 'BBC World Service', tuneInId: 's24861' },
+      ];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presets },
+      });
+
+      expect(config.presets).toHaveLength(1);
+      expect(config.presets[0]).toEqual({
+        type: 'station',
+        slot: 1,
+        name: 'BBC World Service',
+        tuneInId: 's24861',
+        streamUrl: undefined,
+        imageUrl: undefined,
+      });
+    });
+
+    it('accepts a station entry with streamUrl instead of tuneInId', () => {
+      const presets: PresetConfig[] = [
+        { type: 'station', slot: 3, name: 'My Radio', streamUrl: 'http://stream.example.com/live' },
+      ];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presets },
+      });
+
+      expect(config.presets).toHaveLength(1);
+      expect(config.presets[0].streamUrl).toBe('http://stream.example.com/live');
+    });
+
+    it('drops an entry missing slot and does not include it in presets', () => {
+      // Pass an invalid config entry as unknown to test runtime validation
+      const presets = [{ type: 'station', name: 'No Slot', tuneInId: 's1' }] as unknown as PresetConfig[];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presets },
+      });
+
+      expect(config.presets).toHaveLength(0);
+    });
+
+    it('drops an entry with slot out of range (0) and does not include it', () => {
+      const presets = [{ type: 'station', slot: 0, name: 'Bad Slot', tuneInId: 's1' }] as unknown as PresetConfig[];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presets },
+      });
+
+      expect(config.presets).toHaveLength(0);
+    });
+
+    it('drops an entry with slot out of range (7) and does not include it', () => {
+      const presets = [{ type: 'station', slot: 7, name: 'Bad Slot', tuneInId: 's1' }] as unknown as PresetConfig[];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presets },
+      });
+
+      expect(config.presets).toHaveLength(0);
+    });
+
+    it('drops an entry missing both tuneInId and streamUrl', () => {
+      const presets = [{ type: 'station', slot: 2, name: 'No Source' }] as unknown as PresetConfig[];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presets },
+      });
+
+      expect(config.presets).toHaveLength(0);
+    });
+
+    it('applies default presetsServer port (18090) when absent', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.presetsServer.port).toBe(18090);
+    });
+
+    it('uses provided presetsServer port when specified', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presetsServer: { port: 19000 } },
+      });
+
+      expect(config.presetsServer.port).toBe(19000);
+    });
+
+    it('applies default presetSyncInterval (3_600_000) when absent', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.presetSyncInterval).toBe(3_600_000);
+    });
+
+    it('preserves an explicit presetSyncInterval of 0 (startup only)', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presetSyncInterval: 0 },
+      });
+
+      expect(config.presetSyncInterval).toBe(0);
+    });
+
+    it('returns empty presets array when no presets configured', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.presets).toEqual([]);
     });
   });
 });

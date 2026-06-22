@@ -251,6 +251,17 @@ export class API {
     return undefined;
   }
 
+  async storePreset(slot: number, contentItem: ContentItem): Promise<boolean> {
+    const contentItemEl = contentItemToElement(contentItem);
+    const element = await this._post(Endpoints.storePreset, {
+      preset: {
+        $: { id: slot },
+        ...contentItemEl.data,
+      },
+    });
+    return element ? element.getText('status') !== undefined : false;
+  }
+
   // PRIVATE FUNCTIONS
 
   private static _throwAPIErrors(root: XMLElement) {

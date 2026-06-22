@@ -9,9 +9,28 @@ interface BaseGlobalConfig {
   readonly logLevel?: 'debug' | 'info' | 'warn' | 'error';
 }
 
+interface StationPresetConfig {
+  readonly type: 'station';
+  readonly slot: number;
+  readonly name: string;
+  readonly tuneInId?: string;
+  readonly streamUrl?: string;
+  readonly imageUrl?: string;
+}
+
+export type PresetConfig = StationPresetConfig;
+
+export interface PresetsServerConfig {
+  readonly port?: number;
+  readonly host?: string;
+}
+
 interface GlobalConfig extends BaseGlobalConfig {
   readonly pollingInterval?: number;
   readonly accessoryType?: 'switch' | 'lightbulb';
+  readonly presetsServer?: PresetsServerConfig;
+  readonly presets?: PresetConfig[];
+  readonly presetSyncInterval?: number;
 }
 
 export interface AccessoryConfig extends GlobalConfig {

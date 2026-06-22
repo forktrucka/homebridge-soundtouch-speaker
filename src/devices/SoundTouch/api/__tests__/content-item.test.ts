@@ -71,6 +71,24 @@ describe('contentItemToElement', () => {
     expect(el.data.ContentItem.itemName).toBe('Name');
   });
 
+  it('serializes the type attribute when present', () => {
+    const el = contentItemToElement({
+      source: 'LOCAL_INTERNET_RADIO',
+      sourceAccount: '',
+      type: 'stationurl',
+      isPresetable: true,
+      location: 'http://host:18090/preset/1.json',
+    });
+
+    expect(el.data.ContentItem.$.type).toBe('stationurl');
+  });
+
+  it('omits the type attribute when absent', () => {
+    const el = contentItemToElement({ source: 'AUX', sourceAccount: '' });
+
+    expect(el.data.ContentItem.$.type).toBeUndefined();
+  });
+
   it('round-trips through fromElement', () => {
     const el = contentItemToElement({
       source: 'SPOTIFY',
