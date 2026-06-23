@@ -76,6 +76,11 @@
               "enum": ["switch", "lightbulb"],
               "required": false,
               "description": "Override the HomeKit accessory type for this speaker. 'lightbulb' exposes volume via Brightness."
+            },
+            "disabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "When true, removes this speaker from HomeKit without deleting the config. Flip back to false to re-register."
             }
           }
         },

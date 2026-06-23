@@ -6,6 +6,7 @@ import {
   PlatformAccessory,
   Service,
 } from 'homebridge';
+import { networkInterfaces } from 'node:os';
 import { ExternalPlatformConfig } from './ExternalPlatformConfig.js';
 import { SoundTouchDevice } from './devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchSpeakerPlatformAccessory } from './accessories/SoundTouchSpeakerPlatformAccessory.js';
@@ -52,6 +53,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
 
     this.api.on('didFinishLaunching', async () => {
       this.logger.debug('Started didFinishLaunching callback');
+      this.logNetworkInterfaces();
       await this.discoverDevices();
       this.logger.debug('Finished didFinishLaunching callback');
     });
@@ -62,6 +64,18 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         wrapper.stopPolling();
       }
     });
+  }
+
+  private logNetworkInterfaces() {
+    const addresses = Object.entries(networkInterfaces()).flatMap(([iface, infos]) =>
+      (infos ?? [])
+        .filter((i) => i.family === 'IPv4' && !i.internal)
+        .map((i) => `${iface}: ${i.address}`)
+    );
+    this.logger.info(
+      'Network interfaces:',
+      addresses.length > 0 ? addresses.join(', ') : '(none found)'
+    );
   }
 
   configureAccessory(accessory: PlatformAccessory) {
@@ -113,6 +127,21 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
 
     for (const device of accessories) {
       const uuid = this.api.hap.uuid.generate(device.id);
+
+      if (device.configuration.disabled) {
+        this.logger.info('Skipping disabled accessory:', device.name);
+        const cachedAccessory = this._accessories.get(uuid);
+        if (cachedAccessory) {
+          this.logger.info(
+            'Unregistering cached disabled accessory:',
+            cachedAccessory.displayName
+          );
+          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
+            cachedAccessory,
+          ]);
+        }
+        continue;
+      }
 
       const existingAccessory = this._accessories.get(uuid);
 

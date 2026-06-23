@@ -19,6 +19,7 @@ export interface AccessoryConfig extends GlobalConfig {
   readonly room?: string;
   readonly ip?: string;
   readonly port?: number;
+  readonly disabled?: boolean;
 }
 
 export interface ExternalPlatformConfig extends BasePlatformConfig {

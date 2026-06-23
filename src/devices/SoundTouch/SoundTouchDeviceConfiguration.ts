@@ -11,6 +11,7 @@ interface BaseDeviceConfiguration {
   pollingInterval?: number;
   verbose?: boolean;
   accessoryType?: AccessoryType;
+  disabled?: boolean;
 }
 
 interface DeviceViaRoomConfigurationProps extends BaseDeviceConfiguration {
@@ -33,6 +34,7 @@ export class DeviceConfiguration {
   readonly pollingInterval: number;
   readonly verboseLogging: boolean;
   readonly accessoryType: AccessoryType;
+  readonly disabled: boolean;
 
   private constructor(props: {
     type: 'room' | 'ip' | 'discovered';
@@ -43,12 +45,14 @@ export class DeviceConfiguration {
     pollingInterval?: number;
     verboseLogging?: boolean;
     accessoryType?: AccessoryType;
+    disabled?: boolean;
   }) {
     this.type = props.type;
     this.name = props.name;
     this.verboseLogging = props.verboseLogging ?? DEFAULT_VERBOSE_LOGGING;
     this.pollingInterval = props.pollingInterval ?? DEFAULT_POLLING_INTERVAL;
     this.accessoryType = props.accessoryType ?? DEFAULT_ACCESSORY_TYPE;
+    this.disabled = props.disabled ?? false;
 
     if (props.type === 'room') {
       this.room = props.room;
@@ -82,6 +86,7 @@ export class DeviceConfiguration {
         port: props.accessoryConfig.port,
         pollingInterval: props.accessoryConfig.pollingInterval,
         accessoryType: props.accessoryConfig.accessoryType,
+        disabled: props.accessoryConfig.disabled,
       });
     } else if (props.accessoryConfig?.room) {
       return DeviceConfiguration.createForRoom({
@@ -89,6 +94,7 @@ export class DeviceConfiguration {
         room: props.accessoryConfig.room,
         pollingInterval: props.accessoryConfig.pollingInterval,
         accessoryType: props.accessoryConfig.accessoryType,
+        disabled: props.accessoryConfig.disabled,
       });
     }
     return undefined;
@@ -99,17 +105,20 @@ export class DeviceConfiguration {
     verboseLogging,
     pollingInterval,
     accessoryType,
+    disabled,
   }: {
     name?: string;
     verboseLogging?: boolean;
     pollingInterval?: number;
     accessoryType?: AccessoryType;
+    disabled?: boolean;
   }) {
     return new DeviceConfiguration({
       name,
       verboseLogging,
       pollingInterval,
       accessoryType,
+      disabled,
       type: 'discovered',
     });
   }
