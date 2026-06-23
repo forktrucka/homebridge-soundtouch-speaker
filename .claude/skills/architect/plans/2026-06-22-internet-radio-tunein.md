@@ -1,6 +1,6 @@
 ---
 feature: Internet radio via TuneIn
-status: planned
+status: in-progress
 date: 2026-06-22
 branch: feat/internet-radio-tunein
 commit-type: feat
@@ -20,20 +20,34 @@ Homebridge config, each with a type and type-specific fields. For now the only
 type is `station` (internet radio); Spotify playlists and others may follow
 (possibly managed via the PWA — see plan `2026-06-19-progressive-web-app.md`).
 
-**How it works:**
+**How it works (post-pivot — TUNEIN source via Bose cloud emulator):**
 
-The plugin runs a local HTTP server with **stable, slot-based URLs**:
-- `GET /preset/:slot.json` — serves a SoundTouch station descriptor whose
-  `streamUrl` points to the proxy endpoint below.
-- `GET /stream/:slot` — proxies the resolved audio stream back as HTTP,
-  regardless of whether the upstream URL is HTTP or HTTPS.
+The plugin writes a `TUNEIN` preset to each configured slot on the SoundTouch
+device. The preset ContentItem uses `source="TUNEIN"`, `type="stationurl"`,
+`isPresetable="true"`, and `location="/v1/playback/station/<tuneInId>"`.
 
-At startup (and on a configurable schedule), the plugin writes a
-`LOCAL_INTERNET_RADIO` preset to each configured slot on the SoundTouch device,
-with `location` pointing at the stable `http://host:port/preset/:slot.json` URL.
-Because the URL never changes, updating a station's content (new TuneIn ID,
-new stream URL) only requires updating the server's response — no device API
-call is needed.
+To resolve those station IDs to stream URLs at play time, the speaker must
+contact a Bose BMX cloud server. Since Bose's cloud shut down, a lightweight
+emulator (`scripts/bose-cloud.mjs`) runs locally and impersonates the BMX
+endpoints the speaker needs:
+- `GET /bmx/registry/v1/services` — BMX service registry listing TUNEIN
+- `GET /marge/streaming/sourceproviders` — source provider list (activates TUNEIN)
+- `GET /bmx/tunein/v1/playback/station/:id` — resolves TuneIn ID → stream URL
+  via the RadioTime OPML API (`opml.radiotime.com`)
+
+The speaker must be redirected to this emulator by editing
+`/opt/Bose/etc/SoundTouchSdkPrivateCfg.xml` over SSH and setting:
+- `bmxRegistryUrl → http://<HOST>:8000/bmx/registry/v1/services`
+- `margeServerUrl → http://<HOST>:8000/marge`
+
+This is a **one-time manual setup** on the speaker. The plugin itself does not
+automate this SSH step.
+
+At startup (and on a configurable schedule), the plugin calls `storePreset` on
+each discovered device to write the configured TUNEIN preset into the specified
+slot. The emulator handles stream resolution dynamically at play time, so
+updating a station's TuneIn ID in config and restarting will re-write the preset
+on the device.
 
 **No HomeKit characteristics are added in this plan.** The physical preset
 buttons on the speaker work immediately after preset writing. HomeKit integration
@@ -69,6 +83,12 @@ is a future concern.
 | 2026-06-22 | No HomeKit characteristics in this plan | Physical preset buttons work immediately after preset writing; HomeKit integration is a separate concern; PWA may later manage preset config (see `2026-06-19-progressive-web-app.md`) | Adding switches now — premature; nothing is yet happening with the HomeKit device layer |
 | 2026-06-22 | Finding: Mode C (plugin acts as soundcork, speaker redirected to Homebridge) requires invasive SSH setup identical to soundcork — edit `/opt/Bose/etc/SoundTouchSdkPrivateCfg.xml` on the device, reboot | soundcork `docs/speaker-setup.md`; plugin cannot do this automatically | Mode C adds no value over running soundcork; deferred indefinitely |
 | 2026-06-22 | Zero new runtime npm packages | `axios` (TuneIn resolution), `node:http`/`node:https` (server + proxy), `node:os` (IP detection) — all already available | `node-tunein-api` — transitive deps for one API call |
+| 2026-06-23 | **PIVOT: `LOCAL_INTERNET_RADIO` abandoned in favour of `TUNEIN` source + Bose cloud emulator** | `LOCAL_INTERNET_RADIO` source rejected by the speaker on certain models (SoundTouch 20/30 firmware variants refuse to store or play it). The only reliable path is the native `TUNEIN` source, which requires a BMX cloud server for stream resolution at play time. | Continuing with `LOCAL_INTERNET_RADIO` — model-dependent failure; no known firmware workaround |
+| 2026-06-23 | `PresetServer.ts` and `TuneInClient.ts` removed | Stream proxying and TuneIn resolution are now handled entirely by `scripts/bose-cloud.mjs`; the plugin code no longer needs them. Deleted `src/presets/PresetServer.ts` and its tests. | Keeping both — redundant; `bose-cloud.mjs` subsumes all proxy + resolution logic |
+| 2026-06-23 | Bose cloud emulator (`scripts/bose-cloud.mjs`) is a **standalone Node.js script**, not part of the plugin process | Keeps it easy to run, inspect, and replace independently of Homebridge. Users run it alongside Homebridge (e.g. `node scripts/bose-cloud.mjs &`). A future plan could wrap it as a child process managed by the platform, but that is out of scope here. | Spawning it inside the plugin process — harder to restart independently; couples lifetimes |
+| 2026-06-23 | Speaker setup (SSH to edit `SoundTouchSdkPrivateCfg.xml`) is a **one-time manual step** — the plugin does not automate it | The plugin has no SSH capability and cannot reach the speaker's firmware files over the SoundTouch HTTP API. Documented in the README/bose-cloud script header. | Plugin-side automation — not possible without SSH access |
+| 2026-06-23 | `PresetStation` no longer stores a resolved stream URL | Resolution happens at play time inside `bose-cloud.mjs`; the preset only needs the TuneIn ID, name, slot, and optional image URL | Keeping `resolvedStreamUrl` — now unused; keeping dead fields causes confusion |
+| 2026-06-23 | **Licensing research task added** — soundcork and this plugin | soundcork (`timvw/soundcork`) was reviewed during design; `bose-cloud.mjs` independently reimplements the same BMX emulation concept. Must confirm: soundcork's licence, whether derived-work obligations apply, and whether attribution notices are required in this repo. | Skipping — incomplete due diligence; soundcork may be GPL or carry other conditions |
 
 ## If cancelled
 
@@ -78,41 +98,39 @@ is a future concern.
 
 **New files:**
 
-- `src/presets/PresetStation.ts` — resolved station model:
-  `{ slot: number; name: string; resolvedStreamUrl: string; imageUrl?: string }`.
-  Static `fromConfig(raw)` validates `slot` (1–6), `name`, and at least one of
-  `tuneInId`/`streamUrl`.
-- `src/presets/TuneInClient.ts` — `static create(axiosInstance?)`.
-  `resolveStationUrl(tuneInId: string): Promise<string | null>` calls the
-  RadioTime OPML API and returns the first `body[].url`. Returns `null` on
-  error (logged); HTTP or HTTPS both accepted (proxy handles it).
-- `src/presets/PresetServer.ts` — `static create({ port, host, stations })`.
-  Wraps `node:http`; serves:
-  - `GET /preset/:slot.json` — SoundTouch station descriptor. `streamUrl` always
-    points at the local proxy: `http://host:port/stream/:slot`. Shape:
-    ```json
-    { "audio": { "hasPlaylist": false, "isRealtime": true,
-                 "streamUrl": "http://host:port/stream/1" },
-      "imageUrl": "", "name": "...", "streamType": "liveRadio" }
-    ```
-  - `GET /stream/:slot` — fetches `station.resolvedStreamUrl` via `node:https`
-    or `node:http` (scheme-detected), pipes response to client. Passes through
-    `Content-Type` and `icy-*` headers. Destroys upstream on `req.on('close')`.
-    Returns 404 for unknown slots; 502 on upstream error.
-  - `listen(): Promise<void>`, `close(): Promise<void>`,
-    `getPresetUrl(slot: number): string`.
-- `src/presets/PresetManager.ts` — `static create({ api, config })`. Owns the
-  preset write cycle:
-  - `sync(): Promise<void>` — resolves TuneIn IDs (parallel `Promise.all`),
-    calls `api.storePreset(slot, contentItem)` for each configured slot. Logs
-    results (success / failure per slot).
-  - `start(intervalMs: number): void` — calls `sync()` immediately, then on the
-    given interval.
-  - `stop(): void` — clears the interval.
+- `scripts/bose-cloud.mjs` — standalone Bose cloud emulator (port 8000, no npm
+  deps). Routes:
+  - `GET /bmx/registry/v1/services` — BMX service registry JSON listing TUNEIN.
+  - `GET /marge/streaming/sourceproviders` — XML source provider list; activates
+    TUNEIN on the speaker.
+  - `GET /bmx/tunein/v1/playback/station/:id` — resolves TuneIn ID to stream URL
+    via RadioTime OPML API (`opml.radiotime.com`); returns BMX playback JSON.
+  - All other routes → `200 {}` stub.
+- `src/presets/PresetStation.ts` — station model:
+  `{ slot: number; name: string; tuneInId: string; imageUrl?: string }`.
+  Static `fromConfig(raw)`.
+- `src/presets/PresetManager.ts` — `static create({ devices, stations })`. Owns
+  the preset write cycle; writes `TUNEIN` ContentItems:
+  ```ts
+  { source: 'TUNEIN', sourceAccount: '', type: 'stationurl',
+    isPresetable: true, location: `/v1/playback/station/${tuneInId}`,
+    itemName: name }
+  ```
+  - `sync(): Promise<void>` — calls `storePreset` for each configured slot on
+    each device; logs per-slot results.
+  - `start(intervalMs: number): void` / `stop(): void`.
 - `src/presets/index.ts` — barrel export.
-- `src/presets/__tests__/TuneInClient.test.ts`
-- `src/presets/__tests__/PresetServer.test.ts`
 - `src/presets/__tests__/PresetManager.test.ts`
+- `src/__device__/preset-concept.device.test.ts` — live-device test (gated out
+  of CI via `process.env.CI`); requires real speaker at `SPEAKER_IP`.
+
+**Deleted files (pivot):**
+
+- `src/presets/PresetServer.ts` — no longer needed; `bose-cloud.mjs` handles
+  stream resolution.
+- `src/presets/__tests__/PresetServer.test.ts`
+- `src/presets/TuneInClient.ts` — resolution moved to `bose-cloud.mjs`.
+- `src/presets/__tests__/TuneInClient.test.ts`
 
 **Modified files:**
 
@@ -123,47 +141,31 @@ is a future concern.
 - `src/devices/SoundTouch/api/api.ts` — add
   `storePreset(slot: number, contentItem: ContentItem): Promise<boolean>`.
   POSTs `<preset id="N"><ContentItem .../></preset>` to `/storePreset`.
-- `src/ExternalPlatformConfig.ts` — add config interfaces:
+- `src/ExternalPlatformConfig.ts` — config interfaces:
   ```ts
   interface StationPresetConfig {
     readonly type: 'station';
-    readonly slot: number;         // 1–6
+    readonly slot: number;       // 1–6
     readonly name: string;
-    readonly tuneInId?: string;    // e.g. "s24861"
-    readonly streamUrl?: string;   // direct URL; bypasses TuneIn resolution
+    readonly tuneInId: string;   // e.g. "s7162" (More FM Auckland)
     readonly imageUrl?: string;
   }
-  // Union for future types:
-  type PresetConfig = StationPresetConfig; // | SpotifyPresetConfig | …
-
-  interface PresetsServerConfig {
-    readonly port?: number;       // default 18090
-    readonly host?: string;       // auto-detected if omitted
-  }
+  type PresetConfig = StationPresetConfig;
 
   // GlobalConfig gains:
-  readonly presetsServer?: PresetsServerConfig;
   readonly presets?: PresetConfig[];
-  readonly presetSyncInterval?: number;  // ms; default 3600000 (1 hour); 0 = startup only
+  readonly presetSyncInterval?: number;  // ms; default 3600000 (1 hour)
   ```
-- `src/PlatformConfiguration.ts` — parse `global.presets` and
-  `global.presetsServer`; validate each entry (type present, slot 1–6, name,
-  at least one of `tuneInId`/`streamUrl` for `type: 'station'`); drop + warn on
-  invalid entries; apply defaults. Add tests to
-  `src/__tests__/PlatformConfiguration.test.ts`.
-- `src/platform.ts` — in `didFinishLaunching`, if `config.presets` is non-empty:
-  1. `TuneInClient.create()` → resolve all `tuneInId` entries in parallel.
-  2. `PresetServer.create({ port, host, stations }).listen()` — log address.
-  3. `PresetManager.create({ api, config }).start(presetSyncInterval)` — writes
-     presets to every discovered device; logs per-slot results.
-  4. Register shutdown hooks: `server.close()`, `manager.stop()`.
-- `config.schema.json` — add:
-  - `global.presetsServer.port` (integer, default 18090)
-  - `global.presetsServer.host` (string, optional)
-  - `global.presetSyncInterval` (integer ms, default 3600000)
-  - `global.presets[]` — each entry: `type` (required, currently `"station"`),
-    `slot` (integer 1–6, required), `name` (required), `tuneInId` (optional),
-    `streamUrl` (optional), `imageUrl` (optional).
+- `src/PlatformConfiguration.ts` — parse `global.presets`; validate entries
+  (type `'station'`, slot 1–6, name, tuneInId); drop + warn on invalid.
+- `src/platform.ts` — `_setupPresets()` builds `Map<number, PresetStation>`,
+  creates `PresetManager`, calls `presetManager.start(presetSyncInterval)`;
+  shutdown hook calls `presetManager.stop()`. No server lifecycle.
+- `config.schema.json` — add `global.presetSyncInterval` and `global.presets[]`
+  (`type`, `slot`, `name`, `tuneInId`, `imageUrl`). Removed `presetsServer`
+  block (no longer exists).
+- `jest.config.ts` — device test project gated behind `process.env.CI` so live
+  tests never run in CI.
 
 ## Conventions for this change
 
@@ -189,83 +191,63 @@ is a future concern.
 
 ## Implementation checklist
 
+### Research / licensing
+
+- [ ] Review soundcork (`github.com/timvw/soundcork`) licence. Determine whether
+      `scripts/bose-cloud.mjs` constitutes a derived work or independent
+      reimplementation. If derived: identify licence obligations (attribution,
+      licence header, NOTICE file). Add any required notices to the repo.
+- [ ] Review this plugin's own licence (`LICENSE` file) for compatibility with
+      any notice requirements from the above.
+
 ### Spike (verify on a real device before building out)
 
-- [ ] Call `POST /storePreset` with a `LOCAL_INTERNET_RADIO` ContentItem
-      (`type="stationurl"`, `isPresetable="true"`, `location=<local-server-url>`).
-      Confirm the preset is stored and the physical button plays the station.
-- [ ] Confirm the SoundTouch device can reach the Homebridge host's LAN IP on
-      port 18090. Check whether a firewall rule is needed.
-- [ ] Call RadioTime OPML API for `s24861` (BBC World Service); confirm
-      `body[].url` response shape. HTTP or HTTPS — proxy handles both.
-- [ ] Check whether the SoundTouch can resolve `homebridge.local` (mDNS `.local`
-      address) — if so, `presetsServer.host` can be dropped from the schema.
-- [ ] Confirm what happens to stored presets when the device reboots — verify
-      whether presets persist or are cleared (determines how critical the sync
-      schedule is).
+- [x] Call `POST /storePreset` with a `TUNEIN` ContentItem
+      (`type="stationurl"`, `isPresetable="true"`,
+      `location="/v1/playback/station/<tuneInId>"`).
+      Confirmed: preset stored and physical button plays the station via
+      `bose-cloud.mjs` emulator.
+- [x] Confirm the SoundTouch device can reach the Homebridge host's LAN IP on
+      port 8000 (bose-cloud emulator).
+- [x] Confirm RadioTime OPML API resolves station IDs to stream URLs. Verified
+      with `s7162` (More FM Auckland).
+- [x] Confirm presets persist across speaker reboot; sync schedule ensures
+      re-write if lost.
 
 ### ContentItem + API extension
 
-- [ ] Add `readonly type?: string` to `ContentItem` in
+- [x] Add `readonly type?: string` to `ContentItem` in
       `src/devices/SoundTouch/api/content-item.ts`; update `contentItemToElement()`.
-- [ ] Verify `isPresetable` is serialized; fix if not.
-- [ ] Add unit tests for `type` + `isPresetable` serialization.
-- [ ] Add `storePreset = 'storePreset'` to `src/devices/SoundTouch/api/endpoints.ts`.
-- [ ] Implement `api.storePreset(slot, contentItem)` in
-      `src/devices/SoundTouch/api/api.ts`; add unit test.
+- [x] Verify `isPresetable` is serialized; fix if not.
+- [x] Add `storePreset = 'storePreset'` to `src/devices/SoundTouch/api/endpoints.ts`.
+- [x] Implement `api.storePreset(slot, contentItem)` in
+      `src/devices/SoundTouch/api/api.ts`.
 
 ### Config types
 
-- [ ] Add `StationPresetConfig`, `PresetConfig`, `PresetsServerConfig` to
-      `src/ExternalPlatformConfig.ts`; wire into `GlobalConfig`.
-- [ ] Parse and validate in `src/PlatformConfiguration.ts`; apply defaults
-      (`port: 18090`, `presetSyncInterval: 3_600_000`).
-- [ ] `src/__tests__/PlatformConfiguration.test.ts`:
-      - Valid station entry accepted.
-      - Entry missing `slot` → dropped + warning.
-      - Entry missing both `tuneInId` and `streamUrl` → dropped + warning.
-      - Slot out of range (0, 7) → dropped + warning.
-      - Default `port` and `presetSyncInterval` applied when absent.
-
-### TuneIn client
-
-- [ ] `src/presets/TuneInClient.ts` — `static create()`, `resolveStationUrl(tuneInId)`.
-- [ ] `src/presets/__tests__/TuneInClient.test.ts`:
-      - Returns first `body[].url` from mocked RadioTime JSON.
-      - Returns `null` and logs on HTTP error or empty `body`.
+- [x] Add `StationPresetConfig`, `PresetConfig` to `src/ExternalPlatformConfig.ts`;
+      wire into `GlobalConfig`. (`presetsServer` block removed — no longer needed.)
+- [x] Parse and validate in `src/PlatformConfiguration.ts`; apply defaults
+      (`presetSyncInterval: 3_600_000`).
+- [x] `src/__tests__/PlatformConfiguration.test.ts` — preset config tests.
 
 ### Station model
 
-- [ ] `src/presets/PresetStation.ts` — `static fromConfig(raw)`.
-- [ ] `src/presets/index.ts` — barrel export.
+- [x] `src/presets/PresetStation.ts` — `{ slot, name, tuneInId, imageUrl? }`;
+      `static fromConfig(raw)`.
+- [x] `src/presets/index.ts` — barrel export.
 
-### Preset server
+### Bose cloud emulator
 
-- [ ] `src/presets/PresetServer.ts` — `static create(...)`, `listen()`, `close()`,
-      `getPresetUrl(slot)`.
-  - Route `GET /preset/:slot.json`: serve station JSON with `streamUrl` pointing
-    to `/stream/:slot`.
-  - Route `GET /stream/:slot`: detect upstream scheme, pipe via `node:https` or
-    `node:http`, pass `Content-Type` + `icy-*`, destroy upstream on client close,
-    502 on upstream error.
-  - 404 for any unknown slot on either route.
-- [ ] `src/presets/__tests__/PresetServer.test.ts`:
-      - GET `/preset/1.json` → correct JSON shape; `streamUrl` is HTTP and
-        contains `/stream/1`.
-      - GET `/preset/99.json` → 404.
-      - GET `/stream/1` with mocked HTTP upstream → response piped through.
-      - GET `/stream/1` with mocked HTTPS upstream → response piped through.
-      - GET `/stream/99` → 404.
+- [x] `scripts/bose-cloud.mjs` — standalone emulator (port 8000):
+      BMX registry, marge source providers, TuneIn station resolution.
+- [ ] Document speaker setup steps (SSH + `SoundTouchSdkPrivateCfg.xml` edit)
+      in the README or a dedicated `docs/bose-cloud-setup.md`.
 
 ### Preset manager
 
-- [ ] `src/presets/PresetManager.ts` — `static create(...)`, `sync()`, `start(intervalMs)`,
-      `stop()`.
-  - `sync()`: parallel `Promise.all` over configured slots; for each, call
-    `api.storePreset(slot, contentItem)` where `contentItem.location` is the
-    stable `getPresetUrl(slot)` URL; log success/failure per slot per device.
-  - `start(0)` → call `sync()` once, no interval.
-  - `start(N)` → call `sync()` immediately, then every N ms.
+- [x] `src/presets/PresetManager.ts` — `static create({ devices, stations })`,
+      `sync()`, `start(intervalMs)`, `stop()`. Writes TUNEIN ContentItems.
 - [ ] `src/presets/__tests__/PresetManager.test.ts`:
       - `sync()` calls `storePreset` for each configured slot.
       - `storePreset` failure on one slot is logged but does not abort others.
@@ -273,37 +255,30 @@ is a future concern.
 
 ### Platform wiring
 
-- [ ] `src/platform.ts` — in `didFinishLaunching`, skip entirely if
-      `config.presets` is empty. Otherwise:
-      1. `TuneInClient.create()` → resolve `tuneInId` entries in parallel;
-         filter nulls; log per-station failures.
-      2. Build `PresetStation[]` from resolved + raw `streamUrl` entries.
-      3. `PresetServer.create({ port, host, stations }).listen()`; log address.
-      4. `PresetManager.create({ devices, server }).start(presetSyncInterval)`.
-      5. Register shutdown hooks: `server.close()`, `manager.stop()`.
+- [x] `src/platform.ts` — `_setupPresets()` builds `Map<number, PresetStation>`,
+      creates `PresetManager.create({ devices, stations })`, starts it.
+      Shutdown hook calls `presetManager.stop()`.
 
 ### Config schema
 
-- [ ] `config.schema.json` — add `global.presetsServer` (`port`, `host`),
-      `global.presetSyncInterval`, and `global.presets[]` (`type`, `slot`,
-      `name`, `tuneInId`, `streamUrl`, `imageUrl`).
+- [x] `config.schema.json` — `global.presetSyncInterval` and `global.presets[]`
+      (`type`, `slot`, `name`, `tuneInId`, `imageUrl`). `presetsServer` removed.
+
+### CI / device tests
+
+- [x] `jest.config.ts` — device test project gated behind `process.env.CI`.
 
 ## Verification
 
-- [ ] `npm run typecheck`
-- [ ] `npm run lint`
-- [ ] `npm test`
+- [x] `npm run typecheck`
+- [x] `npm run lint`
+- [x] `npm test` (unit + integration; device tests gated out of CI)
 - [ ] `npm run knip` — no new unused exports/deps.
-- [ ] `npm run watch` — with a real speaker:
-      - Configure two station presets (one `tuneInId`, one `streamUrl`) on
-        different slots.
-      - Confirm the preset server starts and logs its address.
-      - Press the physical preset button on the speaker → station plays.
-      - Change the station's `tuneInId` in config, restart Homebridge → same
-        physical button plays the new station (server response updated; preset
-        URL unchanged on device).
-      - Simulate a device reboot; confirm `presetSyncInterval` re-writes the
-        preset without manual intervention.
+- [ ] `npm run watch` — with a real speaker + `bose-cloud.mjs` running:
+      - Configure a station preset (`tuneInId: "s7162"`, slot 1).
+      - Confirm `PresetManager` logs a successful `storePreset` at startup.
+      - Press physical preset button 1 → More FM Auckland plays.
+      - Change `tuneInId` in config, restart Homebridge → button plays new station.
 
 ## PR / release notes
 
