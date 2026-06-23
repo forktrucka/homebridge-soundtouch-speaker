@@ -4,6 +4,7 @@ import type { SoundTouchSpeakerCharacteristic } from '../services/SoundTouchSpea
 import { LogLevel } from 'homebridge';
 
 const RECONCILIATION_INTERVAL_MS = 5 * 60 * 1000;
+const GABBO_DEBOUNCE_MS = 300;
 
 function build(pollingInterval = 0) {
   const refresh = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
@@ -38,7 +39,7 @@ function build(pollingInterval = 0) {
     speakerCharacteristics: [characteristic],
   });
 
-  return { subject, refresh, homebridgeLog };
+  return { subject, refresh, homebridgeLog, gabboOn };
 }
 
 describe('SoundTouchSpeakerPlatformAccessory', () => {
@@ -111,6 +112,59 @@ describe('SoundTouchSpeakerPlatformAccessory', () => {
       const { subject } = build(0);
 
       expect(() => subject.stopPolling()).not.toThrow();
+    });
+  });
+
+  describe('gabbo notification debouncing', () => {
+    function getCallback(gabboOn: jest.Mock, event: string): () => void {
+      const call = (gabboOn.mock.calls as [string, () => void][]).find(([e]) => e === event);
+      if (!call) throw new Error(`No handler registered for gabbo event: ${event}`);
+      return call[1];
+    }
+
+    it('debounces rapid notifications into a single refresh', async () => {
+      jest.useFakeTimers();
+      const { subject, refresh, gabboOn } = build();
+
+      await subject.init();
+      const fire = getCallback(gabboOn, 'volumeUpdated');
+
+      fire();
+      fire();
+      fire();
+
+      await jest.advanceTimersByTimeAsync(GABBO_DEBOUNCE_MS - 1);
+      expect(refresh).not.toHaveBeenCalled();
+
+      await jest.advanceTimersByTimeAsync(1);
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('coalesces different gabbo event types into a single refresh', async () => {
+      jest.useFakeTimers();
+      const { subject, refresh, gabboOn } = build();
+
+      await subject.init();
+
+      getCallback(gabboOn, 'volumeUpdated')();
+      getCallback(gabboOn, 'nowPlayingUpdated')();
+      getCallback(gabboOn, 'connectionStateUpdated')();
+
+      await jest.advanceTimersByTimeAsync(GABBO_DEBOUNCE_MS);
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels a pending debounced refresh when stopPolling is called', async () => {
+      jest.useFakeTimers();
+      const { subject, refresh, gabboOn } = build();
+
+      await subject.init();
+      getCallback(gabboOn, 'volumeUpdated')();
+
+      subject.stopPolling();
+      await jest.advanceTimersByTimeAsync(GABBO_DEBOUNCE_MS);
+
+      expect(refresh).not.toHaveBeenCalled();
     });
   });
 });
