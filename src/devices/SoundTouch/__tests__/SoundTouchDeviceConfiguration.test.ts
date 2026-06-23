@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { DeviceConfiguration } from '../SoundTouchDeviceConfiguration.js';
 
-const DEFAULT_POLLING_INTERVAL = 30000;
+const DEFAULT_POLLING_INTERVAL = 0;
 
 describe('DeviceConfiguration', () => {
   describe('createForRoom', () => {

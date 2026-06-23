@@ -1,6 +1,6 @@
 import { AccessoryConfig } from '../../ExternalPlatformConfig.js';
 
-const DEFAULT_POLLING_INTERVAL = 30 * 1000; // 30 seconds — WebSocket handles real-time; polling is the fallback reconciler
+const DEFAULT_POLLING_INTERVAL = 0; // deprecated — reconciliation polling is now internal and fixed
 const DEFAULT_VERBOSE_LOGGING = false;
 const DEFAULT_ACCESSORY_TYPE = 'switch' as const;
 

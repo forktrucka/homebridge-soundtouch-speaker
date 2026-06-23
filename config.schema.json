@@ -17,8 +17,7 @@
         "properties": {
           "pollingInterval": {
             "type": "number",
-            "description": "How often (ms) to poll each device for state. Set to 0 to disable polling.",
-            "placeholder": "30000"
+            "description": "DEPRECATED — this value is ignored. The plugin uses a fixed internal reconciliation interval alongside real-time WebSocket push."
           },
           "verbose": {
             "type": "boolean",
@@ -68,8 +67,7 @@
             },
             "pollingInterval": {
               "type": "integer",
-              "description": "Override the polling interval (ms) for this device. Set to 0 to disable polling.",
-              "default": 30000
+              "description": "DEPRECATED — this value is ignored. The plugin uses a fixed internal reconciliation interval alongside real-time WebSocket push."
             },
             "accessoryType": {
               "type": "string",
