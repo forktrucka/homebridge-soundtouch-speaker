@@ -6,7 +6,7 @@ import {
 import { DeviceConfiguration } from './devices/SoundTouch/SoundTouchDeviceConfiguration.js';
 import { PLATFORM_NAME } from './settings.js';
 
-const DEFAULT_POLLING_INTERVAL = 2 * 1000; // 2 seconds
+const DEFAULT_POLLING_INTERVAL = 0; // deprecated — reconciliation polling is now internal and fixed
 const DEFAULT_DISCOVER_ALL_ACCESSORIES = false;
 const DEFAULT_LOG_LEVEL = LogLevel.INFO;
 

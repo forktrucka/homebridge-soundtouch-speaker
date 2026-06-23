@@ -17,8 +17,7 @@
         "properties": {
           "pollingInterval": {
             "type": "number",
-            "description": "How often (ms) to poll each device for state. Set to 0 to disable polling.",
-            "placeholder": "2000"
+            "description": "DEPRECATED — this value is no longer used and can be removed from your config."
           },
           "verbose": {
             "type": "boolean",
@@ -68,8 +67,7 @@
             },
             "pollingInterval": {
               "type": "integer",
-              "description": "Override the polling interval (ms) for this device. Set to 0 to disable polling.",
-              "default": 2000
+              "description": "DEPRECATED — this value is no longer used and can be removed from your config."
             },
             "accessoryType": {
               "type": "string",

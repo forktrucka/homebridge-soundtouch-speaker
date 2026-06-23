@@ -11,6 +11,8 @@ import { SoundTouchSpeakerInformationCharacteristic } from './services/SoundTouc
 import { SoundTouchSpeakerOnCharacteristic } from './services/SoundTouchSpeakerOnCharacteristic.js';
 import { SoundTouchSpeakerBrightnessCharacteristic } from './services/SoundTouchSpeakerBrightnessCharacteristic.js';
 
+const RECONCILIATION_INTERVAL_MS = 5 * 60 * 1000;
+
 export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharacteristic {
   private readonly speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
   private _isPolling = false;
@@ -36,11 +38,36 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     }
 
     if (this.device.configuration.pollingInterval > 0) {
-      this._isPolling = true;
-      this._refreshDeviceServices().then(() => {
-        //no-op
-      });
+      this.log.warn('pollingInterval is deprecated and will be ignored — remove it from your config.');
     }
+
+    this._isPolling = true;
+    this._refreshDeviceServices().then(() => {
+      //no-op
+    });
+
+    this.device.gabbo.on('volumeUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+    this.device.gabbo.on('nowPlayingUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+    this.device.gabbo.on('bassUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+    this.device.gabbo.on('connectionStateUpdated', () => {
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    });
+
+    this.device.connectGabbo();
 
     this.log.info(`Device ready`);
   }
@@ -55,12 +82,13 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
 
   stopPolling(): void {
     this._isPolling = false;
+    this.device.disconnectGabbo();
   }
 
   private async _refreshDeviceServices(): Promise<void> {
     while (this._isPolling) {
       await new Promise((resolve) =>
-        setTimeout(resolve, this.device.configuration.pollingInterval)
+        setTimeout(resolve, RECONCILIATION_INTERVAL_MS)
       );
       try {
         await this.refresh();

@@ -12,7 +12,7 @@ describe('PlatformConfiguration', () => {
 
       expect(config.discoverAllAccessories).toBe(false);
       expect(config.logLevel).toBe(LogLevel.INFO);
-      expect(config.pollingInterval).toBe(2000);
+      expect(config.pollingInterval).toBe(0);
       expect(config.accessories).toEqual([]);
       expect(config.name).toBe(PLATFORM_NAME);
     });
