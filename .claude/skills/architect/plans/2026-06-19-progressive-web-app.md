@@ -43,6 +43,8 @@ from a lightweight HTTP server embedded in the plugin.
 | 2026-06-23 | **Phase 3 scope expanded — config write must cover preset stations, source selection, and speaker groups** | The internet-radio plan (`2026-06-22-internet-radio-tunein.md`) landed a typed preset system requiring users to hand-edit `config.json` with TuneIn IDs. The PWA is the natural GUI for this: add/edit/delete station presets, change the active source per speaker, and wire up multi-room groups — all via a config-write endpoint, without requiring the Homebridge Config UI. This converges the setup story: speaker added via bose-cloud emulator (see `2026-06-23-speaker-setup-helper.md`), then configured entirely through the PWA. | Separate admin app — extra install friction; Homebridge Config UI — JSON-only, no UX for slots/groups |
 | 2026-06-23 | Config-write API must reload the plugin after writing | Homebridge reads `config.json` at startup; a config push that doesn't restart is silently ignored. Options: signal the Homebridge API to restart this platform only (child bridge restart via `api.updatePlatformAccessories`), or instruct the user to restart. Spike B must confirm the cleanest path. | Live-reload without restart — not supported by Homebridge core |
 | 2026-06-23 | Phase 3 config-write scope: `accessories[]`, `global.presets[]`, `global.presetSyncInterval` | These three config sections cover the full speaker management use case: add/remove/rename speakers, assign TuneIn presets to slots, and tune the sync schedule. Source selection (active source per speaker) is a live device call, not a config write — it belongs in Phase 2's REST API alongside zone management. | Writing the entire platform config block — too broad; risks overwriting other plugin settings |
+| 2026-06-23 | PWA "Presets" screen must include **TuneIn station search** — user types a station name, gets results, picks one, assigns it to a slot | Without search the user must know the TuneIn ID (e.g. `s7162`) — not discoverable. RadioTime OPML search endpoint: `https://opml.radiotime.com/Search.ashx?query=<name>&types=station&render=json`. Returns `body[].guide_id` (the TuneIn ID) and `body[].text` (station name). No new npm dep — plugin can proxy this call via `axios`. | Require users to look up IDs manually — poor UX, blocks non-developers |
+| 2026-06-23 | Spotify preset search is deferred — Spotify requires OAuth and a registered app; TuneIn is anonymous | The bose-cloud emulator only handles TUNEIN source today. Spotify presets would need a separate `source="SPOTIFY"` ContentItem path and OAuth flow — significant scope. Note it as a future extension, do not include in the initial Phase 3 PR. | Including Spotify in Phase 3 — too large; unblocks the core use case without it |
 
 ## If cancelled
 
@@ -121,6 +123,8 @@ Scope: `accessories[]` (speakers), `global.presets[]` (TuneIn station slots),
   - `PATCH /config/presets` — add/edit/delete station preset entries (slot,
     name, tuneInId, imageUrl).
   - `PATCH /config/presetSyncInterval` — update sync schedule.
+  - `GET /tunein/search?q=<name>` — proxy to RadioTime `Search.ashx`; returns
+    `[{ tuneInId, name, imageUrl }]`. Powers the PWA "Presets" search UI.
 - Writes atomically to `api.user.storagePath()/config.json`
   (write-then-rename); must not race Homebridge's own config writes.
 - Triggers a plugin reload after writing (mechanism TBD — Spike B).
@@ -173,7 +177,13 @@ Scope: `accessories[]` (speakers), `global.presets[]` (TuneIn station slots),
 - [ ] Atomic config write (write-then-rename in `api.user.storagePath()`)
 - [ ] Trigger plugin reload after write (or surface restart prompt)
 - [ ] PWA "Speakers" screen: add/remove/rename speakers by IP
-- [ ] PWA "Presets" screen: assign TuneIn station IDs to slots 1–6
+- [ ] PWA "Presets" screen:
+      - Search TuneIn by station name → results list → pick station → assign to
+        slot 1–6. Plugin proxies RadioTime search (`Search.ashx?query=<name>`)
+        and returns `[{ tuneInId, name, imageUrl }]`.
+      - Show existing preset assignments (read from current config).
+      - Save → `PATCH /config/presets` → plugin writes config + reloads.
+      - (Future) Spotify preset search — deferred; requires OAuth.
 
 ## Verification
 
