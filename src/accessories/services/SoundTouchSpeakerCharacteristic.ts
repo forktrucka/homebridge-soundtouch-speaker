@@ -3,6 +3,7 @@ import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { CharacteristicValue, PlatformAccessory } from 'homebridge';
 import { DeviceLogger, Logger } from '../../utils/FormattedLogger.js';
 import { AppError } from '../../errors.js';
+import type { GabboUpdateType } from '../../devices/SoundTouch/api/GabboClient.js';
 
 export enum ServiceType {
   'ON_OFF' = 'ON',
@@ -71,6 +72,8 @@ export abstract class SoundTouchSpeakerCharacteristic {
       }
     };
   }
+
+  readonly gabboEvents: readonly GabboUpdateType[] = [];
 
   init(): Promise<void> {
     return Promise.resolve();
