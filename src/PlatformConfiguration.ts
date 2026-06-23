@@ -72,13 +72,15 @@ function validatePresets(
     }
 
     if (!entry.name || typeof entry.name !== 'string') {
-      warn(`preset entry for slot ${slot} is missing required field "name" — skipping`);
+      warn(
+        `preset entry for slot ${slot} is missing required field "name" — skipping`
+      );
       continue;
     }
 
-    if (!entry.tuneInId && !entry.streamUrl) {
+    if (!entry.tuneInId || typeof entry.tuneInId !== 'string') {
       warn(
-        `preset entry for slot ${slot} ("${entry.name}") must have at least one of tuneInId or streamUrl — skipping`
+        `preset entry for slot ${slot} ("${entry.name}") is missing required field "tuneInId" — skipping`
       );
       continue;
     }
@@ -87,11 +89,8 @@ function validatePresets(
       type: 'station',
       slot,
       name: entry.name,
-      tuneInId: typeof entry.tuneInId === 'string' ? entry.tuneInId : undefined,
-      streamUrl:
-        typeof entry.streamUrl === 'string' ? entry.streamUrl : undefined,
-      imageUrl:
-        typeof entry.imageUrl === 'string' ? entry.imageUrl : undefined,
+      tuneInId: entry.tuneInId,
+      imageUrl: typeof entry.imageUrl === 'string' ? entry.imageUrl : undefined,
     });
   }
   return valid;
@@ -141,18 +140,18 @@ export class PlatformConfiguration {
       }
     };
 
-    const rawPresets = props.global?.presets as unknown[] | undefined;
+    const rawPresets = (props.presets ?? props.global?.presets) as
+      | unknown[]
+      | undefined;
     const presets = validatePresets(rawPresets, warn);
 
     return new PlatformConfiguration({
       discoverAllAccessories:
         props.discoverAllAccessories ?? DEFAULT_DISCOVER_ALL_ACCESSORIES,
-      logLevel: resolveLogLevel(
-        props.global?.logLevel,
-        props.global?.verbose
-      ),
+      logLevel: resolveLogLevel(props.global?.logLevel, props.global?.verbose),
       // `??` (not `||`) so an explicit `0` survives as "polling disabled".
-      pollingInterval: props.global?.pollingInterval ?? DEFAULT_POLLING_INTERVAL,
+      pollingInterval:
+        props.global?.pollingInterval ?? DEFAULT_POLLING_INTERVAL,
       accessories:
         props.accessories
           ?.map((accessory) => {
@@ -179,7 +178,9 @@ export class PlatformConfiguration {
         host: props.global?.presetsServer?.host ?? '',
       },
       presetSyncInterval:
-        props.global?.presetSyncInterval ?? DEFAULT_PRESET_SYNC_INTERVAL,
+        props.presetSyncInterval ??
+        props.global?.presetSyncInterval ??
+        DEFAULT_PRESET_SYNC_INTERVAL,
     });
   }
 }

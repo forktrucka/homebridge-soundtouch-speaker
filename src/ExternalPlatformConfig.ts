@@ -13,8 +13,7 @@ interface StationPresetConfig {
   readonly type: 'station';
   readonly slot: number;
   readonly name: string;
-  readonly tuneInId?: string;
-  readonly streamUrl?: string;
+  readonly tuneInId: string;
   readonly imageUrl?: string;
 }
 
@@ -45,6 +44,8 @@ export interface ExternalPlatformConfig extends BasePlatformConfig {
   readonly discoverAllAccessories?: boolean;
   readonly accessories?: AccessoryConfig[];
   readonly global?: GlobalConfig;
+  readonly presets?: PresetConfig[];
+  readonly presetSyncInterval?: number;
 }
 
 export function flattenAccessoryConfiguration(props: {

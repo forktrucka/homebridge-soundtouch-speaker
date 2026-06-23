@@ -1,5 +1,4 @@
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
-import { PresetServer } from './PresetServer.js';
 import { PresetStation } from './PresetStation.js';
 
 export class PresetManager {
@@ -7,16 +6,14 @@ export class PresetManager {
 
   private constructor(
     private readonly devices: SoundTouchDevice[],
-    private readonly server: PresetServer,
     private readonly stations: Map<number, PresetStation>
   ) {}
 
   static create(props: {
     devices: SoundTouchDevice[];
-    server: PresetServer;
     stations: Map<number, PresetStation>;
   }): PresetManager {
-    return new PresetManager(props.devices, props.server, props.stations);
+    return new PresetManager(props.devices, props.stations);
   }
 
   async sync(): Promise<void> {
@@ -25,11 +22,11 @@ export class PresetManager {
     await Promise.all(
       slotEntries.map(async ([slot, station]) => {
         const contentItem = {
-          source: 'LOCAL_INTERNET_RADIO',
+          source: 'TUNEIN',
           sourceAccount: '',
           type: 'stationurl',
           isPresetable: true,
-          location: this.server.getPresetUrl(slot),
+          location: `/v1/playback/station/${station.data.tuneInId}`,
           itemName: station.data.name,
         };
 

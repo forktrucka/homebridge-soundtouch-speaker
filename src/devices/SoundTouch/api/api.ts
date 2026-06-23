@@ -259,7 +259,10 @@ export class API {
         ...contentItemEl.data,
       },
     });
-    return element ? element.getText('status') !== undefined : false;
+    // Success: speaker echoes back the full <presets> list (not a <status> element)
+    return element
+      ? element.getText('status') !== undefined || element.hasChild('presets')
+      : false;
   }
 
   // PRIVATE FUNCTIONS
@@ -299,7 +302,11 @@ export class API {
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       if (!err.response) {
-        throw AppError.create({  name: 'NetworkRequestFailed', endpoint , cause: err });
+        throw AppError.create({
+          name: 'NetworkRequestFailed',
+          endpoint,
+          cause: err,
+        });
       }
       xml = err.response.data;
     }

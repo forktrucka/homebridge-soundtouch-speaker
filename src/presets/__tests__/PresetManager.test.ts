@@ -7,14 +7,14 @@ import {
   jest,
 } from '@jest/globals';
 import { PresetManager } from '../PresetManager.js';
-import { PresetServer } from '../PresetServer.js';
 import { PresetStation } from '../PresetStation.js';
 
-function makeStation(slot: number, name = 'Radio'): PresetStation {
-  return PresetStation.fromConfig(
-    { slot, name, streamUrl: 'http://stream.example.com/radio' },
-    'http://stream.example.com/radio'
-  );
+function makeStation(
+  slot: number,
+  name = 'Radio',
+  tuneInId = 's12345'
+): PresetStation {
+  return PresetStation.fromConfig({ slot, name, tuneInId });
 }
 
 function makeDevice(storePresetImpl?: () => Promise<boolean>) {
@@ -25,24 +25,15 @@ function makeDevice(storePresetImpl?: () => Promise<boolean>) {
   } as unknown as import('../../devices/SoundTouch/SoundTouchDevice.js').SoundTouchDevice;
 }
 
-function makeServer(getPresetUrlImpl?: (slot: number) => string) {
-  return {
-    getPresetUrl:
-      getPresetUrlImpl ??
-      ((slot: number) => `http://127.0.0.1:18090/preset/${slot}.json`),
-  } as unknown as PresetServer;
-}
-
 describe('PresetManager', () => {
   describe('#sync', () => {
     it('calls storePreset for each configured slot on each device', async () => {
       const device = makeDevice();
       const stations = new Map([
-        [1, makeStation(1, 'BBC')],
-        [2, makeStation(2, 'NPR')],
+        [1, makeStation(1, 'BBC', 's24861')],
+        [2, makeStation(2, 'NPR', 's34090')],
       ]);
-      const server = makeServer();
-      const manager = PresetManager.create({ devices: [device], server, stations });
+      const manager = PresetManager.create({ devices: [device], stations });
 
       await manager.sync();
 
@@ -50,10 +41,10 @@ describe('PresetManager', () => {
       expect(device.api.storePreset).toHaveBeenCalledWith(
         1,
         expect.objectContaining({
-          source: 'LOCAL_INTERNET_RADIO',
+          source: 'TUNEIN',
           type: 'stationurl',
           isPresetable: true,
-          location: 'http://127.0.0.1:18090/preset/1.json',
+          location: '/v1/playback/station/s24861',
           itemName: 'BBC',
         })
       );
@@ -67,10 +58,8 @@ describe('PresetManager', () => {
       const device1 = makeDevice();
       const device2 = makeDevice();
       const stations = new Map([[1, makeStation(1)]]);
-      const server = makeServer();
       const manager = PresetManager.create({
         devices: [device1, device2],
-        server,
         stations,
       });
 
@@ -94,8 +83,7 @@ describe('PresetManager', () => {
         [1, makeStation(1, 'Slot1')],
         [2, makeStation(2, 'Slot2')],
       ]);
-      const server = makeServer();
-      const manager = PresetManager.create({ devices: [device], server, stations });
+      const manager = PresetManager.create({ devices: [device], stations });
 
       await expect(manager.sync()).resolves.not.toThrow();
       expect(device.api.storePreset).toHaveBeenCalledTimes(2);
@@ -114,11 +102,9 @@ describe('PresetManager', () => {
     it('calls sync immediately on start', async () => {
       const device = makeDevice();
       const stations = new Map([[1, makeStation(1)]]);
-      const server = makeServer();
-      const manager = PresetManager.create({ devices: [device], server, stations });
+      const manager = PresetManager.create({ devices: [device], stations });
 
       manager.start(0);
-      // Let any microtasks (the fire-and-forget Promise) flush
       await Promise.resolve();
 
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
@@ -127,8 +113,7 @@ describe('PresetManager', () => {
     it('does not set an interval when intervalMs is 0', async () => {
       const device = makeDevice();
       const stations = new Map([[1, makeStation(1)]]);
-      const server = makeServer();
-      const manager = PresetManager.create({ devices: [device], server, stations });
+      const manager = PresetManager.create({ devices: [device], stations });
 
       manager.start(0);
       await Promise.resolve();
@@ -136,23 +121,19 @@ describe('PresetManager', () => {
       jest.advanceTimersByTime(100_000);
       await Promise.resolve();
 
-      // Still only called once (the immediate call)
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
     });
 
     it('calls sync on each interval tick when intervalMs > 0', async () => {
       const device = makeDevice();
       const stations = new Map([[1, makeStation(1)]]);
-      const server = makeServer();
-      const manager = PresetManager.create({ devices: [device], server, stations });
+      const manager = PresetManager.create({ devices: [device], stations });
 
       manager.start(5000);
       await Promise.resolve();
 
-      // After initial call
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
 
-      // Advance one interval
       jest.advanceTimersByTime(5000);
       await Promise.resolve();
 
@@ -162,8 +143,7 @@ describe('PresetManager', () => {
     it('stop cancels the interval', async () => {
       const device = makeDevice();
       const stations = new Map([[1, makeStation(1)]]);
-      const server = makeServer();
-      const manager = PresetManager.create({ devices: [device], server, stations });
+      const manager = PresetManager.create({ devices: [device], stations });
 
       manager.start(5000);
       await Promise.resolve();
@@ -173,7 +153,6 @@ describe('PresetManager', () => {
       jest.advanceTimersByTime(20_000);
       await Promise.resolve();
 
-      // Still only the initial call
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
     });
   });

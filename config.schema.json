@@ -80,11 +80,7 @@
                 },
                 "tuneInId": {
                   "type": "string",
-                  "description": "TuneIn station ID (e.g. 's24861'). Used to resolve a live stream URL via the RadioTime API."
-                },
-                "streamUrl": {
-                  "type": "string",
-                  "description": "Direct audio stream URL. Used instead of (or as fallback for) tuneInId."
+                  "description": "TuneIn station ID (e.g. 's24861'). Find the ID at tunein.com — it appears in the station URL."
                 },
                 "imageUrl": {
                   "type": "string",
@@ -94,6 +90,43 @@
             }
           }
         }
+      },
+      "presets": {
+        "type": "array",
+        "description": "List of preset slots to manage on the SoundTouch device.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["station"],
+              "description": "Preset type. Currently only 'station' (internet radio) is supported."
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6,
+              "description": "Preset button slot on the device (1–6)."
+            },
+            "name": {
+              "type": "string",
+              "description": "Display name for this preset."
+            },
+            "tuneInId": {
+              "type": "string",
+              "description": "TuneIn station ID (e.g. 's24861'). Find the ID at tunein.com — it appears in the station URL."
+            },
+            "imageUrl": {
+              "type": "string",
+              "description": "Optional image URL for the station artwork."
+            }
+          }
+        }
+      },
+      "presetSyncInterval": {
+        "type": "integer",
+        "default": 3600000,
+        "description": "How often (ms) to re-write presets to the device. Set to 0 to write at startup only."
       },
       "accessories": {
         "type": "array",

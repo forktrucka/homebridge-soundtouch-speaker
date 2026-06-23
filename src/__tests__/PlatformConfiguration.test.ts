@@ -244,7 +244,12 @@ describe('PlatformConfiguration', () => {
   describe('preset config', () => {
     it('accepts a valid station preset entry', () => {
       const presets: PresetConfig[] = [
-        { type: 'station', slot: 1, name: 'BBC World Service', tuneInId: 's24861' },
+        {
+          type: 'station',
+          slot: 1,
+          name: 'BBC World Service',
+          tuneInId: 's24861',
+        },
       ];
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
@@ -257,27 +262,15 @@ describe('PlatformConfiguration', () => {
         slot: 1,
         name: 'BBC World Service',
         tuneInId: 's24861',
-        streamUrl: undefined,
         imageUrl: undefined,
       });
     });
 
-    it('accepts a station entry with streamUrl instead of tuneInId', () => {
-      const presets: PresetConfig[] = [
-        { type: 'station', slot: 3, name: 'My Radio', streamUrl: 'http://stream.example.com/live' },
-      ];
-      const config = PlatformConfiguration.fromExternalConfiguration({
-        platform: PLATFORM_NAME,
-        global: { presets },
-      });
-
-      expect(config.presets).toHaveLength(1);
-      expect(config.presets[0].streamUrl).toBe('http://stream.example.com/live');
-    });
-
     it('drops an entry missing slot and does not include it in presets', () => {
       // Pass an invalid config entry as unknown to test runtime validation
-      const presets = [{ type: 'station', name: 'No Slot', tuneInId: 's1' }] as unknown as PresetConfig[];
+      const presets = [
+        { type: 'station', name: 'No Slot', tuneInId: 's1' },
+      ] as unknown as PresetConfig[];
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
         global: { presets },
@@ -287,7 +280,9 @@ describe('PlatformConfiguration', () => {
     });
 
     it('drops an entry with slot out of range (0) and does not include it', () => {
-      const presets = [{ type: 'station', slot: 0, name: 'Bad Slot', tuneInId: 's1' }] as unknown as PresetConfig[];
+      const presets = [
+        { type: 'station', slot: 0, name: 'Bad Slot', tuneInId: 's1' },
+      ] as unknown as PresetConfig[];
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
         global: { presets },
@@ -297,7 +292,9 @@ describe('PlatformConfiguration', () => {
     });
 
     it('drops an entry with slot out of range (7) and does not include it', () => {
-      const presets = [{ type: 'station', slot: 7, name: 'Bad Slot', tuneInId: 's1' }] as unknown as PresetConfig[];
+      const presets = [
+        { type: 'station', slot: 7, name: 'Bad Slot', tuneInId: 's1' },
+      ] as unknown as PresetConfig[];
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
         global: { presets },
@@ -306,8 +303,10 @@ describe('PlatformConfiguration', () => {
       expect(config.presets).toHaveLength(0);
     });
 
-    it('drops an entry missing both tuneInId and streamUrl', () => {
-      const presets = [{ type: 'station', slot: 2, name: 'No Source' }] as unknown as PresetConfig[];
+    it('drops an entry missing tuneInId', () => {
+      const presets = [
+        { type: 'station', slot: 2, name: 'No Source' },
+      ] as unknown as PresetConfig[];
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
         global: { presets },
