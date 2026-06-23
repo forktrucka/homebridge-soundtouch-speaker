@@ -66,12 +66,17 @@ const config: Config = {
       // The platform performs real (local) HTTP round-trips; give it headroom.
       testTimeout: 15000,
     },
-    {
-      ...common,
-      displayName: 'device',
-      testMatch: ['**/__device__/?(*.)+(device.test).[tj]s?(x)'],
-      testTimeout: 30000,
-    },
+    // Live-device tests require a real speaker on the network — never run in CI.
+    ...(process.env.CI
+      ? []
+      : [
+          {
+            ...common,
+            displayName: 'device',
+            testMatch: ['**/__device__/?(*.)+(device.test).[tj]s?(x)'],
+            testTimeout: 30000,
+          },
+        ]),
   ],
 };
 
