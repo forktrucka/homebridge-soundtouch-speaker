@@ -74,20 +74,21 @@ describe('SoundTouchHomebridgePlatform', () => {
       expect(registerPlatformAccessories).toHaveBeenCalledTimes(1);
     });
 
-    it('skips a disabled device without registering it', async () => {
-      const device = buildDevice({ id: 'dev2', name: 'Lounge', disabled: true });
+    it('registers nothing when searchDevices returns an empty list', async () => {
+      // Disabled devices are filtered out by searchDevices() before discoverDevices sees them.
       const { platform, registerPlatformAccessories } = buildPlatform();
-      jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
+      jest.spyOn(platform, 'searchDevices').mockResolvedValue([]);
 
       await platform.discoverDevices();
 
       expect(registerPlatformAccessories).not.toHaveBeenCalled();
     });
 
-    it('unregisters a cached accessory when its device is disabled', async () => {
-      const device = buildDevice({ id: 'dev3', name: 'Bedroom', disabled: true });
+    it('unregisters a cached accessory that is absent from discovery results', async () => {
+      // Disabled devices are excluded from searchDevices() results; the stale-pruning
+      // loop in discoverDevices() then unregisters any cached accessory not rediscovered.
       const { platform, unregisterPlatformAccessories } = buildPlatform();
-      jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
+      jest.spyOn(platform, 'searchDevices').mockResolvedValue([]);
 
       const cachedAccessory = { displayName: 'Bedroom', UUID: 'uuid:dev3', context: {} };
       platform.configureAccessory(cachedAccessory as never);

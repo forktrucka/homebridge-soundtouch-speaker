@@ -93,8 +93,16 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       });
     }
 
+    const enabledAccessories = this.configuration.accessories.filter((a) => {
+      if (a.disabled) {
+        this.logger.info('Skipping disabled accessory:', a.name ?? '(unnamed)');
+        return false;
+      }
+      return true;
+    });
+
     const results = await Promise.allSettled(
-      this.configuration.accessories.map((accessoryConfig) =>
+      enabledAccessories.map((accessoryConfig) =>
         SoundTouchDevice.fromConfiguredAccessory({
           accessoryConfig,
           logger: this.logger,
@@ -106,7 +114,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       if (result.status === 'fulfilled') {
         return [result.value];
       }
-      const name = this.configuration.accessories[index]?.name ?? '(unknown)';
+      const name = enabledAccessories[index]?.name ?? '(unknown)';
       this.logger.error(AppError.create({ name: 'LoadAccessoryFailed', accessory: name, cause: result.reason }));
       return [];
     });
@@ -128,21 +136,6 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     for (const device of accessories) {
       const uuid = this.api.hap.uuid.generate(device.id);
 
-      if (device.configuration.disabled) {
-        this.logger.info('Skipping disabled accessory:', device.name);
-        const cachedAccessory = this._accessories.get(uuid);
-        if (cachedAccessory) {
-          this.logger.info(
-            'Unregistering cached disabled accessory:',
-            cachedAccessory.displayName
-          );
-          this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
-            cachedAccessory,
-          ]);
-        }
-        continue;
-      }
-
       const existingAccessory = this._accessories.get(uuid);
 
       try {
@@ -163,7 +156,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
 
           const accessory = new this.api.platformAccessory(device.name, uuid);
 
-          accessory.context.device = device;
+          accessory.context.deviceId = device.id;
 
           const wrapper = await SoundTouchSpeakerPlatformAccessory.create({
             platform: this,
