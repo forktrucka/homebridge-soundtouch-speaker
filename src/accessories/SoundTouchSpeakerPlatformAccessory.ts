@@ -7,17 +7,16 @@ import {
   ServiceType,
   SoundTouchSpeakerCharacteristic,
 } from './services/SoundTouchSpeakerCharacteristic.js';
+import type { GabboUpdateType } from '../devices/SoundTouch/api/GabboClient.js';
 import { SoundTouchSpeakerInformationCharacteristic } from './services/SoundTouchSpeakerInformationCharacteristic.js';
 import { SoundTouchSpeakerOnCharacteristic } from './services/SoundTouchSpeakerOnCharacteristic.js';
 import { SoundTouchSpeakerBrightnessCharacteristic } from './services/SoundTouchSpeakerBrightnessCharacteristic.js';
 
 const RECONCILIATION_INTERVAL_MS = 5 * 60 * 1000;
-const GABBO_DEBOUNCE_MS = 300;
 
 export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharacteristic {
   private readonly speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
   private _isPolling = false;
-  private _gabboDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private constructor({
     speakerCharacteristics,
@@ -48,10 +47,17 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       //no-op
     });
 
-    this.device.gabbo.on('volumeUpdated', () => this._scheduleRefresh());
-    this.device.gabbo.on('nowPlayingUpdated', () => this._scheduleRefresh());
-    this.device.gabbo.on('bassUpdated', () => this._scheduleRefresh());
-    this.device.gabbo.on('connectionStateUpdated', () => this._scheduleRefresh());
+    const eventMap = new Map<GabboUpdateType, SoundTouchSpeakerCharacteristic[]>();
+    for (const characteristic of this.speakerCharacteristics) {
+      for (const event of characteristic.gabboEvents) {
+        const list = eventMap.get(event) ?? [];
+        list.push(characteristic);
+        eventMap.set(event, list);
+      }
+    }
+    for (const [event, characteristics] of eventMap) {
+      this.device.gabbo.on(event, () => this._refreshCharacteristics(characteristics));
+    }
 
     this.device.connectGabbo();
 
@@ -68,23 +74,17 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
 
   stopPolling(): void {
     this._isPolling = false;
-    if (this._gabboDebounceTimer !== null) {
-      clearTimeout(this._gabboDebounceTimer);
-      this._gabboDebounceTimer = null;
-    }
     this.device.disconnectGabbo();
   }
 
-  private _scheduleRefresh(): void {
-    if (this._gabboDebounceTimer !== null) {
-      clearTimeout(this._gabboDebounceTimer);
-    }
-    this._gabboDebounceTimer = setTimeout(() => {
-      this._gabboDebounceTimer = null;
-      this.refresh().catch((e: unknown) => {
-        this.log.error('Gabbo-triggered refresh failed', e);
-      });
-    }, GABBO_DEBOUNCE_MS);
+  private _refreshCharacteristics(characteristics: SoundTouchSpeakerCharacteristic[]): void {
+    Promise.allSettled(characteristics.map((c) => c.refresh())).then((results) => {
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          this.log.error('Gabbo-triggered refresh failed', result.reason);
+        }
+      }
+    });
   }
 
   private async _refreshDeviceServices(): Promise<void> {

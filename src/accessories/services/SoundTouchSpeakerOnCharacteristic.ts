@@ -8,8 +8,10 @@ import { SoundTouchDevice } from '../../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../../platform.js';
 import { KeyValue } from '../../devices/SoundTouch/api/index.js';
 import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
+import type { GabboUpdateType } from '../../devices/SoundTouch/api/GabboClient.js';
 
 export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacteristic {
+  override readonly gabboEvents: readonly GabboUpdateType[] = ['connectionStateUpdated'];
   private readonly service: Service;
 
   private characteristic: Characteristic;
