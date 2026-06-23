@@ -12,10 +12,12 @@ import { SoundTouchSpeakerOnCharacteristic } from './services/SoundTouchSpeakerO
 import { SoundTouchSpeakerBrightnessCharacteristic } from './services/SoundTouchSpeakerBrightnessCharacteristic.js';
 
 const RECONCILIATION_INTERVAL_MS = 5 * 60 * 1000;
+const GABBO_DEBOUNCE_MS = 300;
 
 export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharacteristic {
   private readonly speakerCharacteristics: SoundTouchSpeakerCharacteristic[];
   private _isPolling = false;
+  private _gabboDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private constructor({
     speakerCharacteristics,
@@ -46,26 +48,10 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       //no-op
     });
 
-    this.device.gabbo.on('volumeUpdated', () => {
-      this.refresh().catch((e: unknown) => {
-        this.log.error('Gabbo-triggered refresh failed', e);
-      });
-    });
-    this.device.gabbo.on('nowPlayingUpdated', () => {
-      this.refresh().catch((e: unknown) => {
-        this.log.error('Gabbo-triggered refresh failed', e);
-      });
-    });
-    this.device.gabbo.on('bassUpdated', () => {
-      this.refresh().catch((e: unknown) => {
-        this.log.error('Gabbo-triggered refresh failed', e);
-      });
-    });
-    this.device.gabbo.on('connectionStateUpdated', () => {
-      this.refresh().catch((e: unknown) => {
-        this.log.error('Gabbo-triggered refresh failed', e);
-      });
-    });
+    this.device.gabbo.on('volumeUpdated', () => this._scheduleRefresh());
+    this.device.gabbo.on('nowPlayingUpdated', () => this._scheduleRefresh());
+    this.device.gabbo.on('bassUpdated', () => this._scheduleRefresh());
+    this.device.gabbo.on('connectionStateUpdated', () => this._scheduleRefresh());
 
     this.device.connectGabbo();
 
@@ -82,7 +68,23 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
 
   stopPolling(): void {
     this._isPolling = false;
+    if (this._gabboDebounceTimer !== null) {
+      clearTimeout(this._gabboDebounceTimer);
+      this._gabboDebounceTimer = null;
+    }
     this.device.disconnectGabbo();
+  }
+
+  private _scheduleRefresh(): void {
+    if (this._gabboDebounceTimer !== null) {
+      clearTimeout(this._gabboDebounceTimer);
+    }
+    this._gabboDebounceTimer = setTimeout(() => {
+      this._gabboDebounceTimer = null;
+      this.refresh().catch((e: unknown) => {
+        this.log.error('Gabbo-triggered refresh failed', e);
+      });
+    }, GABBO_DEBOUNCE_MS);
   }
 
   private async _refreshDeviceServices(): Promise<void> {
