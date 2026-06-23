@@ -135,6 +135,11 @@ export class SoundTouchDevice implements BaseDevice {
           }
         );
 
+        if (accessoryConfig.disabled) {
+          logger.info(`[${info.name}] Skipping disabled accessory`);
+          continue;
+        }
+
         const device = await SoundTouchDevice.fromDiscoveredAccessory({
           api,
           info,
