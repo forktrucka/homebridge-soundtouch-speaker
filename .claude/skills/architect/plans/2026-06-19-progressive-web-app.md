@@ -40,10 +40,9 @@ from a lightweight HTTP server embedded in the plugin.
 | 2026-06-19 | Phase 3 (Homebridge config sync) requires an HTTP API endpoint exposed by the plugin | The Homebridge Config UI handles plugin settings via `config.schema.json` in-process; direct config edits need `api.user.storagePath()` and must not race Homebridge's own write | Writing config outside Homebridge storage dir — violates verified-plugin rules |
 | 2026-06-19 | PWA must work offline during the provisioning flow | During setup the phone is on the speaker's hotspot, not the home network — the PWA cannot reach the internet or the Homebridge host | Server-side-rendered app that requires constant connectivity |
 | 2026-06-20 | **Hosting resolved: embedded HTTP server in the plugin** | Research confirms Homebridge plugins can run their own HTTP server inside the Homebridge process (same pattern as `homebridge-http-webhooks`, `homebridge-mqttthing`). Plugin starts Express on a configurable port in `didFinishLaunching`; serves `web/dist/` statically. Phone installs the PWA from the plugin URL while on the home network, service worker caches it, then it operates offline during the provisioning hotspot step. | GitHub Pages — requires internet during install, no control over hosting; assumes user has internet access during provisioning UX |
-| 2026-06-19 | Phase 2 (group management) IS possible with documented API: `/getZone`, `/setZone`, `/addZoneSlave`, `/removeZoneSlave` | All four endpoints are in the v1.1 spec and implemented in `src/devices/SoundTouch/api/zone.ts` | — |
-| 2026-06-19 | Phase 3 (Homebridge config sync) requires an HTTP API endpoint exposed by the plugin | The Homebridge Config UI handles plugin settings via `config.schema.json` in-process; direct config edits need `api.user.storagePath()` and must not race Homebridge's own write | Writing config outside Homebridge storage dir — violates verified-plugin rules |
-| 2026-06-19 | PWA must work offline during the provisioning flow | During setup the phone is on the speaker's hotspot, not the home network — the PWA cannot reach the internet or the Homebridge host | Server-side-rendered app that requires constant connectivity |
-| 2026-06-20 | **Hosting resolved: embedded HTTP server in the plugin** | Research confirms Homebridge plugins can run their own HTTP server inside the Homebridge process (same pattern as `homebridge-http-webhooks`, `homebridge-mqttthing`). Plugin starts Express on a configurable port in `didFinishLaunching`; serves `web/dist/` statically. Phone installs the PWA from the plugin URL while on the home network, service worker caches it, then it operates offline during the provisioning hotspot step. | GitHub Pages — requires internet during install, no control over hosting; assumes user has internet access during provisioning UX |
+| 2026-06-23 | **Phase 3 scope expanded — config write must cover preset stations, source selection, and speaker groups** | The internet-radio plan (`2026-06-22-internet-radio-tunein.md`) landed a typed preset system requiring users to hand-edit `config.json` with TuneIn IDs. The PWA is the natural GUI for this: add/edit/delete station presets, change the active source per speaker, and wire up multi-room groups — all via a config-write endpoint, without requiring the Homebridge Config UI. This converges the setup story: speaker added via bose-cloud emulator (see `2026-06-23-speaker-setup-helper.md`), then configured entirely through the PWA. | Separate admin app — extra install friction; Homebridge Config UI — JSON-only, no UX for slots/groups |
+| 2026-06-23 | Config-write API must reload the plugin after writing | Homebridge reads `config.json` at startup; a config push that doesn't restart is silently ignored. Options: signal the Homebridge API to restart this platform only (child bridge restart via `api.updatePlatformAccessories`), or instruct the user to restart. Spike B must confirm the cleanest path. | Live-reload without restart — not supported by Homebridge core |
+| 2026-06-23 | Phase 3 config-write scope: `accessories[]`, `global.presets[]`, `global.presetSyncInterval` | These three config sections cover the full speaker management use case: add/remove/rename speakers, assign TuneIn presets to slots, and tune the sync schedule. Source selection (active source per speaker) is a live device call, not a config write — it belongs in Phase 2's REST API alongside zone management. | Writing the entire platform config block — too broad; risks overwriting other plugin settings |
 
 ## If cancelled
 
@@ -99,19 +98,34 @@ from a lightweight HTTP server embedded in the plugin.
 - `config.schema.json` + config classes — `webPort` (opt-in, default off) if the
   embedded server path is chosen.
 
-### Phase 2 — Group management (zone API)
+### Phase 2 — Live device control (source selection + group management)
 
-- The PWA adds a "Groups" screen calling the Homebridge plugin's REST API (or
-  talking directly to speakers if the phone is on the same LAN).
-- `src/devices/SoundTouch/api/zone.ts` already implements `getZone`, `setZone`,
-  `addZoneSlave`, `removeZoneSlave` — these are the backend calls.
-- If surfaced via the plugin's REST API: new routes in `src/server/`.
+- The PWA adds a "Groups" screen and a per-speaker "Source" picker.
+- **Source selection:** calls `POST /select` on the target speaker with the chosen
+  `ContentItem` (AUX, BLUETOOTH, TUNEIN preset, etc.). Sources available via
+  `GET /sources`. This is a live device call — no config write needed.
+- **Zone management:** create/update/delete multi-room zones via `setZone`,
+  `addZoneSlave`, `removeZoneSlave`. `src/devices/SoundTouch/api/zone.ts` already
+  implements these.
+- All live calls proxied through new routes in `src/server/` (plugin REST API),
+  so the PWA doesn't need per-speaker LAN access — it talks to the plugin.
 
-### Phase 3 — Homebridge config sync
+### Phase 3 — Homebridge config write
 
-- New REST endpoint(s) in `src/server/` to GET/PATCH the plugin's platform block
-  in `config.json` (under `api.user.storagePath()`). Write atomically.
-- The PWA gains a "Settings" screen to edit speaker IPs, names, groups.
+Scope: `accessories[]` (speakers), `global.presets[]` (TuneIn station slots),
+`global.presetSyncInterval`.
+
+- New REST endpoints in `src/server/`:
+  - `GET /config` — returns the current plugin platform block (sanitised).
+  - `PATCH /config/accessories` — add/remove/rename speakers (name, IP, port).
+  - `PATCH /config/presets` — add/edit/delete station preset entries (slot,
+    name, tuneInId, imageUrl).
+  - `PATCH /config/presetSyncInterval` — update sync schedule.
+- Writes atomically to `api.user.storagePath()/config.json`
+  (write-then-rename); must not race Homebridge's own config writes.
+- Triggers a plugin reload after writing (mechanism TBD — Spike B).
+- PWA gains a "Speakers" screen (add speaker by IP, rename) and a "Presets"
+  screen (assign TuneIn stations to slots 1–6 per speaker group).
 
 ## Conventions for this change
 
@@ -144,18 +158,22 @@ from a lightweight HTTP server embedded in the plugin.
 - [ ] If embedded server: add `webPort` config + `src/server/` Express routes
 - [ ] Add `build:web` script and CI step
 
-### Phase 2 — Group management
-- [ ] PWA "Groups" screen: discover speakers (via Homebridge REST API or direct
-      mDNS on same LAN), show current zones
-- [ ] Create/update/delete zones → `setZone` / `addZoneSlave` / `removeZoneSlave`
-- [ ] REST routes in `src/server/` proxying the zone API calls
+### Phase 2 — Live device control (source selection + group management)
+- [ ] Plugin REST API routes in `src/server/`:
+      `GET /speakers` (list known devices), `POST /speakers/:id/source`,
+      `GET /speakers/:id/sources`, `GET /speakers/:id/zone`,
+      `POST /speakers/:id/zone`, `DELETE /speakers/:id/zone`
+- [ ] PWA "Groups" screen: show current zones, create/edit/delete zones
+- [ ] PWA per-speaker "Source" picker: list available sources, select active one
 
-### Phase 3 — Homebridge config sync
-- [ ] Spike B: confirm config write path safety
-- [ ] REST GET/PATCH routes for plugin config (`src/server/`)
+### Phase 3 — Homebridge config write
+- [ ] Spike B: confirm config write path safety + reload mechanism
+- [ ] Plugin REST API routes: `GET /config`, `PATCH /config/accessories`,
+      `PATCH /config/presets`, `PATCH /config/presetSyncInterval`
 - [ ] Atomic config write (write-then-rename in `api.user.storagePath()`)
-- [ ] PWA "Settings" screen
-- [ ] Trigger Homebridge reload or surface restart prompt after config push
+- [ ] Trigger plugin reload after write (or surface restart prompt)
+- [ ] PWA "Speakers" screen: add/remove/rename speakers by IP
+- [ ] PWA "Presets" screen: assign TuneIn station IDs to slots 1–6
 
 ## Verification
 
@@ -165,14 +183,14 @@ from a lightweight HTTP server embedded in the plugin.
 - [ ] **Phase 1:** On a real speaker in setup mode, run through the full
       provisioning flow on an iOS + Android device; confirm PWA installs from home
       screen and works offline on the speaker's hotspot.
-- [ ] **Phase 2:** Create, modify, and destroy a zone from the PWA; confirm
-      Homebridge reflects the change.
-- [ ] **Phase 3:** Push a config change from the PWA; restart Homebridge; confirm
-      the new config takes effect.
+- [ ] **Phase 2:** Select AUX source from PWA on a real speaker → source changes.
+      Create a zone (master + slave), confirm multi-room playback, then delete zone.
+- [ ] **Phase 3:** Add a TuneIn preset via PWA "Presets" screen → config.json
+      updated, plugin reloads, preset button on speaker plays the station.
 
 ## PR / release notes
 
 - **Phase 1 PR title:** `feat: add PWA for SoundTouch WiFi provisioning`
-- **Phase 2 PR title:** `feat: add group management to provisioning PWA`
-- **Phase 3 PR title:** `feat: add Homebridge config sync to provisioning PWA`
+- **Phase 2 PR title:** `feat: add source selection and group management to provisioning PWA`
+- **Phase 3 PR title:** `feat: add Homebridge config write to provisioning PWA`
 - **Targets:** `dev`
