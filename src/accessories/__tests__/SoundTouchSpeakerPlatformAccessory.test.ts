@@ -12,8 +12,8 @@ function buildCharacteristic(gabboEvents: readonly GabboUpdateType[] = []) {
   return { characteristic: { init, refresh, gabboEvents } as unknown as SoundTouchSpeakerCharacteristic, refresh, init };
 }
 
-function build(opts: { pollingInterval?: number; gabboEvents?: readonly GabboUpdateType[] } = {}) {
-  const { pollingInterval = 0, gabboEvents = [] } = opts;
+function build(opts: { pollingInterval?: number; gabboEvents?: readonly GabboUpdateType[]; isConnected?: boolean } = {}) {
+  const { pollingInterval = 0, gabboEvents = [], isConnected = true } = opts;
   const { characteristic, refresh } = buildCharacteristic(gabboEvents);
 
   const homebridgeLog = jest.fn();
@@ -21,7 +21,7 @@ function build(opts: { pollingInterval?: number; gabboEvents?: readonly GabboUpd
   const device = {
     name: 'Kitchen',
     configuration: { pollingInterval },
-    gabbo: { on: gabboOn, connect: jest.fn(), disconnect: jest.fn() },
+    gabbo: { on: gabboOn, connect: jest.fn(), disconnect: jest.fn(), isConnected },
     connectGabbo: jest.fn(),
     disconnectGabbo: jest.fn(),
   };
@@ -112,6 +112,26 @@ describe('SoundTouchSpeakerPlatformAccessory', () => {
       await jest.advanceTimersByTimeAsync(RECONCILIATION_INTERVAL_MS * 3);
 
       expect(refresh.mock.calls).toHaveLength(callsAfterDrain);
+    });
+
+    it('skips refresh when the Gabbo socket is not connected', async () => {
+      jest.useFakeTimers();
+      const { subject, refresh } = build({ isConnected: false });
+
+      await subject.init();
+      await jest.advanceTimersByTimeAsync(RECONCILIATION_INTERVAL_MS);
+
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('calls refresh when the Gabbo socket is connected', async () => {
+      jest.useFakeTimers();
+      const { subject, refresh } = build({ isConnected: true });
+
+      await subject.init();
+      await jest.advanceTimersByTimeAsync(RECONCILIATION_INTERVAL_MS);
+
+      expect(refresh).toHaveBeenCalledTimes(1);
     });
 
     it('is safe to call stopPolling before init', () => {
