@@ -2,7 +2,7 @@ import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 import { PresetStation } from './PresetStation.js';
 
 export class PresetManager {
-  private intervalId: ReturnType<typeof setInterval> | undefined;
+  private timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   private constructor(
     private readonly devices: SoundTouchDevice[],
@@ -43,21 +43,41 @@ export class PresetManager {
     );
   }
 
-  start(intervalMs: number): void {
-    // Fire immediately, fire-and-forget
+  start(schedule: string): void {
     this.sync().catch(() => undefined);
-
-    if (intervalMs > 0) {
-      this.intervalId = setInterval(() => {
-        this.sync().catch(() => undefined);
-      }, intervalMs);
-    }
+    this._scheduleNext(schedule);
   }
 
   stop(): void {
-    if (this.intervalId !== undefined) {
-      clearInterval(this.intervalId);
-      this.intervalId = undefined;
+    if (this.timeoutId !== undefined) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = undefined;
     }
+  }
+
+  private _scheduleNext(schedule: string): void {
+    const ms = this._msUntilNextCron(schedule);
+    this.timeoutId = setTimeout(() => {
+      this.sync().catch(() => undefined);
+      this._scheduleNext(schedule);
+    }, ms);
+  }
+
+  _msUntilNextCron(schedule: string): number {
+    const parts = schedule.trim().split(/\s+/);
+    const minute = parseInt(parts[0] ?? '0', 10);
+    const hour = parseInt(parts[1] ?? '0', 10);
+
+    if (isNaN(minute) || isNaN(hour)) {
+      return 24 * 60 * 60 * 1000;
+    }
+
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(hour, minute, 0, 0);
+    if (next.getTime() <= now.getTime()) {
+      next.setDate(next.getDate() + 1);
+    }
+    return next.getTime() - now.getTime();
   }
 }

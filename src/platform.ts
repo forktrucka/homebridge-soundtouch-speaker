@@ -220,7 +220,11 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   }
 
   private async _setupPresets(): Promise<void> {
-    const { presets, presetSyncInterval } = this.configuration;
+    const { presets, presetSyncSchedule, serverEnabled } = this.configuration;
+
+    if (!serverEnabled) {
+      return;
+    }
 
     if (!presets || presets.length === 0) {
       return;
@@ -248,6 +252,6 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     });
 
     this._presetManager = presetManager;
-    presetManager.start(presetSyncInterval);
+    presetManager.start(presetSyncSchedule);
   }
 }

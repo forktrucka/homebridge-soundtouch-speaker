@@ -3,7 +3,6 @@ import {
   flattenAccessoryConfiguration,
   ExternalPlatformConfig,
   PresetConfig,
-  PresetsServerConfig,
 } from './ExternalPlatformConfig.js';
 import { DeviceConfiguration } from './devices/SoundTouch/SoundTouchDeviceConfiguration.js';
 import { PLATFORM_NAME } from './settings.js';
@@ -12,8 +11,9 @@ import { Logger } from './utils/FormattedLogger.js';
 const DEFAULT_POLLING_INTERVAL = 0; // deprecated — reconciliation polling is now internal and fixed
 const DEFAULT_DISCOVER_ALL_ACCESSORIES = false;
 const DEFAULT_LOG_LEVEL = LogLevel.INFO;
-const DEFAULT_PRESETS_SERVER_PORT = 18090;
-const DEFAULT_PRESET_SYNC_INTERVAL = 3_600_000; // 1 hour
+const DEFAULT_PRESET_SYNC_SCHEDULE = '0 0 * * *'; // midnight daily
+const DEFAULT_SERVER_HOST = 'homebridge.local';
+const DEFAULT_SERVER_PORT = 8000;
 
 function resolveLogLevel(
   logLevel?: 'debug' | 'info' | 'warn' | 'error',
@@ -102,9 +102,11 @@ export class PlatformConfiguration {
   accessories: DeviceConfiguration[];
   pollingInterval: number;
   logLevel: LogLevel;
+  serverEnabled: boolean;
+  serverHost: string;
+  serverPort: number;
   presets: PresetConfig[];
-  presetsServer: Required<PresetsServerConfig>;
-  presetSyncInterval: number;
+  presetSyncSchedule: string;
 
   private constructor(props: {
     name: string;
@@ -112,18 +114,22 @@ export class PlatformConfiguration {
     accessories: DeviceConfiguration[] | undefined;
     pollingInterval: number;
     logLevel: LogLevel;
+    serverEnabled: boolean;
+    serverHost: string;
+    serverPort: number;
     presets: PresetConfig[];
-    presetsServer: Required<PresetsServerConfig>;
-    presetSyncInterval: number;
+    presetSyncSchedule: string;
   }) {
     this.name = props.name;
     this.discoverAllAccessories = props.discoverAllAccessories;
     this.accessories = props?.accessories ?? [];
     this.pollingInterval = props.pollingInterval;
     this.logLevel = props.logLevel;
+    this.serverEnabled = props.serverEnabled;
+    this.serverHost = props.serverHost;
+    this.serverPort = props.serverPort;
     this.presets = props.presets;
-    this.presetsServer = props.presetsServer;
-    this.presetSyncInterval = props.presetSyncInterval;
+    this.presetSyncSchedule = props.presetSyncSchedule;
   }
 
   toJson() {
@@ -172,15 +178,12 @@ export class PlatformConfiguration {
           })
           ?.filter((d) => !!d) ?? [],
       name: props.name ?? PLATFORM_NAME,
+      serverEnabled: props.global?.server?.enabled ?? false,
+      serverHost: props.global?.server?.host ?? DEFAULT_SERVER_HOST,
+      serverPort: props.global?.server?.port ?? DEFAULT_SERVER_PORT,
       presets,
-      presetsServer: {
-        port: props.global?.presetsServer?.port ?? DEFAULT_PRESETS_SERVER_PORT,
-        host: props.global?.presetsServer?.host ?? '',
-      },
-      presetSyncInterval:
-        props.presetSyncInterval ??
-        props.global?.presetSyncInterval ??
-        DEFAULT_PRESET_SYNC_INTERVAL,
+      presetSyncSchedule:
+        props.global?.presetSyncSchedule ?? DEFAULT_PRESET_SYNC_SCHEDULE,
     });
   }
 }

@@ -315,38 +315,72 @@ describe('PlatformConfiguration', () => {
       expect(config.presets).toHaveLength(0);
     });
 
-    it('applies default presetsServer port (18090) when absent', () => {
+    it('serverEnabled defaults to false when server block is absent', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
       });
 
-      expect(config.presetsServer.port).toBe(18090);
+      expect(config.serverEnabled).toBe(false);
     });
 
-    it('uses provided presetsServer port when specified', () => {
+    it('serverEnabled reflects global.server.enabled when provided', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
-        global: { presetsServer: { port: 19000 } },
+        global: { server: { enabled: true } },
       });
 
-      expect(config.presetsServer.port).toBe(19000);
+      expect(config.serverEnabled).toBe(true);
     });
 
-    it('applies default presetSyncInterval (3_600_000) when absent', () => {
+    it('serverHost defaults to homebridge.local when absent', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
       });
 
-      expect(config.presetSyncInterval).toBe(3_600_000);
+      expect(config.serverHost).toBe('homebridge.local');
     });
 
-    it('preserves an explicit presetSyncInterval of 0 (startup only)', () => {
+    it('serverHost uses provided global.server.host', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,
-        global: { presetSyncInterval: 0 },
+        global: { server: { host: '192.168.1.50' } },
       });
 
-      expect(config.presetSyncInterval).toBe(0);
+      expect(config.serverHost).toBe('192.168.1.50');
+    });
+
+    it('serverPort defaults to 8000 when absent', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.serverPort).toBe(8000);
+    });
+
+    it('serverPort uses provided global.server.port', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { server: { port: 9000 } },
+      });
+
+      expect(config.serverPort).toBe(9000);
+    });
+
+    it('presetSyncSchedule defaults to midnight daily cron when absent', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.presetSyncSchedule).toBe('0 0 * * *');
+    });
+
+    it('presetSyncSchedule uses provided global.presetSyncSchedule', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presetSyncSchedule: '30 6 * * *' },
+      });
+
+      expect(config.presetSyncSchedule).toBe('30 6 * * *');
     });
 
     it('returns empty presets array when no presets configured', () => {

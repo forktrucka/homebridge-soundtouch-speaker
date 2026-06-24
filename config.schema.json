@@ -35,28 +35,6 @@
             "default": "switch",
             "description": "Default HomeKit accessory type for all speakers. 'lightbulb' exposes volume via Brightness."
           },
-          "presetsServer": {
-            "type": "object",
-            "description": "Local HTTP server that serves station descriptors and proxies audio streams for internet radio presets.",
-            "properties": {
-              "port": {
-                "type": "integer",
-                "default": 18090,
-                "minimum": 1024,
-                "maximum": 65535,
-                "description": "Port for the preset server. Defaults to 18090."
-              },
-              "host": {
-                "type": "string",
-                "description": "LAN IP or hostname the SoundTouch device should use to reach Homebridge. Auto-detected when omitted."
-              }
-            }
-          },
-          "presetSyncInterval": {
-            "type": "integer",
-            "default": 3600000,
-            "description": "How often (ms) to re-write presets to the device. Set to 0 to write at startup only."
-          },
           "presets": {
             "type": "array",
             "description": "List of preset slots to manage on the SoundTouch device.",
@@ -122,11 +100,6 @@
             }
           }
         }
-      },
-      "presetSyncInterval": {
-        "type": "integer",
-        "default": 3600000,
-        "description": "How often (ms) to re-write presets to the device. Set to 0 to write at startup only."
       },
       "accessories": {
         "type": "array",

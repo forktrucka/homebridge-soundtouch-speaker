@@ -104,53 +104,41 @@ describe('PresetManager', () => {
       const stations = new Map([[1, makeStation(1)]]);
       const manager = PresetManager.create({ devices: [device], stations });
 
-      manager.start(0);
+      manager.start('0 0 * * *');
       await Promise.resolve();
 
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
     });
 
-    it('does not set an interval when intervalMs is 0', async () => {
+    it('fires sync again after the cron delay elapses', async () => {
       const device = makeDevice();
       const stations = new Map([[1, makeStation(1)]]);
       const manager = PresetManager.create({ devices: [device], stations });
+      const schedule = '0 0 * * *';
 
-      manager.start(0);
+      const delay = manager._msUntilNextCron(schedule);
+      manager.start(schedule);
       await Promise.resolve();
-
-      jest.advanceTimersByTime(100_000);
-      await Promise.resolve();
-
-      expect(device.api.storePreset).toHaveBeenCalledTimes(1);
-    });
-
-    it('calls sync on each interval tick when intervalMs > 0', async () => {
-      const device = makeDevice();
-      const stations = new Map([[1, makeStation(1)]]);
-      const manager = PresetManager.create({ devices: [device], stations });
-
-      manager.start(5000);
-      await Promise.resolve();
-
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
 
-      jest.advanceTimersByTime(5000);
+      jest.advanceTimersByTime(delay);
       await Promise.resolve();
 
       expect(device.api.storePreset).toHaveBeenCalledTimes(2);
     });
 
-    it('stop cancels the interval', async () => {
+    it('stop cancels the pending sync', async () => {
       const device = makeDevice();
       const stations = new Map([[1, makeStation(1)]]);
       const manager = PresetManager.create({ devices: [device], stations });
+      const schedule = '0 0 * * *';
 
-      manager.start(5000);
+      manager.start(schedule);
       await Promise.resolve();
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
 
       manager.stop();
-      jest.advanceTimersByTime(20_000);
+      jest.advanceTimersByTime(24 * 60 * 60 * 1000);
       await Promise.resolve();
 
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);

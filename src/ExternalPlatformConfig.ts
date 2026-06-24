@@ -19,17 +19,18 @@ interface StationPresetConfig {
 
 export type PresetConfig = StationPresetConfig;
 
-export interface PresetsServerConfig {
-  readonly port?: number;
+export interface ServerConfig {
+  readonly enabled?: boolean;
   readonly host?: string;
+  readonly port?: number;
 }
 
 interface GlobalConfig extends BaseGlobalConfig {
   readonly pollingInterval?: number;
   readonly accessoryType?: 'switch' | 'lightbulb';
-  readonly presetsServer?: PresetsServerConfig;
+  readonly server?: ServerConfig;
   readonly presets?: PresetConfig[];
-  readonly presetSyncInterval?: number;
+  readonly presetSyncSchedule?: string;
 }
 
 export interface AccessoryConfig extends GlobalConfig {
@@ -45,7 +46,6 @@ export interface ExternalPlatformConfig extends BasePlatformConfig {
   readonly accessories?: AccessoryConfig[];
   readonly global?: GlobalConfig;
   readonly presets?: PresetConfig[];
-  readonly presetSyncInterval?: number;
 }
 
 export function flattenAccessoryConfiguration(props: {
