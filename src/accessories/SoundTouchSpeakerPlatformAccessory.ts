@@ -92,6 +92,10 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       await new Promise((resolve) =>
         setTimeout(resolve, RECONCILIATION_INTERVAL_MS)
       );
+      if (!this.device.gabbo.isConnected) {
+        this.log.debug(`${this.accessory.displayName} offline — skipping reconciliation poll`);
+        continue;
+      }
       try {
         await this.refresh();
       } catch (e: unknown) {
