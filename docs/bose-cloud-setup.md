@@ -82,29 +82,59 @@ WantedBy=multi-user.target
 sudo systemctl enable --now bose-cloud
 ```
 
-## Redirecting the speaker
+## Step 1 — Uncork the speaker
 
-The speaker must be told to use your local emulator instead of Bose's servers.
-SoundCork's documentation covers the full procedure (including the USB-boot
-method that works without SSH). The short version for SSH-accessible devices:
+Before TuneIn presets can work, each speaker must be redirected away from
+Bose's dead servers to your local emulator. The community calls this
+**uncorking** the speaker.
+
+This plugin expects the emulator to be reachable at:
+
+```
+http://homebridge.local:8000
+```
+
+That address is the default (`global.server.host` = `homebridge.local`,
+`global.server.port` = `8000` in the plugin config). If you run the emulator
+on a different host or port, update both the redirect below **and** the plugin
+config to match.
+
+### Using SoundCork or timvw's fork (recommended)
+
+SoundCork handles the redirect procedure for you and covers all speaker models,
+including those that require USB boot. Follow the setup guide in the repo:
+
+- [deborahgu/soundcork](https://github.com/deborahgu/soundcork) — original
+- [timvw/soundcork](https://github.com/timvw/soundcork) — Docker/Kubernetes fork
+
+When SoundCork asks for the server address, use `homebridge.local:8000` (or
+whatever you have set in `global.server.host`/`global.server.port`).
+
+### Manual redirect (SSH method)
+
+For speakers with SSH access (root, no password on most models):
 
 ```sh
 ssh root@<SPEAKER_IP>
 vi /opt/Bose/etc/SoundTouchSdkPrivateCfg.xml
 ```
 
-Set `bmxRegistryUrl` and `margeServerUrl` to point at your Homebridge host:
+Set `bmxRegistryUrl` and `margeServerUrl` to point at your emulator:
 
 ```xml
-<bmxRegistryUrl>http://<HOMEBRIDGE_IP>:8000/bmx/registry/v1/services</bmxRegistryUrl>
-<margeServerUrl>http://<HOMEBRIDGE_IP>:8000/marge</margeServerUrl>
+<bmxRegistryUrl>http://homebridge.local:8000/bmx/registry/v1/services</bmxRegistryUrl>
+<margeServerUrl>http://homebridge.local:8000/marge</margeServerUrl>
 ```
 
-Save and reboot the speaker. This change persists across normal restarts but
-may be overwritten by a firmware update.
+Replace `homebridge.local` with your Homebridge host's IP address if mDNS is
+not available on your network (run `hostname -I` on the Homebridge host to find
+it). Save the file and reboot the speaker.
 
 > **Note:** start the emulator before the speaker finishes rebooting, or TuneIn
 > will be unavailable until the next reboot.
+
+This change persists across normal restarts but may be overwritten by a
+firmware update — re-apply the redirect after updating.
 
 ## Configuring presets in Homebridge
 
