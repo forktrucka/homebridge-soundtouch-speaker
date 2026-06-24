@@ -5,15 +5,25 @@ cannot activate TuneIn presets or resolve station stream URLs at play time.
 
 ## Recommended solution — SoundCork
 
-**[SoundCork](https://github.com/deborahgu/soundcork)** (MIT licensed, by
-Deborah Kaplan and Allen Petersen) is the community-maintained replacement for
-the Bose cloud. It is a Python/FastAPI service that answers all four cloud
-endpoints the speaker looks up on boot, including the TuneIn OPML proxy,
-preset/account sync, and (optionally) SiriusXM. It ships with Docker support,
-a Home Assistant add-on, and a web UI.
+**[SoundCork](https://github.com/deborahgu/soundcork)** is the
+community-maintained replacement for the Bose cloud, created by
+Deborah Kaplan and Allen Petersen and released under the
+[MIT License](https://github.com/deborahgu/soundcork/blob/main/LICENSE)
+(© 2025 Deborah Kaplan and Allen Petersen).
 
-For most users, **SoundCork is the right tool**. Follow the setup guide in its
-repository — it covers all supported models and redirect methods.
+It is a Python/FastAPI service that answers all four cloud endpoints the
+speaker looks up on boot: the TuneIn OPML proxy, preset/account sync, marge
+account management, and (optionally) SiriusXM. No traffic leaves your network.
+
+A community fork by [timvw](https://github.com/timvw/soundcork) adds Docker
+Compose and Kubernetes deployment guides and a smart proxy mode. It carries the
+same MIT license and copyright as the original. Use this fork if you want
+container-based deployment.
+
+For most users, **SoundCork (or timvw's fork) is the right tool**. Follow the
+setup guide in the repository — it covers all supported models and redirect
+methods, including the USB-boot procedure for speakers that do not have SSH
+enabled.
 
 ## Alternative — `bose-cloud.mjs` (this repo)
 
