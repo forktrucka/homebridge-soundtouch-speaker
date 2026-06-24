@@ -73,11 +73,11 @@ describe('contentItemToElement', () => {
 
   it('serializes the type attribute when present', () => {
     const el = contentItemToElement({
-      source: 'LOCAL_INTERNET_RADIO',
+      source: 'TUNEIN',
       sourceAccount: '',
       type: 'stationurl',
       isPresetable: true,
-      location: 'http://host:18090/preset/1.json',
+      location: '/v1/playback/station/s7162',
     });
 
     expect(el.data.ContentItem.$.type).toBe('stationurl');

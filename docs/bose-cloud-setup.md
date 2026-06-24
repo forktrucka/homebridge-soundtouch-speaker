@@ -1,146 +1,57 @@
 # Internet radio (TuneIn) after the Bose cloud shutdown
 
-Bose's cloud services were shut down on **6 May 2026**. Without them, speakers
-cannot activate TuneIn presets or resolve station stream URLs at play time.
+Bose shut down their cloud servers on **6 May 2026**. This plugin restores
+TuneIn presets by running a local cloud emulator **built into the plugin** that
+intercepts the speaker's TuneIn lookups and proxies them through the RadioTime
+OPML API. Enable it with `global.server.enabled = true` in your config.
 
-## Recommended solution — SoundCork
+## Before you start — uncork the speaker
 
-**[SoundCork](https://github.com/deborahgu/soundcork)** is the
-community-maintained replacement for the Bose cloud, created by
-Deborah Kaplan and Allen Petersen and released under the
-[MIT License](https://github.com/deborahgu/soundcork/blob/main/LICENSE)
-(© 2025 Deborah Kaplan and Allen Petersen).
+Each speaker must be redirected away from Bose's dead servers to your
+Homebridge host. This is called **uncorking**. The plugin expects the emulator
+at `http://homebridge.local:8000` by default (configurable — see below).
 
-It is a Python/FastAPI service that answers all four cloud endpoints the
-speaker looks up on boot: the TuneIn OPML proxy, preset/account sync, marge
-account management, and (optionally) SiriusXM. No traffic leaves your network.
+**Recommended: use SoundCork**
 
-A community fork by [timvw](https://github.com/timvw/soundcork) adds Docker
-Compose and Kubernetes deployment guides and a smart proxy mode. It carries the
-same MIT license and copyright as the original. Use this fork if you want
-container-based deployment.
+[SoundCork](https://github.com/deborahgu/soundcork) (© 2025 Deborah Kaplan
+and Allen Petersen, MIT licensed) handles the uncork procedure for all speaker
+models, including those that require USB boot. A Docker/Kubernetes fork is
+maintained by [timvw](https://github.com/timvw/soundcork) under the same
+license.
 
-For most users, **SoundCork (or timvw's fork) is the right tool**. Follow the
-setup guide in the repository — it covers all supported models and redirect
-methods, including the USB-boot procedure for speakers that do not have SSH
-enabled.
+When SoundCork asks for the server address, enter `homebridge.local:8000` (or
+whatever you have configured for `global.server.host`/`global.server.port`).
 
-## Alternative — `bose-cloud.mjs` (this repo)
+**Manual SSH method**
 
-`scripts/bose-cloud.mjs` is a minimal, dependency-free Node.js script that
-covers the subset SoundCork covers in Python:
-
-- BMX service registry (`/bmx/registry/v1/services`)
-- Marge server stub (`/marge/streaming/sourceproviders`)
-- TuneIn station resolver (`/bmx/tunein/v1/playback/station/:id`) via the
-  RadioTime OPML API
-
-It is useful if you run Homebridge on Node.js and prefer a single-process
-setup without Python or Docker. For anything beyond TuneIn presets (accounts,
-SiriusXM, recents), use SoundCork.
-
-### Running bose-cloud.mjs
-
-On your Homebridge host (Node.js 22 or 24):
+SoundTouch speakers run old SSH software and require legacy cipher flags:
 
 ```sh
-node scripts/bose-cloud.mjs
+ssh -o HostKeyAlgorithms=+ssh-rsa \
+    -o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1 \
+    root@<SPEAKER_IP>
 ```
 
-The script starts on port 8000 and logs every request the speaker sends:
-
-```
-Listening on http://10.0.0.94:8000
-  bmxRegistryUrl  → http://10.0.0.94:8000/bmx/registry/v1/services
-  margeServerUrl  → http://10.0.0.94:8000/marge
-```
-
-Override the advertised address when your host has multiple network interfaces:
+Then edit the cloud config file:
 
 ```sh
-HOST=10.0.0.94 node scripts/bose-cloud.mjs
-```
-
-To keep it running as a background service on a systemd host:
-
-```ini
-# /etc/systemd/system/bose-cloud.service
-[Unit]
-Description=Bose cloud emulator for SoundTouch TuneIn
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/node /path/to/homebridge-soundtouch-speaker/scripts/bose-cloud.mjs
-Restart=always
-Environment=HOST=10.0.0.94
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```sh
-sudo systemctl enable --now bose-cloud
-```
-
-## Step 1 — Uncork the speaker
-
-Before TuneIn presets can work, each speaker must be redirected away from
-Bose's dead servers to your local emulator. The community calls this
-**uncorking** the speaker.
-
-This plugin expects the emulator to be reachable at:
-
-```
-http://homebridge.local:8000
-```
-
-That address is the default (`global.server.host` = `homebridge.local`,
-`global.server.port` = `8000` in the plugin config). If you run the emulator
-on a different host or port, update both the redirect below **and** the plugin
-config to match.
-
-### Using SoundCork or timvw's fork (recommended)
-
-SoundCork handles the redirect procedure for you and covers all speaker models,
-including those that require USB boot. Follow the setup guide in the repo:
-
-- [deborahgu/soundcork](https://github.com/deborahgu/soundcork) — original
-- [timvw/soundcork](https://github.com/timvw/soundcork) — Docker/Kubernetes fork
-
-When SoundCork asks for the server address, use `homebridge.local:8000` (or
-whatever you have set in `global.server.host`/`global.server.port`).
-
-### Manual redirect (SSH method)
-
-For speakers with SSH access (root, no password on most models):
-
-```sh
-ssh root@<SPEAKER_IP>
 vi /opt/Bose/etc/SoundTouchSdkPrivateCfg.xml
 ```
 
-Set `bmxRegistryUrl` and `margeServerUrl` to point at your emulator:
+Set both fields to point at your Homebridge host:
 
 ```xml
 <bmxRegistryUrl>http://homebridge.local:8000/bmx/registry/v1/services</bmxRegistryUrl>
 <margeServerUrl>http://homebridge.local:8000/marge</margeServerUrl>
 ```
 
-Replace `homebridge.local` with your Homebridge host's IP address if mDNS is
-not available on your network (run `hostname -I` on the Homebridge host to find
-it). Save the file and reboot the speaker.
+Replace `homebridge.local` with the host's IP address if mDNS is not available
+on your network. Save the file and reboot the speaker. This change survives
+normal restarts but a firmware update may revert it.
 
-> **Note:** start the emulator before the speaker finishes rebooting, or TuneIn
-> will be unavailable until the next reboot.
+## Configuring the plugin
 
-This change persists across normal restarts but may be overwritten by a
-firmware update — re-apply the redirect after updating.
-
-## Configuring presets in Homebridge
-
-Add a `presets` array and a `server` block to the plugin's `global` config.
-The UI schema does not yet expose these fields — edit the Homebridge
-`config.json` directly:
+These fields are not yet in the Homebridge UI — edit `config.json` directly:
 
 ```json
 {
@@ -160,43 +71,29 @@ The UI schema does not yet expose these fields — edit the Homebridge
 }
 ```
 
-| Field | Required | Description |
+| Field | Default | Description |
 | --- | --- | --- |
-| `server.enabled` | yes | Must be `true` to activate preset sync |
-| `server.host` | no | Hostname/IP where the emulator runs; default `homebridge.local` |
-| `server.port` | no | Port the emulator listens on; default `8000` |
-| `presets[].type` | yes | Must be `"station"` |
-| `presets[].slot` | yes | Preset button number (1–6) |
-| `presets[].name` | yes | Display name written to the preset |
-| `presets[].tuneInId` | yes | TuneIn station ID (e.g. `s7162`) |
-| `presets[].imageUrl` | no | Optional station art URL |
-| `presetSyncSchedule` | no | Cron schedule (`minute hour * * *`); default `0 0 * * *` (midnight daily) |
-
-At startup the plugin writes each configured preset to every discovered device.
-The emulator resolves the TuneIn ID to a stream URL when the preset button is
-pressed.
+| `server.enabled` | `false` | Start the built-in emulator and enable preset sync |
+| `server.host` | `homebridge.local` | Address the speaker uses to reach the emulator |
+| `server.port` | `8000` | Port the emulator listens on |
+| `presets[].slot` | — | Preset button 1–6 |
+| `presets[].tuneInId` | — | TuneIn station ID, e.g. `s7162` |
+| `presetSyncSchedule` | `0 0 * * *` | Cron schedule to re-write presets (midnight daily) |
 
 ## Finding TuneIn IDs
 
-Search at [tunein.com](https://tunein.com) and copy the ID from the station
-URL: `tunein.com/radio/More-FM-Auckland-s7162/` → `s7162`.
+Search at [tunein.com](https://tunein.com) and copy the ID from the URL:
+`tunein.com/radio/More-FM-Auckland-s7162/` → `s7162`.
 
 ## Troubleshooting
 
 **Preset button plays a tone and stops**
 
-- Confirm the emulator is reachable: `curl http://<HOST>:8000/bmx/registry/v1/services`
-- Check the emulator logs — the speaker should send
-  `GET /bmx/tunein/v1/playback/station/<id>` when the button is pressed.
-- If no request arrives, the speaker was not redirected. Re-check the XML and
-  reboot.
+- Check the Homebridge log for `[BoseCloud] Listening on…` — the server must
+  be running.
+- Confirm the speaker was uncorked: `curl http://homebridge.local:8000/bmx/registry/v1/services`
+  should return JSON. If it doesn't, re-check the XML on the speaker and reboot.
 
-**`Connection refused` on port 8000**
+**Speaker reverted after a firmware update**
 
-- The emulator is not running, or bound to a different address.
-  Check with `ss -tlnp | grep 8000`.
-
-**Speaker reverted after firmware update**
-
-- A firmware update may restore the original XML. Re-apply the redirect after
-  updating.
+- Re-apply the uncork step and reboot the speaker.

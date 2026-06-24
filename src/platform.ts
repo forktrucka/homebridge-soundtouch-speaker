@@ -15,6 +15,7 @@ import { Logger } from './utils/FormattedLogger.js';
 import { PlatformConfiguration } from './PlatformConfiguration.js';
 import { AppError } from './errors.js';
 import { PresetManager, PresetStation } from './presets/index.js';
+import { BoseCloudServer } from './server/BoseCloudServer.js';
 
 export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly service: typeof Service;
@@ -32,6 +33,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   private readonly _discoveredDevices: SoundTouchDevice[] = [];
 
   private _presetManager: PresetManager | undefined;
+  private _boseCloudServer: BoseCloudServer | undefined;
 
   constructor(
     homebridgeLogger: Logging,
@@ -62,6 +64,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this.logger.debug('Started didFinishLaunching callback');
       this.logNetworkInterfaces();
       await this.discoverDevices();
+      await this._startBoseCloudServer();
       await this._setupPresets();
       this.logger.debug('Finished didFinishLaunching callback');
     });
@@ -73,6 +76,9 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       }
       if (this._presetManager) {
         this._presetManager.stop();
+      }
+      if (this._boseCloudServer) {
+        this._boseCloudServer.stop().catch(() => undefined);
       }
     });
   }
@@ -216,6 +222,21 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
           accessory,
         ]);
       }
+    }
+  }
+
+  private async _startBoseCloudServer(): Promise<void> {
+    if (!this.configuration.serverEnabled) return;
+    const server = BoseCloudServer.create({
+      host: this.configuration.serverHost,
+      port: this.configuration.serverPort,
+      logger: this.logger,
+    });
+    try {
+      await server.start();
+      this._boseCloudServer = server;
+    } catch (e: unknown) {
+      this.logger.error('[BoseCloud] Failed to start server', e);
     }
   }
 
