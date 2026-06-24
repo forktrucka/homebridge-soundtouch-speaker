@@ -41,46 +41,46 @@ describe('TuneInClient', () => {
       expect(url).toBe('http://stream.example.com/bbc');
     });
 
-    it('returns null when the body array is empty', async () => {
+    it('returns undefined when the body array is empty', async () => {
       mock.onGet(`${OPML_BASE}${TUNE_IN_ID}`).reply(200, { body: [] });
 
       const url = await client.resolveStationUrl(TUNE_IN_ID);
 
-      expect(url).toBeNull();
+      expect(url).toBeUndefined();
     });
 
-    it('returns null when the response has no body field', async () => {
+    it('returns undefined when the response has no body field', async () => {
       mock.onGet(`${OPML_BASE}${TUNE_IN_ID}`).reply(200, {});
 
       const url = await client.resolveStationUrl(TUNE_IN_ID);
 
-      expect(url).toBeNull();
+      expect(url).toBeUndefined();
     });
 
-    it('returns null on a network error', async () => {
+    it('returns undefined on a network error', async () => {
       mock.onGet(`${OPML_BASE}${TUNE_IN_ID}`).networkError();
 
       const url = await client.resolveStationUrl(TUNE_IN_ID);
 
-      expect(url).toBeNull();
+      expect(url).toBeUndefined();
     });
 
-    it('returns null on an HTTP error response', async () => {
+    it('returns undefined on an HTTP error response', async () => {
       mock.onGet(`${OPML_BASE}${TUNE_IN_ID}`).reply(500, 'Internal Server Error');
 
       const url = await client.resolveStationUrl(TUNE_IN_ID);
 
-      expect(url).toBeNull();
+      expect(url).toBeUndefined();
     });
 
-    it('returns null when the first body entry has no url field', async () => {
+    it('returns undefined when the first body entry has no url field', async () => {
       mock.onGet(`${OPML_BASE}${TUNE_IN_ID}`).reply(200, {
         body: [{ text: 'No url here' }],
       });
 
       const url = await client.resolveStationUrl(TUNE_IN_ID);
 
-      expect(url).toBeNull();
+      expect(url).toBeUndefined();
     });
   });
 });

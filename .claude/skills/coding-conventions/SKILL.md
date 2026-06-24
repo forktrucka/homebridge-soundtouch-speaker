@@ -58,6 +58,27 @@ rather than restating this — keep style/build/test rules in this one place.
   `import { API, Service, Characteristic } from 'homebridge';`
 - Source lives in `src/`, compiles to `dist/`. Never edit `dist/`.
 
+### `undefined` over `null`
+
+Prefer `undefined` for absent or missing values. Avoid returning or storing
+`null` — use `undefined` instead:
+
+```ts
+// ✓
+async resolveStationUrl(id: string): Promise<string | undefined> { … }
+
+// ✗
+async resolveStationUrl(id: string): Promise<string | null> { … }
+```
+
+`null` is still acceptable when an external API or library contract requires it
+(e.g. JSON payloads where `null` and `undefined` are semantically distinct, or
+third-party types that express `null`). Everywhere the codebase controls the
+type, use `undefined`.
+
+This rule applies to `it` label wording too — write `'returns undefined when …'`
+not `'returns null when …'`.
+
 ### Class instantiation — static factory methods
 
 All new classes expose their creation through **named static factory methods**,
@@ -166,7 +187,7 @@ describe('ClassName or function name')
 ```
 
 - `describe` labels name the **subject** (`'NowPlayingParser'`, `'#parsePreset'`).
-- `it` labels name **observable behaviour** in plain English: `'returns null when
+- `it` labels name **observable behaviour** in plain English: `'returns undefined when
   the content item is missing'`, not `'handles missing content item'`.
 - Nest a second `describe` for distinct scenarios (`'when the device is in standby'`).
 - Structure each test as **Arrange → Act → Assert** with a blank line between
@@ -184,8 +205,8 @@ describe('VolumeParser', () => {
       expect(result).toBe(42);
     });
 
-    it('returns null when the actualvolume element is absent', () => {
-      expect(VolumeParser.parse('<volume/>')).toBeNull();
+    it('returns undefined when the actualvolume element is absent', () => {
+      expect(VolumeParser.parse('<volume/>')).toBeUndefined();
     });
   });
 });

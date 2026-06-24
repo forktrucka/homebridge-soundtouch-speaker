@@ -23,19 +23,18 @@ export class TuneInClient {
     );
   }
 
-  async resolveStationUrl(tuneInId: string): Promise<string | null> {
+  async resolveStationUrl(tuneInId: string): Promise<string | undefined> {
     try {
       const response = await this.axiosInstance.get<RadioTimeResponse>(
         `${RADIOTIME_OPML_URL}${tuneInId}`
       );
       const body = response.data?.body;
       if (!body || body.length === 0) {
-        return null;
+        return undefined;
       }
-      const url = body[0]?.url;
-      return url ?? null;
+      return body[0]?.url;
     } catch {
-      return null;
+      return undefined;
     }
   }
 }
