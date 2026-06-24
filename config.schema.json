@@ -35,6 +35,31 @@
             "default": "switch",
             "description": "Default HomeKit accessory type for all speakers. 'lightbulb' exposes volume via Brightness."
           },
+          "server": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false,
+                "description": "Start the built-in Bose cloud emulator and enable TuneIn preset sync."
+              },
+              "host": {
+                "type": "string",
+                "default": "homebridge.local",
+                "description": "Address the speaker uses to reach the emulator. Defaults to homebridge.local."
+              },
+              "port": {
+                "type": "integer",
+                "default": 8000,
+                "description": "Port the emulator listens on."
+              }
+            }
+          },
+          "presetSyncSchedule": {
+            "type": "string",
+            "default": "0 0 * * *",
+            "description": "Cron schedule for re-writing TuneIn presets to all speakers (e.g. '0 0 * * *' for midnight daily)."
+          }
         }
       },
       "accessories": {
