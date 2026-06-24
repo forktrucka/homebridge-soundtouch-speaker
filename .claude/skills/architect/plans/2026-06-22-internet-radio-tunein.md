@@ -241,17 +241,18 @@ is a future concern.
 
 - [x] `scripts/bose-cloud.mjs` — standalone emulator (port 8000):
       BMX registry, marge source providers, TuneIn station resolution.
-- [ ] Document speaker setup steps (SSH + `SoundTouchSdkPrivateCfg.xml` edit)
-      in the README or a dedicated `docs/bose-cloud-setup.md`.
+- [x] Document speaker setup steps (SSH + `SoundTouchSdkPrivateCfg.xml` edit)
+      in `docs/bose-cloud-setup.md`.
 
 ### Preset manager
 
 - [x] `src/presets/PresetManager.ts` — `static create({ devices, stations })`,
       `sync()`, `start(intervalMs)`, `stop()`. Writes TUNEIN ContentItems.
-- [ ] `src/presets/__tests__/PresetManager.test.ts`:
+- [x] `src/presets/__tests__/PresetManager.test.ts`:
       - `sync()` calls `storePreset` for each configured slot.
-      - `storePreset` failure on one slot is logged but does not abort others.
+      - `storePreset` failure on one slot does not abort others.
       - `start(N)` triggers `sync()` on interval; `stop()` cancels it.
+      - `stop()` before `start()` is a no-op.
 
 ### Platform wiring
 
@@ -273,7 +274,7 @@ is a future concern.
 - [x] `npm run typecheck`
 - [x] `npm run lint`
 - [x] `npm test` (unit + integration; device tests gated out of CI)
-- [ ] `npm run knip` — no new unused exports/deps.
+- [x] `npm run knip` — no new unused exports/deps.
 - [ ] `npm run watch` — with a real speaker + `bose-cloud.mjs` running:
       - Configure a station preset (`tuneInId: "s7162"`, slot 1).
       - Confirm `PresetManager` logs a successful `storePreset` at startup.
