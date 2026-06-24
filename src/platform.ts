@@ -64,8 +64,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this.logger.debug('Started didFinishLaunching callback');
       this.logNetworkInterfaces();
       await this.discoverDevices();
-      await this._startBoseCloudServer();
-      await this._setupPresets();
+      if (this.configuration.serverEnabled) {
+        await this._startBoseCloudServer();
+        await this._setupPresets();
+      }
       this.logger.debug('Finished didFinishLaunching callback');
     });
 
@@ -226,7 +228,6 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   }
 
   private async _startBoseCloudServer(): Promise<void> {
-    if (!this.configuration.serverEnabled) return;
     const server = BoseCloudServer.create({
       host: this.configuration.serverHost,
       port: this.configuration.serverPort,
@@ -241,11 +242,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   }
 
   private async _setupPresets(): Promise<void> {
-    const { presets, presetSyncSchedule, serverEnabled } = this.configuration;
-
-    if (!serverEnabled) {
-      return;
-    }
+    const { presets, presetSyncSchedule } = this.configuration;
 
     if (!presets || presets.length === 0) {
       return;

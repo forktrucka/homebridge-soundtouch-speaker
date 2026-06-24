@@ -58,9 +58,7 @@ These fields are not yet in the Homebridge UI — edit `config.json` directly:
   "platform": "SoundTouchSpeaker",
   "global": {
     "server": {
-      "enabled": true,
-      "host": "homebridge.local",
-      "port": 8000
+      "enabled": true
     },
     "presets": [
       { "type": "station", "slot": 1, "name": "More FM Auckland", "tuneInId": "s7162" },
