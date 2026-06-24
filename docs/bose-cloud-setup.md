@@ -1,62 +1,43 @@
-# Setting up a SoundTouch speaker for internet radio
+# Internet radio (TuneIn) after the Bose cloud shutdown
 
-Bose's cloud services shut down in early 2026. This means the speaker's built-in
-TuneIn support no longer works — it can't resolve station IDs to stream URLs.
+Bose's cloud services were shut down on **6 May 2026**. Without them, speakers
+cannot activate TuneIn presets or resolve station stream URLs at play time.
 
-This plugin restores that functionality by running a **lightweight local cloud
-emulator** (`scripts/bose-cloud.mjs`) that the speaker talks to instead of
-Bose's servers. The emulator proxies TuneIn lookups through the RadioTime OPML
-API, which is still live.
+## Recommended solution — SoundCork
 
-## What you need
+**[SoundCork](https://github.com/deborahgu/soundcork)** (MIT licensed, by
+Deborah Kaplan and Allen Petersen) is the community-maintained replacement for
+the Bose cloud. It is a Python/FastAPI service that answers all four cloud
+endpoints the speaker looks up on boot, including the TuneIn OPML proxy,
+preset/account sync, and (optionally) SiriusXM. It ships with Docker support,
+a Home Assistant add-on, and a web UI.
 
-- SSH access to the speaker (root, no password on most models)
-- Node.js 22 or 24 on your Homebridge host
-- The speaker's IP address (find it in your router's DHCP table or via
-  `dns-sd -B _soundtouch._tcp local` on macOS)
+For most users, **SoundCork is the right tool**. Follow the setup guide in its
+repository — it covers all supported models and redirect methods.
 
-## Step 1 — Redirect the speaker to your local emulator
+## Alternative — `bose-cloud.mjs` (this repo)
 
-SSH into the speaker and edit its cloud-server config file:
+`scripts/bose-cloud.mjs` is a minimal, dependency-free Node.js script that
+covers the subset SoundCork covers in Python:
 
-```sh
-ssh root@<SPEAKER_IP>
-```
+- BMX service registry (`/bmx/registry/v1/services`)
+- Marge server stub (`/marge/streaming/sourceproviders`)
+- TuneIn station resolver (`/bmx/tunein/v1/playback/station/:id`) via the
+  RadioTime OPML API
 
-Open the config file (busybox vi or sed):
+It is useful if you run Homebridge on Node.js and prefer a single-process
+setup without Python or Docker. For anything beyond TuneIn presets (accounts,
+SiriusXM, recents), use SoundCork.
 
-```sh
-vi /opt/Bose/etc/SoundTouchSdkPrivateCfg.xml
-```
+### Running bose-cloud.mjs
 
-Find the `bmxRegistryUrl` and `margeServerUrl` fields and change them to point
-at your Homebridge host's IP address:
-
-```xml
-<bmxRegistryUrl>http://<HOMEBRIDGE_IP>:8000/bmx/registry/v1/services</bmxRegistryUrl>
-<margeServerUrl>http://<HOMEBRIDGE_IP>:8000/marge</margeServerUrl>
-```
-
-Save the file, then reboot the speaker:
-
-```sh
-reboot
-```
-
-This is a **one-time setup**. The change persists across normal speaker restarts.
-
-> **Finding your Homebridge IP:** run `hostname -I` on your Homebridge host and
-> use the first address shown (the LAN IPv4, not `127.0.0.1`).
-
-## Step 2 — Start the bose-cloud emulator
-
-On your Homebridge host, run:
+On your Homebridge host (Node.js 22 or 24):
 
 ```sh
 node scripts/bose-cloud.mjs
 ```
 
-The emulator starts on port 8000 and logs each request the speaker makes:
+The script starts on port 8000 and logs every request the speaker sends:
 
 ```
 Listening on http://10.0.0.94:8000
@@ -64,55 +45,13 @@ Listening on http://10.0.0.94:8000
   margeServerUrl  → http://10.0.0.94:8000/marge
 ```
 
-> **Timing:** start the emulator before the speaker finishes rebooting, or the
-> speaker will fail its initial cloud check and TuneIn will be unavailable until
-> the next reboot.
-
-The `HOST` environment variable overrides the address used in the BMX registry
-response (useful if your Homebridge host has multiple interfaces):
+Override the advertised address when your host has multiple network interfaces:
 
 ```sh
 HOST=10.0.0.94 node scripts/bose-cloud.mjs
 ```
 
-## Step 3 — Configure presets in Homebridge
-
-Add a `presets` array to your plugin's `global` config block:
-
-```json
-{
-  "platform": "SoundTouchSpeaker",
-  "global": {
-    "presets": [
-      { "type": "station", "slot": 1, "name": "More FM Auckland", "tuneInId": "s7162" },
-      { "type": "station", "slot": 2, "name": "RNZ National",     "tuneInId": "s15720" }
-    ],
-    "presetSyncInterval": 3600000
-  }
-}
-```
-
-| Field | Required | Description |
-| --- | --- | --- |
-| `type` | yes | Must be `"station"` |
-| `slot` | yes | Preset button number (1–6) |
-| `name` | yes | Display name written to the preset |
-| `tuneInId` | yes | TuneIn station ID (e.g. `s7162`) |
-| `imageUrl` | no | Optional station art URL |
-| `presetSyncInterval` | no | How often (ms) to re-write presets; default 3 600 000 (1 hour); `0` = startup only |
-
-At startup the plugin calls `storePreset` on every discovered device for each
-configured slot. The emulator resolves the TuneIn ID to a stream URL at play time.
-
-## Finding TuneIn IDs
-
-Search for a station at [tunein.com](https://tunein.com) and copy the ID from
-the URL: `tunein.com/radio/More-FM-Auckland-s7162/` → `s7162`.
-
-## Running the emulator persistently
-
-To keep the emulator running when you close your terminal, add it as a
-background service. On a systemd host:
+To keep it running as a background service on a systemd host:
 
 ```ini
 # /etc/systemd/system/bose-cloud.service
@@ -133,18 +72,91 @@ WantedBy=multi-user.target
 sudo systemctl enable --now bose-cloud
 ```
 
+## Redirecting the speaker
+
+The speaker must be told to use your local emulator instead of Bose's servers.
+SoundCork's documentation covers the full procedure (including the USB-boot
+method that works without SSH). The short version for SSH-accessible devices:
+
+```sh
+ssh root@<SPEAKER_IP>
+vi /opt/Bose/etc/SoundTouchSdkPrivateCfg.xml
+```
+
+Set `bmxRegistryUrl` and `margeServerUrl` to point at your Homebridge host:
+
+```xml
+<bmxRegistryUrl>http://<HOMEBRIDGE_IP>:8000/bmx/registry/v1/services</bmxRegistryUrl>
+<margeServerUrl>http://<HOMEBRIDGE_IP>:8000/marge</margeServerUrl>
+```
+
+Save and reboot the speaker. This change persists across normal restarts but
+may be overwritten by a firmware update.
+
+> **Note:** start the emulator before the speaker finishes rebooting, or TuneIn
+> will be unavailable until the next reboot.
+
+## Configuring presets in Homebridge
+
+Add a `presets` array and a `server` block to the plugin's `global` config.
+The UI schema does not yet expose these fields — edit the Homebridge
+`config.json` directly:
+
+```json
+{
+  "platform": "SoundTouchSpeaker",
+  "global": {
+    "server": {
+      "enabled": true,
+      "host": "homebridge.local",
+      "port": 8000
+    },
+    "presets": [
+      { "type": "station", "slot": 1, "name": "More FM Auckland", "tuneInId": "s7162" },
+      { "type": "station", "slot": 2, "name": "RNZ National",     "tuneInId": "s15720" }
+    ],
+    "presetSyncSchedule": "0 0 * * *"
+  }
+}
+```
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `server.enabled` | yes | Must be `true` to activate preset sync |
+| `server.host` | no | Hostname/IP where the emulator runs; default `homebridge.local` |
+| `server.port` | no | Port the emulator listens on; default `8000` |
+| `presets[].type` | yes | Must be `"station"` |
+| `presets[].slot` | yes | Preset button number (1–6) |
+| `presets[].name` | yes | Display name written to the preset |
+| `presets[].tuneInId` | yes | TuneIn station ID (e.g. `s7162`) |
+| `presets[].imageUrl` | no | Optional station art URL |
+| `presetSyncSchedule` | no | Cron schedule (`minute hour * * *`); default `0 0 * * *` (midnight daily) |
+
+At startup the plugin writes each configured preset to every discovered device.
+The emulator resolves the TuneIn ID to a stream URL when the preset button is
+pressed.
+
+## Finding TuneIn IDs
+
+Search at [tunein.com](https://tunein.com) and copy the ID from the station
+URL: `tunein.com/radio/More-FM-Auckland-s7162/` → `s7162`.
+
 ## Troubleshooting
 
-**Preset button does nothing / plays a tone and stops**
+**Preset button plays a tone and stops**
 
-- Confirm the emulator is running and reachable: `curl http://<HOST>:8000/bmx/registry/v1/services`
-- Check the emulator logs — the speaker should send a `GET /bmx/tunein/v1/playback/station/<id>` when the button is pressed.
-- If no request arrives, the speaker hasn't been redirected. Re-check the XML and reboot.
+- Confirm the emulator is reachable: `curl http://<HOST>:8000/bmx/registry/v1/services`
+- Check the emulator logs — the speaker should send
+  `GET /bmx/tunein/v1/playback/station/<id>` when the button is pressed.
+- If no request arrives, the speaker was not redirected. Re-check the XML and
+  reboot.
 
 **`Connection refused` on port 8000**
 
-- The emulator is not running, or it started on a different IP. Check with `ss -tlnp | grep 8000`.
+- The emulator is not running, or bound to a different address.
+  Check with `ss -tlnp | grep 8000`.
 
 **Speaker reverted after firmware update**
 
-- A firmware update may restore the original XML. Re-run Step 1 after updating.
+- A firmware update may restore the original XML. Re-apply the redirect after
+  updating.
