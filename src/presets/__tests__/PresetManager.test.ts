@@ -155,5 +155,14 @@ describe('PresetManager', () => {
 
       expect(device.api.storePreset).toHaveBeenCalledTimes(1);
     });
+
+    it('stop is a no-op when called before start', () => {
+      const manager = PresetManager.create({
+        devices: [],
+        stations: new Map(),
+      });
+
+      expect(() => manager.stop()).not.toThrow();
+    });
   });
 });

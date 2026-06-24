@@ -21,6 +21,12 @@ describe('TuneInClient', () => {
     mock.restore();
   });
 
+  describe('.create', () => {
+    it('creates a client with a default axios instance when none is provided', () => {
+      expect(() => TuneInClient.create()).not.toThrow();
+    });
+  });
+
   describe('#resolveStationUrl', () => {
     it('returns the first body url from a successful RadioTime response', async () => {
       mock.onGet(`${OPML_BASE}${TUNE_IN_ID}`).reply(200, {
