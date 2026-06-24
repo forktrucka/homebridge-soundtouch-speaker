@@ -1,6 +1,6 @@
 ---
 feature: Skip reconciliation poll when speaker is offline
-status: planned
+status: done
 date: 2026-06-24
 branch: fix/skip-polling-when-offline
 commit-type: fix
@@ -49,17 +49,19 @@ auto-reconnects every 5 seconds, so when the device comes back online the next
 
 ## Implementation checklist
 
-- [ ] In `_refreshDeviceServices()`, add `if (!this.device.gabbo.isConnected) { this.log.debug('[${this.accessory.displayName}] Offline — skipping reconciliation poll'); continue; }` before the `try`/`refresh()` block
-- [ ] Add test: when `gabbo.isConnected` is `false`, `refresh()` is not called
-- [ ] Add test: when `gabbo.isConnected` is `true`, `refresh()` is called as normal
-- [ ] Run `npm run typecheck && npm run lint && npm test`
+- [x] In `_refreshDeviceServices()`, add `isConnected` guard before the `try`/`refresh()` block
+- [x] Add test: when `gabbo.isConnected` is `false`, `refresh()` is not called
+- [x] Add test: when `gabbo.isConnected` is `true`, `refresh()` is called as normal
+- [x] Run `npm run typecheck && npm run lint && npm test`
 
 ## Verification
 
-- [ ] `npm run typecheck && npm run lint && npm test`
-- [ ] `npm run watch` — take a speaker offline mid-session; confirm no `PollingRefreshFailed` warnings; bring it back and confirm refreshes resume
+- [x] `npm run typecheck && npm run lint && npm test` — 285 tests, all green
+- [x] CI passed on Node 22 and 24 — PR #127 merged to `dev`
+- [ ] `npm run watch` — live speaker test pending
 
 ## PR / release notes
 
 - **PR title:** `fix: skip reconciliation poll when speaker is offline`
 - **Targets:** `dev`
+- **PR:** #127 — merged 2026-06-24
