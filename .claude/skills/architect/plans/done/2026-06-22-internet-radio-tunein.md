@@ -1,6 +1,6 @@
 ---
 feature: Internet radio via TuneIn
-status: in-progress
+status: done
 date: 2026-06-22
 branch: feat/internet-radio-tunein
 commit-type: feat
