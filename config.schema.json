@@ -21,7 +21,8 @@
           },
           "verbose": {
             "type": "boolean",
-            "default": false
+            "default": false,
+            "description": "DEPRECATED — use logLevel: \"debug\" instead."
           },
           "logLevel": {
             "type": "string",
