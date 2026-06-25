@@ -1,3 +1,10 @@
+## [0.4.0-beta.2](https://github.com/forktrucka/homebridge-soundtouch-speaker/compare/v0.4.0-beta.1...v0.4.0-beta.2) (2026-06-25)
+
+### Fixes
+
+* config.schema.json trailing comma crashes Homebridge UI ([#129](https://github.com/forktrucka/homebridge-soundtouch-speaker/issues/129)) ([2cb4bb8](https://github.com/forktrucka/homebridge-soundtouch-speaker/commit/2cb4bb81a6cd777fe2d85e2b7ba248509c3377e7))
+* mark verbose config property as deprecated in schema ([#132](https://github.com/forktrucka/homebridge-soundtouch-speaker/issues/132)) ([a7d6c7d](https://github.com/forktrucka/homebridge-soundtouch-speaker/commit/a7d6c7d429db910ff9a2a2851e3ebaf8cf473586)), closes [#130](https://github.com/forktrucka/homebridge-soundtouch-speaker/issues/130) [#131](https://github.com/forktrucka/homebridge-soundtouch-speaker/issues/131)
+
 ## [0.4.0-beta.1](https://github.com/forktrucka/homebridge-soundtouch-speaker/compare/v0.3.0...v0.4.0-beta.1) (2026-06-25)
 
 ### New Features
