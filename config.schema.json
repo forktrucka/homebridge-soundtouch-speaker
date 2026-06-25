@@ -30,6 +30,9 @@
           "presets": {
             "type": "array",
             "description": "Station presets to push to all speakers when preset sync runs.",
+            "condition": {
+              "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+            },
             "items": {
               "type": "object",
               "properties": {
@@ -62,14 +65,17 @@
           "presetSyncEnabled": {
             "type": "boolean",
             "default": false,
-            "description": "When true, the plugin pushes the configured presets to all speakers on the schedule below."
+            "description": "When true, the plugin pushes the configured presets to all speakers on the schedule below.",
+            "condition": {
+              "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+            }
           },
           "presetSyncSchedule": {
             "type": "string",
             "default": "0 0 * * *",
             "description": "Cron expression controlling when preset sync runs (default: midnight daily).",
             "condition": {
-              "functionBody": "return model.global && model.global.presetSyncEnabled === true"
+              "functionBody": "return model.global && model.global.server && model.global.server.enabled === true && model.global.presetSyncEnabled === true"
             }
           },
           "server": {
@@ -186,7 +192,10 @@
             },
             "presetSyncEnabled": {
               "type": "boolean",
-              "description": "Override preset sync for this speaker. When set, takes precedence over the global setting."
+              "description": "Override preset sync for this speaker. When set, takes precedence over the global setting.",
+              "condition": {
+                "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+              }
             },
             "pollingInterval": {
               "type": "integer",
