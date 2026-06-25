@@ -113,17 +113,19 @@ Each accessory must be matched to a device using either `ip` or `room`. If both 
 * `ip`: The ip address of your device on your network.
 * `port`: The port used to reach the device. Only used with `ip`. __default__: **8090**
 * `room`: Must match exactly the name of the SoundTouch device (as set in the Bose app). Ignored if `ip` is set.
-* `pollingInterval`: Poll this device every interval in milliseconds. Overrides the global value.
 * `accessoryType`: Override the HomeKit accessory type for this speaker — `switch` or `lightbulb`. Overrides the global value.
+* `disabled`: When `true`, removes this speaker from HomeKit without deleting the config entry. Set back to `false` to re-register. __default__: **false**
+* `pollingInterval`: ~~Deprecated — no longer used and can be removed from your config.~~
 
 
 ### Global element
 Default configuration applied to all accessories. Any value here can be overridden per accessory.
 
 *Optional fields*
-* `verbose`: Log all device information __default__: **false**
-* `pollingInterval`: Poll each device every interval in milliseconds __default__: **2000**
+* `logLevel`: Minimum log level written to the Homebridge console — `debug`, `info`, `warn`, or `error`. __default__: **info**
 * `accessoryType`: HomeKit accessory type for all speakers — `switch` (default) or `lightbulb`. The `lightbulb` type exposes volume via the Brightness characteristic. __default__: **switch**
+* `verbose`: ~~Deprecated — use `logLevel: "debug"` instead.~~
+* `pollingInterval`: ~~Deprecated — no longer used and can be removed from your config.~~
 
 ## References
 * [SoundTouch Web API](https://assets.bosecreative.com/m/496577402d128874/original/SoundTouch-Web-API.pdf) — Bose's official API specification this plugin is built against.
