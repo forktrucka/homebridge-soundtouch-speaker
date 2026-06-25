@@ -12,7 +12,9 @@ import { describe, expect, it } from '@jest/globals';
 import { API } from '../devices/SoundTouch/api/api.js';
 import { KeyValue } from '../devices/SoundTouch/api/special-types.js';
 
-const SPEAKER_IP = process.env.SPEAKER_IP ?? '10.0.0.36';
+const SPEAKER_IP = process.env.SPEAKER_IP;
+if (!SPEAKER_IP)
+  throw new Error('SPEAKER_IP must be set in .env to run device tests');
 const TUNE_IN_ID = 's87086'; // The Hits Auckland
 const TEST_SLOT = 2;
 const TIMEOUT = 30_000;
