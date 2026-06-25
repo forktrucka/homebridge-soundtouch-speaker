@@ -19,7 +19,7 @@ interface StationPresetConfig {
 
 export type PresetConfig = StationPresetConfig;
 
-export interface ServerConfig {
+interface ServerConfig {
   readonly enabled?: boolean;
   readonly host?: string;
   readonly port?: number;

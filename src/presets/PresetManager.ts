@@ -1,4 +1,5 @@
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
+import { Logger } from '../utils/FormattedLogger.js';
 import { PresetStation } from './PresetStation.js';
 
 export class PresetManager {
@@ -6,14 +7,16 @@ export class PresetManager {
 
   private constructor(
     private readonly devices: SoundTouchDevice[],
-    private readonly stations: Map<number, PresetStation>
+    private readonly stations: Map<number, PresetStation>,
+    private readonly logger?: Logger
   ) {}
 
   static create(props: {
     devices: SoundTouchDevice[];
     stations: Map<number, PresetStation>;
+    logger?: Logger;
   }): PresetManager {
-    return new PresetManager(props.devices, props.stations);
+    return new PresetManager(props.devices, props.stations, props.logger);
   }
 
   async sync(): Promise<void> {
@@ -33,6 +36,9 @@ export class PresetManager {
         await Promise.all(
           this.devices.map(async (device) => {
             try {
+              this.logger?.debug(
+                `[Presets] Pushing slot ${slot} (${station.data.name}) to ${device.name}`
+              );
               await device.api.storePreset(slot, contentItem);
             } catch {
               // Failure on one device does not abort others

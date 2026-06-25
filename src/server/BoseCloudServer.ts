@@ -53,7 +53,7 @@ export class BoseCloudServer {
     return new Promise((resolve, reject) => {
       this._server = createServer((req, res) => {
         this._handleRequest(req, res).catch((err: unknown) => {
-          this.logger.error('[BoseCloud] Handler error', err);
+          this.logger.error('[FakeBoseCloud] Handler error', err);
           if (!res.headersSent) {
             res.writeHead(500);
             res.end();
@@ -63,7 +63,7 @@ export class BoseCloudServer {
       this._server.listen(this.port, () => {
         const addr = this.address();
         this.logger.info(
-          `[BoseCloud] Listening on http://${this.host}:${addr?.port ?? this.port}`
+          `[FakeBoseCloudServer] Listening on http://${this.host}:${addr?.port ?? this.port}`
         );
         resolve();
       });
@@ -96,7 +96,9 @@ export class BoseCloudServer {
   private _buildBmxServices(): object {
     const base = this._baseUrl;
     return {
-      _links: { bmx_services_availability: { href: '../servicesAvailability' } },
+      _links: {
+        bmx_services_availability: { href: '../servicesAvailability' },
+      },
       askAgainAfter: 1230482,
       bmx_services: [
         {
@@ -186,7 +188,9 @@ export class BoseCloudServer {
     res: ServerResponse
   ): Promise<void> {
     const url = req.url?.split('?')[0] ?? '/';
-    this.logger.debug(`[BoseCloud] ${req.method} ${req.url}`);
+    this.logger.debug(
+      `[FakeBoseCloudServer] ${req.socket.remoteAddress} ${req.method} ${req.url}`
+    );
 
     if (req.method === 'GET' && url === '/bmx/registry/v1/services') {
       const body = JSON.stringify(this._buildBmxServices());
@@ -207,7 +211,9 @@ export class BoseCloudServer {
       return;
     }
 
-    const tuneInMatch = url.match(/^\/bmx\/tunein\/v1\/playback\/station\/(.+)$/);
+    const tuneInMatch = url.match(
+      /^\/bmx\/tunein\/v1\/playback\/station\/(.+)$/
+    );
     if (req.method === 'GET' && tuneInMatch) {
       try {
         const payload = await this._resolveTuneIn(tuneInMatch[1]);
@@ -218,7 +224,7 @@ export class BoseCloudServer {
         });
         res.end(body);
       } catch (err) {
-        this.logger.error('[BoseCloud] TuneIn resolve error', err);
+        this.logger.error('[FakeBoseCloudServer] TuneIn resolve error', err);
         res.writeHead(502);
         res.end('Bad Gateway');
       }

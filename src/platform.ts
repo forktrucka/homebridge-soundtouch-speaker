@@ -237,7 +237,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       await server.start();
       this._boseCloudServer = server;
     } catch (e: unknown) {
-      this.logger.error('[BoseCloud] Failed to start server', e);
+      this.logger.error('[FakeBoseCloudServer] Failed to start server', e);
     }
   }
 
@@ -267,6 +267,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     const presetManager = PresetManager.create({
       devices: this._discoveredDevices,
       stations,
+      logger: this.logger,
     });
 
     this._presetManager = presetManager;

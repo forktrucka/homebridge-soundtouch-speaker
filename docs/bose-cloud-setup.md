@@ -87,7 +87,7 @@ Search at [tunein.com](https://tunein.com) and copy the ID from the URL:
 
 **Preset button plays a tone and stops**
 
-- Check the Homebridge log for `[BoseCloud] Listening on…` — the server must
+- Check the Homebridge log for `[FakeBoseCloudServer] Listening on…` — the server must
   be running.
 - Confirm the speaker was uncorked: `curl http://homebridge.local:8000/bmx/registry/v1/services`
   should return JSON. If it doesn't, re-check the XML on the speaker and reboot.
