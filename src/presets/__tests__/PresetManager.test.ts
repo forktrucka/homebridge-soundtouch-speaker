@@ -17,10 +17,20 @@ function makeStation(
   return PresetStation.fromConfig({ slot, name, tuneInId });
 }
 
-function makeDevice(storePresetImpl?: () => Promise<boolean>) {
+function makeDevice(
+  storePresetImpl?: () => Promise<boolean>,
+  sources: string[] = ['TUNEIN']
+) {
   return {
+    name: 'Test Device',
     api: {
       storePreset: jest.fn(storePresetImpl ?? (() => Promise.resolve(true))),
+      getSources: jest.fn(() =>
+        Promise.resolve({
+          deviceId: 'TEST',
+          items: sources.map((source) => ({ source })),
+        })
+      ),
     },
   } as unknown as import('../../devices/SoundTouch/SoundTouchDevice.js').SoundTouchDevice;
 }
@@ -67,6 +77,16 @@ describe('PresetManager', () => {
 
       expect(device1.api.storePreset).toHaveBeenCalledTimes(1);
       expect(device2.api.storePreset).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips a device when the required source is not available', async () => {
+      const device = makeDevice(undefined, []);
+      const stations = new Map([[1, makeStation(1)]]);
+      const manager = PresetManager.create({ devices: [device], stations });
+
+      await manager.sync();
+
+      expect(device.api.storePreset).not.toHaveBeenCalled();
     });
 
     it('does not abort other slots when one storePreset call fails', async () => {

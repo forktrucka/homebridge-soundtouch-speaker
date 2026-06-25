@@ -23,28 +23,43 @@ export class PresetManager {
     const slotEntries = Array.from(this.stations.entries());
 
     await Promise.all(
-      slotEntries.map(async ([slot, station]) => {
-        const contentItem = {
-          source: 'TUNEIN',
-          sourceAccount: '',
-          type: 'stationurl',
-          isPresetable: true,
-          location: `/v1/playback/station/${station.data.tuneInId}`,
-          itemName: station.data.name,
-        };
+      this.devices.map(async (device) => {
+        try {
+          const sources = await device.api.getSources();
+          const availableSources = new Set(
+            sources?.items.map((s) => s.source) ?? []
+          );
 
-        await Promise.all(
-          this.devices.map(async (device) => {
-            try {
-              this.logger?.debug(
-                `[Presets] Pushing slot ${slot} (${station.data.name}) to ${device.name}`
-              );
-              await device.api.storePreset(slot, contentItem);
-            } catch {
-              // Failure on one device does not abort others
-            }
-          })
-        );
+          await Promise.all(
+            slotEntries.map(async ([slot, station]) => {
+              const source = 'TUNEIN';
+              if (!availableSources.has(source)) {
+                this.logger?.warn(
+                  `[Presets] ${device.name} does not support ${source} — skipping slot ${slot} (${station.data.name})`
+                );
+                return;
+              }
+              const contentItem = {
+                source,
+                sourceAccount: '',
+                type: 'stationurl',
+                isPresetable: true,
+                location: `/v1/playback/station/${station.data.tuneInId}`,
+                itemName: station.data.name,
+              };
+              try {
+                this.logger?.debug(
+                  `[Presets] Pushing slot ${slot} (${station.data.name}) to ${device.name}`
+                );
+                await device.api.storePreset(slot, contentItem);
+              } catch {
+                // Failure on one slot does not abort others
+              }
+            })
+          );
+        } catch {
+          // Failure on one device does not abort others
+        }
       })
     );
   }
