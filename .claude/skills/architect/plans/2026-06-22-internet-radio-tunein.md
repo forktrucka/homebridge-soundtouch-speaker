@@ -89,6 +89,7 @@ is a future concern.
 | 2026-06-23 | Speaker setup (SSH to edit `SoundTouchSdkPrivateCfg.xml`) is a **one-time manual step** — the plugin does not automate it | The plugin has no SSH capability and cannot reach the speaker's firmware files over the SoundTouch HTTP API. Documented in the README/bose-cloud script header. | Plugin-side automation — not possible without SSH access |
 | 2026-06-23 | `PresetStation` no longer stores a resolved stream URL | Resolution happens at play time inside `bose-cloud.mjs`; the preset only needs the TuneIn ID, name, slot, and optional image URL | Keeping `resolvedStreamUrl` — now unused; keeping dead fields causes confusion |
 | 2026-06-23 | **Licensing research task added** — soundcork and this plugin | soundcork (`timvw/soundcork`) was reviewed during design; `bose-cloud.mjs` independently reimplements the same BMX emulation concept. Must confirm: soundcork's licence, whether derived-work obligations apply, and whether attribution notices are required in this repo. | Skipping — incomplete due diligence; soundcork may be GPL or carry other conditions |
+| 2026-06-25 | `presetSyncEnabled` added at global level (`global.presetSyncEnabled`) and per-device level (`accessories[n].presetSyncEnabled`); both default `true`; both hidden from Homebridge UI (not in `config.schema.json`) | Global flag short-circuits `_setupPresets()` entirely; per-device flag filters the device list passed to `PresetManager`. Same hidden-field convention as `presets`, `presetSyncSchedule`, `server`. | Separate field names at each level — rejected as unnecessary indirection; per-device opt-out inside `PresetManager` only — rejected because it still creates a `PresetManager` and fires network calls |
 
 ## If cancelled
 
@@ -268,6 +269,15 @@ is a future concern.
 ### CI / device tests
 
 - [x] `jest.config.ts` — device test project gated behind `process.env.CI`.
+
+### presetSyncEnabled flags
+
+- [ ] `src/ExternalPlatformConfig.ts` — add `presetSyncEnabled?: boolean` to `GlobalConfig` (inherited by `AccessoryConfig`)
+- [ ] `src/PlatformConfiguration.ts` — add `presetSyncEnabled: boolean` (default `true`); read from `props.global?.presetSyncEnabled ?? true`
+- [ ] `src/devices/SoundTouch/SoundTouchDeviceConfiguration.ts` — add `presetSyncEnabled: boolean` (default `true`); wire through `fromAccessoryConfiguration` and `create`
+- [ ] `src/platform.ts` `_setupPresets()` — bail early if `this.configuration.presetSyncEnabled === false`; filter `this._discoveredDevices` by `device.configuration.presetSyncEnabled !== false`
+- [ ] `src/__tests__/PlatformConfiguration.test.ts` — test global flag defaults to `true`; test `false` preserved
+- [ ] `src/devices/SoundTouch/__tests__/SoundTouchDeviceConfiguration.test.ts` — test per-device flag defaults to `true`; test `false` from config
 
 ## Verification
 

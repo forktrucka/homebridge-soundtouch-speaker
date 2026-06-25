@@ -14,6 +14,7 @@ const DEFAULT_LOG_LEVEL = LogLevel.INFO;
 const DEFAULT_PRESET_SYNC_SCHEDULE = '0 0 * * *'; // midnight daily
 const DEFAULT_SERVER_HOST = 'homebridge.local';
 const DEFAULT_SERVER_PORT = 8000;
+const DEFAULT_PRESET_SYNC_ENABLED = false;
 
 function resolveLogLevel(
   logLevel?: 'debug' | 'info' | 'warn' | 'error',
@@ -107,6 +108,7 @@ export class PlatformConfiguration {
   serverPort: number;
   presets: PresetConfig[];
   presetSyncSchedule: string;
+  presetSyncEnabled: boolean;
 
   private constructor(props: {
     name: string;
@@ -119,6 +121,7 @@ export class PlatformConfiguration {
     serverPort: number;
     presets: PresetConfig[];
     presetSyncSchedule: string;
+    presetSyncEnabled: boolean;
   }) {
     this.name = props.name;
     this.discoverAllAccessories = props.discoverAllAccessories;
@@ -130,6 +133,7 @@ export class PlatformConfiguration {
     this.serverPort = props.serverPort;
     this.presets = props.presets;
     this.presetSyncSchedule = props.presetSyncSchedule;
+    this.presetSyncEnabled = props.presetSyncEnabled;
   }
 
   toJson() {
@@ -184,6 +188,8 @@ export class PlatformConfiguration {
       presets,
       presetSyncSchedule:
         props.global?.presetSyncSchedule ?? DEFAULT_PRESET_SYNC_SCHEDULE,
+      presetSyncEnabled:
+        props.global?.presetSyncEnabled ?? DEFAULT_PRESET_SYNC_ENABLED,
     });
   }
 }

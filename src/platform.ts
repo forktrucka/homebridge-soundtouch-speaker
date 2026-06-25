@@ -242,7 +242,12 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   }
 
   private async _setupPresets(): Promise<void> {
-    const { presets, presetSyncSchedule } = this.configuration;
+    const { presets, presetSyncSchedule, presetSyncEnabled } =
+      this.configuration;
+
+    if (!presetSyncEnabled) {
+      return;
+    }
 
     if (!presets || presets.length === 0) {
       return;
@@ -264,8 +269,19 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       return;
     }
 
+    const syncableDevices = this._discoveredDevices.filter(
+      (d) => d.configuration.presetSyncEnabled !== false
+    );
+
+    if (syncableDevices.length === 0) {
+      this.logger.debug(
+        '[Presets] No devices have presetSyncEnabled — skipping'
+      );
+      return;
+    }
+
     const presetManager = PresetManager.create({
-      devices: this._discoveredDevices,
+      devices: syncableDevices,
       stations,
       logger: this.logger,
     });

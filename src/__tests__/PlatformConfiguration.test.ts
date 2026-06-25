@@ -383,6 +383,23 @@ describe('PlatformConfiguration', () => {
       expect(config.presetSyncSchedule).toBe('30 6 * * *');
     });
 
+    it('presetSyncEnabled defaults to false when absent', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.presetSyncEnabled).toBe(false);
+    });
+
+    it('presetSyncEnabled uses provided global.presetSyncEnabled', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        global: { presetSyncEnabled: true },
+      });
+
+      expect(config.presetSyncEnabled).toBe(true);
+    });
+
     it('returns empty presets array when no presets configured', () => {
       const config = PlatformConfiguration.fromExternalConfiguration({
         platform: PLATFORM_NAME,

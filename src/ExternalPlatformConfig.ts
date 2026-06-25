@@ -31,6 +31,7 @@ interface GlobalConfig extends BaseGlobalConfig {
   readonly server?: ServerConfig;
   readonly presets?: PresetConfig[];
   readonly presetSyncSchedule?: string;
+  readonly presetSyncEnabled?: boolean;
 }
 
 export interface AccessoryConfig extends GlobalConfig {
