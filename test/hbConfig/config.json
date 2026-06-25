@@ -27,7 +27,15 @@
       "platform": "SoundTouchHomebridgePlugin",
       "discoverAllAccessories": true,
       "global": {
-        "verbose": true
+        "verbose": true,
+        "presets": [
+          {
+            "type": "station",
+            "slot": 1,
+            "name": "More FM Auckland",
+            "tuneInId": "s7162"
+          }
+        ]
       },
       "accessories": [
         {

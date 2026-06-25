@@ -95,6 +95,19 @@ describe('DeviceConfiguration', () => {
       });
       expect(config.accessoryType).toBe('lightbulb');
     });
+
+    it('defaults presetSyncEnabled to false', () => {
+      const config = DeviceConfiguration.create({ name: 'Office' });
+      expect(config.presetSyncEnabled).toBe(false);
+    });
+
+    it('uses provided presetSyncEnabled', () => {
+      const config = DeviceConfiguration.create({
+        name: 'Office',
+        presetSyncEnabled: true,
+      });
+      expect(config.presetSyncEnabled).toBe(true);
+    });
   });
 
   describe('fromAccessoryConfiguration', () => {
@@ -176,6 +189,30 @@ describe('DeviceConfiguration', () => {
         accessoryConfig: { room: 'Lounge', accessoryType: 'lightbulb' },
       });
       expect(config?.accessoryType).toBe('lightbulb');
+    });
+
+    it('defaults presetSyncEnabled to false when not in accessoryConfig', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Kitchen',
+        accessoryConfig: { ip: '10.0.0.1' },
+      });
+      expect(config?.presetSyncEnabled).toBe(false);
+    });
+
+    it('threads presetSyncEnabled from accessoryConfig (ip path)', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Kitchen',
+        accessoryConfig: { ip: '10.0.0.1', presetSyncEnabled: true },
+      });
+      expect(config?.presetSyncEnabled).toBe(true);
+    });
+
+    it('threads presetSyncEnabled from accessoryConfig (room path)', () => {
+      const config = DeviceConfiguration.fromAccessoryConfiguration({
+        name: 'Lounge',
+        accessoryConfig: { room: 'Lounge', presetSyncEnabled: true },
+      });
+      expect(config?.presetSyncEnabled).toBe(true);
     });
   });
 

@@ -4,6 +4,7 @@ import { XMLElement } from './utils/index.js';
 export interface ContentItem {
   readonly source: string;
   readonly sourceAccount: string;
+  readonly type?: string;
   readonly isPresetable?: boolean;
   readonly location?: string;
   readonly itemName?: string;
@@ -35,6 +36,9 @@ export function contentItemToElement(contentItem: ContentItem): XMLElement {
       sourceAccount: contentItem.sourceAccount,
     },
   };
+  if (contentItem.type !== undefined) {
+    data.$.type = contentItem.type;
+  }
   if (contentItem.isPresetable !== undefined) {
     data.$.isPresetable = contentItem.isPresetable;
   }

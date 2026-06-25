@@ -14,6 +14,8 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { Logger } from './utils/FormattedLogger.js';
 import { PlatformConfiguration } from './PlatformConfiguration.js';
 import { AppError } from './errors.js';
+import { PresetManager, PresetStation } from './presets/index.js';
+import { BoseCloudServer } from './server/BoseCloudServer.js';
 
 export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly service: typeof Service;
@@ -28,6 +30,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     SoundTouchSpeakerPlatformAccessory
   > = new Map();
   private readonly _discoveredCacheUUIDs: string[] = [];
+  private readonly _discoveredDevices: SoundTouchDevice[] = [];
+
+  private _presetManager: PresetManager | undefined;
+  private _boseCloudServer: BoseCloudServer | undefined;
 
   constructor(
     homebridgeLogger: Logging,
@@ -38,8 +44,11 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     this.service = this.api.hap.Service;
     this.characteristic = this.api.hap.Characteristic;
 
-    this.configuration =
-      PlatformConfiguration.fromExternalConfiguration(homebridgeConfig);
+    this.configuration = PlatformConfiguration.fromExternalConfiguration(
+      homebridgeConfig,
+      // Logger not yet initialised at this point; warnings emitted after logger is ready
+      undefined
+    );
 
     this.logger = Logger.forHomebridgeLogger({
       logger: homebridgeLogger,
@@ -55,6 +64,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this.logger.debug('Started didFinishLaunching callback');
       this.logNetworkInterfaces();
       await this.discoverDevices();
+      if (this.configuration.serverEnabled) {
+        await this._startBoseCloudServer();
+        await this._setupPresets();
+      }
       this.logger.debug('Finished didFinishLaunching callback');
     });
 
@@ -63,14 +76,21 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       for (const wrapper of this._accessoryWrappers.values()) {
         wrapper.stopPolling();
       }
+      if (this._presetManager) {
+        this._presetManager.stop();
+      }
+      if (this._boseCloudServer) {
+        this._boseCloudServer.stop().catch(() => undefined);
+      }
     });
   }
 
   private logNetworkInterfaces() {
-    const addresses = Object.entries(networkInterfaces()).flatMap(([iface, infos]) =>
-      (infos ?? [])
-        .filter((i) => i.family === 'IPv4' && !i.internal)
-        .map((i) => `${iface}: ${i.address}`)
+    const addresses = Object.entries(networkInterfaces()).flatMap(
+      ([iface, infos]) =>
+        (infos ?? [])
+          .filter((i) => i.family === 'IPv4' && !i.internal)
+          .map((i) => `${iface}: ${i.address}`)
     );
     this.logger.info(
       'Network interfaces:',
@@ -115,7 +135,13 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         return [result.value];
       }
       const name = enabledAccessories[index]?.name ?? '(unknown)';
-      this.logger.error(AppError.create({ name: 'LoadAccessoryFailed', accessory: name, cause: result.reason }));
+      this.logger.error(
+        AppError.create({
+          name: 'LoadAccessoryFailed',
+          accessory: name,
+          cause: result.reason,
+        })
+      );
       return [];
     });
   }
@@ -127,7 +153,9 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     try {
       accessories = await this.searchDevices();
     } catch (e: unknown) {
-      this.logger.error(AppError.create({ name: 'DeviceDiscoveryFailed', cause: e }));
+      this.logger.error(
+        AppError.create({ name: 'DeviceDiscoveryFailed', cause: e })
+      );
       return;
     }
 
@@ -171,6 +199,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         }
 
         this._discoveredCacheUUIDs.push(uuid);
+        this._discoveredDevices.push(device);
       } catch (e: unknown) {
         this.logger.error(`Failed to initialise accessory: ${device.name}`, e);
       }
@@ -196,5 +225,68 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         ]);
       }
     }
+  }
+
+  private async _startBoseCloudServer(): Promise<void> {
+    const server = BoseCloudServer.create({
+      host: this.configuration.serverHost,
+      port: this.configuration.serverPort,
+      logger: this.logger,
+    });
+    try {
+      await server.start();
+      this._boseCloudServer = server;
+    } catch (e: unknown) {
+      this.logger.error('[FakeBoseCloudServer] Failed to start server', e);
+    }
+  }
+
+  private async _setupPresets(): Promise<void> {
+    const { presets, presetSyncSchedule, presetSyncEnabled } =
+      this.configuration;
+
+    if (!presetSyncEnabled) {
+      return;
+    }
+
+    if (!presets || presets.length === 0) {
+      return;
+    }
+
+    const stations = new Map<number, PresetStation>();
+
+    for (const preset of presets) {
+      if (preset.type !== 'station') {
+        continue;
+      }
+      stations.set(preset.slot, PresetStation.fromConfig(preset));
+    }
+
+    if (stations.size === 0) {
+      this.logger.warn(
+        '[Presets] No stations could be resolved — skipping preset sync'
+      );
+      return;
+    }
+
+    const syncableDevices = this._discoveredDevices.filter(
+      (d) => d.configuration.presetSyncEnabled !== false
+    );
+
+    if (syncableDevices.length === 0) {
+      this.logger.debug(
+        '[Presets] No devices have presetSyncEnabled — skipping'
+      );
+      return;
+    }
+
+    const presetManager = PresetManager.create({
+      devices: syncableDevices,
+      stations,
+      logger: this.logger,
+    });
+
+    this._presetManager = presetManager;
+    presetManager.start(presetSyncSchedule);
   }
 }

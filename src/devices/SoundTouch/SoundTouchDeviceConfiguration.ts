@@ -3,6 +3,7 @@ import { AccessoryConfig } from '../../ExternalPlatformConfig.js';
 const DEFAULT_POLLING_INTERVAL = 0; // deprecated — reconciliation polling is now internal and fixed
 const DEFAULT_VERBOSE_LOGGING = false;
 const DEFAULT_ACCESSORY_TYPE = 'switch' as const;
+const DEFAULT_PRESET_SYNC_ENABLED = false;
 
 export type AccessoryType = 'switch' | 'lightbulb';
 
@@ -12,6 +13,7 @@ interface BaseDeviceConfiguration {
   verbose?: boolean;
   accessoryType?: AccessoryType;
   disabled?: boolean;
+  presetSyncEnabled?: boolean;
 }
 
 interface DeviceViaRoomConfigurationProps extends BaseDeviceConfiguration {
@@ -35,6 +37,7 @@ export class DeviceConfiguration {
   readonly verboseLogging: boolean;
   readonly accessoryType: AccessoryType;
   readonly disabled: boolean;
+  readonly presetSyncEnabled: boolean;
 
   private constructor(props: {
     type: 'room' | 'ip' | 'discovered';
@@ -46,6 +49,7 @@ export class DeviceConfiguration {
     verboseLogging?: boolean;
     accessoryType?: AccessoryType;
     disabled?: boolean;
+    presetSyncEnabled?: boolean;
   }) {
     this.type = props.type;
     this.name = props.name;
@@ -53,6 +57,8 @@ export class DeviceConfiguration {
     this.pollingInterval = props.pollingInterval ?? DEFAULT_POLLING_INTERVAL;
     this.accessoryType = props.accessoryType ?? DEFAULT_ACCESSORY_TYPE;
     this.disabled = props.disabled ?? false;
+    this.presetSyncEnabled =
+      props.presetSyncEnabled ?? DEFAULT_PRESET_SYNC_ENABLED;
 
     if (props.type === 'room') {
       this.room = props.room;
@@ -87,6 +93,7 @@ export class DeviceConfiguration {
         pollingInterval: props.accessoryConfig.pollingInterval,
         accessoryType: props.accessoryConfig.accessoryType,
         disabled: props.accessoryConfig.disabled,
+        presetSyncEnabled: props.accessoryConfig.presetSyncEnabled,
       });
     } else if (props.accessoryConfig?.room) {
       return DeviceConfiguration.createForRoom({
@@ -95,6 +102,7 @@ export class DeviceConfiguration {
         pollingInterval: props.accessoryConfig.pollingInterval,
         accessoryType: props.accessoryConfig.accessoryType,
         disabled: props.accessoryConfig.disabled,
+        presetSyncEnabled: props.accessoryConfig.presetSyncEnabled,
       });
     }
     return undefined;
@@ -106,12 +114,14 @@ export class DeviceConfiguration {
     pollingInterval,
     accessoryType,
     disabled,
+    presetSyncEnabled,
   }: {
     name?: string;
     verboseLogging?: boolean;
     pollingInterval?: number;
     accessoryType?: AccessoryType;
     disabled?: boolean;
+    presetSyncEnabled?: boolean;
   }) {
     return new DeviceConfiguration({
       name,
@@ -119,6 +129,7 @@ export class DeviceConfiguration {
       pollingInterval,
       accessoryType,
       disabled,
+      presetSyncEnabled,
       type: 'discovered',
     });
   }

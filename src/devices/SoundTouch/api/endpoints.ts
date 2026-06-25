@@ -13,6 +13,7 @@ export enum Endpoints {
   bassCapabilities = 'bassCapabilities',
   bass = 'bass',
   presets = 'presets',
+  storePreset = 'storePreset',
   name = 'name',
   getGroup = 'getGroup',
 }

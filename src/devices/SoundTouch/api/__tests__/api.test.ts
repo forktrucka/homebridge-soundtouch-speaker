@@ -300,6 +300,39 @@ describe('API', () => {
     });
   });
 
+  describe('storePreset', () => {
+    it('posts a preset with the correct slot id and ContentItem', async () => {
+      mock
+        .onPost(`${BASE}/storePreset`)
+        .reply(200, '<status>/storePreset</status>');
+
+      const contentItem = {
+        source: 'LOCAL_INTERNET_RADIO',
+        sourceAccount: '',
+        type: 'stationurl',
+        isPresetable: true,
+        location: 'http://192.168.1.1:18090/preset/2.json',
+        itemName: 'BBC World Service',
+      };
+
+      await expect(api.storePreset(2, contentItem)).resolves.toBe(true);
+      const body = mock.history.post[0].data;
+      expect(body).toContain('id="2"');
+      expect(body).toContain('source="LOCAL_INTERNET_RADIO"');
+      expect(body).toContain('type="stationurl"');
+      expect(body).toContain('isPresetable="true"');
+      expect(body).toContain('location="http://192.168.1.1:18090/preset/2.json"');
+    });
+
+    it('returns false when the response contains no status element', async () => {
+      mock.onPost(`${BASE}/storePreset`).reply(200, '<nope/>');
+
+      await expect(
+        api.storePreset(1, { source: 'LOCAL_INTERNET_RADIO', sourceAccount: '' })
+      ).resolves.toBe(false);
+    });
+  });
+
   describe('group', () => {
     it('parses the active group', async () => {
       mock

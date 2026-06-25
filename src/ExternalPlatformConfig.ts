@@ -9,9 +9,29 @@ interface BaseGlobalConfig {
   readonly logLevel?: 'debug' | 'info' | 'warn' | 'error';
 }
 
+interface StationPresetConfig {
+  readonly type: 'station';
+  readonly slot: number;
+  readonly name: string;
+  readonly tuneInId: string;
+  readonly imageUrl?: string;
+}
+
+export type PresetConfig = StationPresetConfig;
+
+interface ServerConfig {
+  readonly enabled?: boolean;
+  readonly host?: string;
+  readonly port?: number;
+}
+
 interface GlobalConfig extends BaseGlobalConfig {
   readonly pollingInterval?: number;
   readonly accessoryType?: 'switch' | 'lightbulb';
+  readonly server?: ServerConfig;
+  readonly presets?: PresetConfig[];
+  readonly presetSyncSchedule?: string;
+  readonly presetSyncEnabled?: boolean;
 }
 
 export interface AccessoryConfig extends GlobalConfig {
@@ -26,6 +46,7 @@ export interface ExternalPlatformConfig extends BasePlatformConfig {
   readonly discoverAllAccessories?: boolean;
   readonly accessories?: AccessoryConfig[];
   readonly global?: GlobalConfig;
+  readonly presets?: PresetConfig[];
 }
 
 export function flattenAccessoryConfiguration(props: {

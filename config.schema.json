@@ -34,7 +34,7 @@
             "enum": ["switch", "lightbulb"],
             "default": "switch",
             "description": "Default HomeKit accessory type for all speakers. 'lightbulb' exposes volume via Brightness."
-          }
+          },
         }
       },
       "accessories": {
