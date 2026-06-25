@@ -35,6 +35,7 @@
     "test": "jest",
     "test:unit": "jest --selectProjects unit",
     "test:integration": "jest --selectProjects integration",
+    "test:device": "DEVICE_TESTS=1 jest --selectProjects device",
     "test:ci": "jest --ci",
     "test:impacted": "jest --ci --changedSince=origin/${BASE_REF:-dev} --passWithNoTests --coverage=false",
     "knip": "knip",
