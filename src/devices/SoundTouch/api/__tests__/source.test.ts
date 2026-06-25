@@ -45,9 +45,11 @@ describe('sourceFromElement', () => {
     expect(sourceFromElement(el)).toBeUndefined();
   });
 
-  it('returns undefined when the name text is missing', () => {
-    const el = new XMLElement({ $: { source: 'AUX', status: 'READY' } });
-    expect(sourceFromElement(el)).toBeUndefined();
+  it('falls back to source attribute as name when text content is absent', () => {
+    const el = new XMLElement({ $: { source: 'TUNEIN', status: 'READY' } });
+    expect(sourceFromElement(el)).toEqual(
+      expect.objectContaining({ source: 'TUNEIN', name: 'TUNEIN' })
+    );
   });
 });
 

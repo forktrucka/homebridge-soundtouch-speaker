@@ -19,12 +19,12 @@ export function sourceFromElement(element: XMLElement): Source | undefined {
   if (!element.hasAttributes(['source', 'status'])) {
     return undefined;
   }
-  const name = element.getText();
   const source = element.getAttribute('source');
   const status = element.getAttribute('status');
-  if (!source || !status || !name) {
+  if (!source || !status) {
     return undefined;
   }
+  const name = element.getText() || source;
   return {
     source,
     name,
