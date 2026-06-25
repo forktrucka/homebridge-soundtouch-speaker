@@ -39,6 +39,7 @@
     "test:ci": "jest --ci",
     "test:impacted": "jest --ci --changedSince=origin/${BASE_REF:-dev} --passWithNoTests --coverage=false",
     "knip": "knip",
+    "validate:schema": "node -e \"JSON.parse(require('fs').readFileSync('config.schema.json', 'utf8'))\"",
     "prepare": "husky"
   },
   "devDependencies": {
