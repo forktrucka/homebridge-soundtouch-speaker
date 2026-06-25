@@ -1,6 +1,6 @@
 /**
  * Live device test — not part of the normal test suite.
- * Run with: npx jest --selectProjects device --coverage=false
+are  * Run with: npx jest --selectProjects device --coverage=false
  *
  * Requires a speaker with TUNEIN in its /sources and a running bose-cloud.mjs
  * (or soundcork) so the speaker can resolve the TuneIn station at play time.
@@ -24,6 +24,13 @@ describe('TUNEIN preset — live speaker', () => {
     'stores a TUNEIN preset and plays it via key press',
     async () => {
       const api = API.create(SPEAKER_IP);
+
+      const sources = await api.getSources();
+      const hasTuneIn = sources?.items.some((s) => s.source === 'TUNEIN');
+      if (!hasTuneIn)
+        throw new Error(
+          'TUNEIN source not available on this speaker — check /sources'
+        );
 
       const stored = await api.storePreset(TEST_SLOT, {
         source: 'TUNEIN',
