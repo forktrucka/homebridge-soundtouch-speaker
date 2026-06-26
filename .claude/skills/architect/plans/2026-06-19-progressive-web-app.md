@@ -18,9 +18,11 @@ speaker zones and push new Homebridge plugin config (e.g. groups, device IPs)
 without editing JSON by hand.
 
 This is architecturally distinct from the Homebridge plugin — it's a setup/
-management tool, not a HomeKit control path. It likely lives as a new `web/`
-workspace in this repo (or a separate repo), served either from GitHub Pages or
-from a lightweight HTTP server embedded in the plugin.
+management tool, not a HomeKit control path. It lives as a new `web/` npm
+workspace in this repo, built with **Vite + Svelte 5** and served by an embedded
+**hapi** server inside the plugin (see the 2026-06-26 rows in Decisions). State
+uses a **flux** model (Svelte stores + an `actions` module); development gets
+**HMR** via a separate Vite dev server that proxies `/api` to hapi.
 
 ## Decisions & findings
 
@@ -40,6 +42,12 @@ from a lightweight HTTP server embedded in the plugin.
 | 2026-06-19 | Phase 3 (Homebridge config sync) requires an HTTP API endpoint exposed by the plugin | The Homebridge Config UI handles plugin settings via `config.schema.json` in-process; direct config edits need `api.user.storagePath()` and must not race Homebridge's own write | Writing config outside Homebridge storage dir — violates verified-plugin rules |
 | 2026-06-19 | PWA must work offline during the provisioning flow | During setup the phone is on the speaker's hotspot, not the home network — the PWA cannot reach the internet or the Homebridge host | Server-side-rendered app that requires constant connectivity |
 | 2026-06-20 | **Hosting resolved: embedded HTTP server in the plugin** | Research confirms Homebridge plugins can run their own HTTP server inside the Homebridge process (same pattern as `homebridge-http-webhooks`, `homebridge-mqttthing`). Plugin starts Express on a configurable port in `didFinishLaunching`; serves `web/dist/` statically. Phone installs the PWA from the plugin URL while on the home network, service worker caches it, then it operates offline during the provisioning hotspot step. | GitHub Pages — requires internet during install, no control over hosting; assumes user has internet access during provisioning UX |
+| 2026-06-26 | **Webserver = hapi** (`@hapi/hapi` + `@hapi/inert`) — revises the Express choice in the row above | User-directed. hapi's plugin/route model suits a structured, long-lived config/zone API; same embedded-in-plugin pattern, start in `didFinishLaunching` / stop in `shutdown` | Express (the original choice above); Fastify — no specific advantage requested |
+| 2026-06-26 | **Frontend = Vite + Svelte 5 (lean SPA)** built to static assets hapi serves | User-directed. App is small/single-purpose — no SSR/SEO/data-loading framework needed; full control of the service worker via `vite-plugin-pwa`; root tsconfig already ships `lib: ["DOM", ...]` | SvelteKit + adapter-static (a server framework forced into static mode); React/vanilla TS from the earlier row |
+| 2026-06-26 | **State = Svelte stores + an `actions` module** (flux-shaped, unidirectional) | User asked for "some kind of flux pattern". Svelte stores already implement unidirectional flow; an `actions` module concentrates all mutations so components never poke stores directly. Zero extra runtime deps | Redux Toolkit / Zustand — boilerplate + a dep, non-idiomatic in Svelte, duplicates what stores already do |
+| 2026-06-26 | **HMR = separate Vite dev server (`:5173`) proxying `/api` → hapi** | User asked for hot module reloading. Keeps the two toolchains cleanly separated (they meet only over HTTP); the existing `nodemon → tsc && homebridge` loop is preserved unchanged, and UI iterates via HMR with **no Homebridge restart** | Vite middleware embedded in hapi — Vite middleware assumes Express/Connect `(req,res,next)`; hapi's `onRequest`/`ext` lifecycle makes this fiddly and a maintenance liability |
+| 2026-06-26 | **Two independent pipelines** keep `watch`/`build` working — server (`src/server/*.ts` → `tsc` → `dist/`) and frontend (`web/**` → Vite → `web/dist/`) | They watch different trees and emit to different dirs, so they don't collide: `nodemon.json` watches `src` only; Vite watches `web` only. The hapi server is just more TS riding the existing restart loop | A single unified build — couples the toolchains and breaks the clean dev separation |
+| 2026-06-26 | **`web/` is its own npm workspace**; ship only the pre-built `web/dist/` | Keeps Svelte/Vite/`vite-plugin-pwa` as devDeps of `web/`, not runtime deps of the published plugin (verified-plugin: no heavy install machinery). Plugin gains only `@hapi/hapi` + `@hapi/inert` at runtime. Requires `web` in the root tsconfig `exclude` (own `web/tsconfig.json`) and `web/dist/` in the npm `files`/`.npmignore` | Frontend deps in the root `package.json` — pollutes the published package |
 | 2026-06-19 | Phase 2 (group management) IS possible with documented API: `/getZone`, `/setZone`, `/addZoneSlave`, `/removeZoneSlave` | All four endpoints are in the v1.1 spec and implemented in `src/devices/SoundTouch/api/zone.ts` | — |
 | 2026-06-19 | Phase 3 (Homebridge config sync) requires an HTTP API endpoint exposed by the plugin | The Homebridge Config UI handles plugin settings via `config.schema.json` in-process; direct config edits need `api.user.storagePath()` and must not race Homebridge's own write | Writing config outside Homebridge storage dir — violates verified-plugin rules |
 | 2026-06-19 | PWA must work offline during the provisioning flow | During setup the phone is on the speaker's hotspot, not the home network — the PWA cannot reach the internet or the Homebridge host | Server-side-rendered app that requires constant connectivity |
@@ -87,17 +95,37 @@ from a lightweight HTTP server embedded in the plugin.
 
 ## Affected areas
 
-### Phase 1 — WiFi provisioning
+### Webserver + build/dev infrastructure (foundation for all phases)
 
-- **New `web/` directory** (monorepo workspace or standalone) — the PWA source.
-  Suggest Vite + vanilla TS or React; `manifest.json` + service worker for
-  installability and offline caching. Build output goes to `web/dist/`.
-- `package.json` — add `web` workspace if monorepo; add a `build:web` script.
-- Possibly **a new `src/server/`** — a minimal Express/Fastify server (if hosted
-  in-plugin rather than GitHub Pages) to serve `web/dist/` on a configurable
-  port; started in `platform.ts` `didFinishLaunching`; reads port from config.
-- `config.schema.json` + config classes — `webPort` (opt-in, default off) if the
-  embedded server path is chosen.
+- **New `web/` workspace** — the PWA source (Vite + Svelte 5, own `package.json`,
+  `tsconfig.json`, `vite.config.ts`, ESLint, `web/README.md`).
+  - `web/src/` — Svelte components; `stores/` (writable/derived, the single source
+    of truth); `actions/` (the **only** place stores are mutated); `lib/api.ts`
+    (fetch wrapper hitting `/api`).
+  - `web/public/manifest.webmanifest` + icons; service worker via
+    `vite-plugin-pwa`. Build output → **`web/dist/`** (served by hapi; shipped in
+    the npm tarball).
+- **New `src/server/`** — hapi server.
+  - `server.ts` — `createServer({ port, root })`: registers `@hapi/inert`, serves
+    `web/dist/` statically (SPA fallback to `index.html`), mounts `/api`. Exposes
+    `start()` / `stop()`.
+  - `routes/` — `/api/health` first; zone + config-sync routes added in phases 2/3.
+  - `src/server/__tests__/` — unit tests for route handlers / pure server logic.
+- `src/platform.ts` — instantiate the server when `webPort` is set; `start()` in
+  the `didFinishLaunching` handler (alongside `discoverDevices()`), `stop()` in
+  the `shutdown` handler (alongside `stopPolling()`).
+- `config.schema.json` + config classes — `webPort` (opt-in integer, default off:
+  absence ⇒ no server, no new port, no behaviour change).
+- **Build / dev / packaging** (`package.json` root):
+  - `"build": "npm run clean && tsc && npm run build:web"`,
+    `"build:web": "npm -w web run build"`
+  - `"dev:web": "npm -w web run dev"` (Vite, HMR, `/api` proxy);
+    optional `"dev": "npm-run-all -p watch dev:web"`
+  - add `web` to `workspaces`; add `@hapi/hapi` + `@hapi/inert` to dependencies
+  - `nodemon.json` unchanged (the hapi server rides the existing `tsc && homebridge`
+    restart); `tsconfig.json` adds `"web"` to `exclude`; `.npmignore`/`files`
+    ship `web/dist/` (not `web/src`); scope `knip.json` + root `eslint.config.js`
+    so they don't fight the `web` workspace toolchain.
 
 ### Phase 2 — Group management (zone API)
 
@@ -116,15 +144,22 @@ from a lightweight HTTP server embedded in the plugin.
 ## Conventions for this change
 
 - **Commit type:** `feat:` → minor release (for each phase PR).
-- **Config schema touched:** yes if embedded server is chosen — add `webPort`
-  (optional integer) to `GlobalConfig` / `config.schema.json` / `PlatformConfiguration`.
-- **Tests to add/update:** unit-test any server-side route logic; pure PWA UI is
-  not Jest-tested (use Playwright or manual verification). Config class tests in
-  `src/__tests__/PlatformConfiguration.test.ts` if `webPort` is added.
-- Follow **coding-conventions** for any TypeScript in `src/`; the `web/` workspace
-  may have its own toolchain (Vite, ESLint config) — document it in `web/README.md`
-  (contributor-facing, not published to npm users).
-- **Target branch:** `dev` (each phase as its own PR).
+- **Config schema touched:** yes — add `webPort` (optional integer) to
+  `config.schema.json`, `src/ExternalPlatformConfig.ts`,
+  `src/PlatformConfiguration.ts`, and `src/__tests__/PlatformConfiguration.test.ts`
+  (use `??`, no default ⇒ server disabled when absent).
+- **Tests to add/update:** `src/server/__tests__/*.test.ts` (route/server logic);
+  pure Svelte UI is not Jest-tested (use the Vite dev server / Playwright / manual).
+- Follow **coding-conventions** for any TypeScript in `src/` (ESM `.js` import
+  extensions, lint/format, the typecheck+lint+test gate); the `web/` workspace runs
+  its own Vite/Svelte toolchain — document it in `web/README.md` (contributor-facing,
+  not published to npm users).
+- **Verified-plugin guardrails** (homebridge-developer skill): server is opt-in via
+  `webPort` (off by default), port is configurable (child-bridge safe), errors are
+  caught/logged (no raw throws on the Homebridge thread), any disk writes go through
+  `api.user.storagePath()`.
+- **Target branch:** `dev` (the webserver/build foundation lands first; each PWA
+  phase as its own subsequent PR).
 
 ## Implementation checklist
 
@@ -134,15 +169,28 @@ from a lightweight HTTP server embedded in the plugin.
       is the actual mechanism, document that and evaluate Web Bluetooth feasibility
       on iOS Safari before committing to phase 1.
 
+### Webserver + build foundation (lands before the phases below)
+- [ ] Add `web` as an npm workspace; scaffold `web/` (Vite + Svelte 5, TS,
+      `vite-plugin-pwa`, `manifest.webmanifest`, icons, `web/README.md`)
+- [ ] Svelte flux layer: `stores/` (writable/derived) + `actions/` (sole mutators)
+      + `lib/api.ts` fetch wrapper
+- [ ] Vite dev server proxies `/api` → hapi (HMR working)
+- [ ] Add `@hapi/hapi` + `@hapi/inert`; build `src/server/server.ts`
+      (`start`/`stop`, inert static serving of `web/dist/` with SPA fallback)
+- [ ] `/api/health` route + `src/server/__tests__/` unit test
+- [ ] Add `webPort` to `ExternalPlatformConfig`, `PlatformConfiguration`,
+      `config.schema.json`, and `PlatformConfiguration.test.ts`
+- [ ] Wire server `start()`/`stop()` into `platform.ts`
+      (`didFinishLaunching` / `shutdown`), gated on `webPort`
+- [ ] Update root `package.json` scripts (`build`, `build:web`, `dev:web`),
+      `tsconfig.json` exclude, `.npmignore`/`files`, `knip.json`, CI step
+- [ ] Confirm `npm run watch` still restarts cleanly and `vite` HMR works beside it
+
 ### Phase 1 — WiFi provisioning PWA
 - [ ] Spike A resolved — provisioning mechanism confirmed
-- [ ] Scaffold `web/` PWA (Vite + TS, `manifest.json`, service worker, app icon)
 - [ ] Implement WiFi scan UI → calls speaker hotspot endpoint
 - [ ] Implement credential submission → speaker connects to home network
 - [ ] Handle the hotspot→home-network transition gracefully in the UI
-- [ ] Decide and implement hosting: GitHub Pages static or embedded plugin server
-- [ ] If embedded server: add `webPort` config + `src/server/` Express routes
-- [ ] Add `build:web` script and CI step
 
 ### Phase 2 — Group management
 - [ ] PWA "Groups" screen: discover speakers (via Homebridge REST API or direct
@@ -172,6 +220,7 @@ from a lightweight HTTP server embedded in the plugin.
 
 ## PR / release notes
 
+- **Foundation PR title:** `feat: add embedded hapi webserver and Svelte PWA scaffold`
 - **Phase 1 PR title:** `feat: add PWA for SoundTouch WiFi provisioning`
 - **Phase 2 PR title:** `feat: add group management to provisioning PWA`
 - **Phase 3 PR title:** `feat: add Homebridge config sync to provisioning PWA`
