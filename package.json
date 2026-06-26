@@ -43,8 +43,8 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "21.0.2",
-    "@commitlint/config-conventional": "21.0.2",
+    "@commitlint/cli": "21.1.0",
+    "@commitlint/config-conventional": "21.1.0",
     "@eslint/js": "^10.0.1",
     "@jest/globals": "^30.4.1",
     "@semantic-release/changelog": "^6.0.3",
@@ -53,7 +53,7 @@
     "@swc/jest": "^0.2.39",
     "@types/bonjour": "^3.5.10",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.14.1",
+    "@types/node": "^26.0.1",
     "@types/ws": "^8.18.1",
     "@types/xml2js": "^0.4.9",
     "axios-mock-adapter": "^2.1.0",
