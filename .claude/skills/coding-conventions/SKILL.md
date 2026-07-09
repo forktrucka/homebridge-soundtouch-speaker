@@ -246,7 +246,7 @@ Before suggesting a package:
    zero or one dependency is strongly preferred over a feature-rich one with a
    deep tree. A package with >5 transitive deps requires strong justification.
 
-The plans in `.claude/skills/architect/plans/` record dependency decisions in
+The plans in `.claude/plans/` record dependency decisions in
 their **Decisions & findings** table — if a package was considered and rejected,
 note it there so it isn't re-investigated.
 

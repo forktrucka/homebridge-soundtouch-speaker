@@ -1,6 +1,6 @@
 ---
 feature: Introduce and backfill CHANGELOG.md
-status: in-progress
+status: done # 2026-06-21
 date: 2026-06-21
 branch: docs/changelog
 commit-type: docs
@@ -40,6 +40,7 @@ Option 2 is the right call: it keeps the file accurate without manual discipline
 | 2026-06-21 | `commit-type: docs` → no release triggered | This is purely an infra/docs change; no version bump warranted | `chore:` — equivalent, but docs is more accurate |
 | 2026-06-21 | `@semantic-release/git` assets: `["CHANGELOG.md", "package.json"]` | Commits both the updated changelog and the version bump together; matches semantic-release convention | Committing only CHANGELOG.md — leaves package.json bump out of the commit |
 | 2026-06-21 | Branch type: planning branch (`docs/changelog`) | No production code changes; CHANGELOG.md and .releaserc.json are both documentation/tooling | Implementation branch — wrong because there is no feature code to deliver |
+| 2026-07-09 | Plan completed | Commit `47c5e97` introduced `CHANGELOG.md`, semantic-release changelog/git plugins, and the dev dependencies on 2026-06-21 | Leaving plan in active `in-progress` state |
 
 ## If cancelled
 
@@ -68,14 +69,14 @@ Option 2 is the right call: it keeps the file accurate without manual discipline
   - [x] `## [0.3.0-beta.1]`
   - [x] `## [0.2.4]`
   - [x] `## [0.2.3]` — initial stable release (no prior public changelog)
-- [ ] Verify `.releaserc.json` is valid JSON and semantic-release dry-run passes locally (or trust CI)
+- [x] Verify `.releaserc.json` is valid JSON and semantic-release dry-run passes locally (or trust CI)
 
 ## Verification
 
 - [x] `npm run lint`
 - [x] `npm run build`
 - [x] `npm test`
-- [ ] Confirm `npx semantic-release --dry-run` does not error on the new plugin config (requires `GITHUB_TOKEN` + `NPM_TOKEN` in env, so CI verification is acceptable)
+- [x] Confirm `npx semantic-release --dry-run` does not error on the new plugin config (requires `GITHUB_TOKEN` + `NPM_TOKEN` in env, so CI verification is acceptable)
 
 ## PR / release notes
 

@@ -1,6 +1,6 @@
 ---
 feature: Enforce static factory convention — private constructors across all project classes
-status: planned
+status: done # 2026-06-23
 date: 2026-06-21
 branch: refactor/static-factory-enforcement
 commit-type: refactor
@@ -39,6 +39,7 @@ compiler enforces it.
 | 2026-06-21 | Tests that use `new ClassName(...)` directly must be updated to use the factory | Making constructors `private` will be a compile error in tests. The fix is straightforward — replace `new Foo(...)` with `Foo.create(...)` or the appropriate named factory. No test logic changes, only creation calls. | Keep test constructors public via `@internal` tag (TS doesn't enforce this; doesn't actually help) |
 | 2026-06-21 | `SoundTouchSpeakerCharacteristic` abstract base keeps `protected` constructor | It's an abstract class; subclasses call `super()`. Making it `private` would prevent subclassing. | `private` (compile error in subclass constructors) |
 | 2026-06-21 | Do this as a single squash-merged PR | All changes are mechanical; no logic changes. Splitting by file/class would produce multiple small PRs with no independent value. | Per-class PRs (unnecessary overhead) |
+| 2026-07-09 | Implementation merged | PR #121 merged 2026-06-23; `API.create()` exists and constructors on the planned classes are private | Leaving plan in active `planned` state |
 
 ## If cancelled
 
@@ -115,29 +116,29 @@ No other changes.
 
 ## Implementation checklist
 
-- [ ] Add `static create()` to `API` and make its constructor `private`
-- [ ] Update `api-discovery.ts` — `_APIFromService` uses `API.create()`
-- [ ] Make constructors `private` on `PlatformConfiguration`
-- [ ] Make constructors `private` on `DeviceConfiguration`
-- [ ] Make constructors `private` on `SoundTouchDevice`
-- [ ] Make constructors `private` on `Logger` and `DeviceLogger`
-- [ ] Make constructors `private` on `APIErrors`
-- [ ] Make constructors `private` on `SoundTouchSpeakerPlatformAccessory`
-- [ ] Make constructors `private` on `SoundTouchSpeakerOnCharacteristic`
-- [ ] Make constructors `private` on `SoundTouchSpeakerBrightnessCharacteristic`
-- [ ] Make constructors `private` on `SoundTouchSpeakerInformationCharacteristic`
-- [ ] Update `SoundTouchSpeakerPlatformAccessory.test.ts` — use factory
-- [ ] Update `SoundTouchSpeakerBrightnessCharacteristic.test.ts` — use factory
-- [ ] Update `api.test.ts` — use `API.create()`
-- [ ] `npm run typecheck && npm run lint && npm test`
+- [x] Add `static create()` to `API` and make its constructor `private`
+- [x] Update `api-discovery.ts` — `_APIFromService` uses `API.create()`
+- [x] Make constructors `private` on `PlatformConfiguration`
+- [x] Make constructors `private` on `DeviceConfiguration`
+- [x] Make constructors `private` on `SoundTouchDevice`
+- [x] Make constructors `private` on `Logger` and `DeviceLogger`
+- [x] Make constructors `private` on `APIErrors`
+- [x] Make constructors `private` on `SoundTouchSpeakerPlatformAccessory`
+- [x] Make constructors `private` on `SoundTouchSpeakerOnCharacteristic`
+- [x] Make constructors `private` on `SoundTouchSpeakerBrightnessCharacteristic`
+- [x] Make constructors `private` on `SoundTouchSpeakerInformationCharacteristic`
+- [x] Update `SoundTouchSpeakerPlatformAccessory.test.ts` — use factory
+- [x] Update `SoundTouchSpeakerBrightnessCharacteristic.test.ts` — use factory
+- [x] Update `api.test.ts` — use `API.create()`
+- [x] `npm run typecheck && npm run lint && npm test`
 - [ ] `npm run knip` — confirm no unused exports
 
 ## Verification
 
-- [ ] `npm run typecheck` passes — confirms private constructors are enforced at
+- [x] `npm run typecheck` passes — confirms private constructors are enforced at
       compile time and no call sites use `new` illegally
-- [ ] `npm run lint`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm test`
 
 ## PR / release notes
 
