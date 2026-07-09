@@ -21,7 +21,7 @@ plan, mirror that plan's PR title field.
 One short paragraph. Describe the change and the reason for it — not the files
 touched (the diff already shows those).
 
-If this delivers an architect plan (.claude/skills/architect/plans/<date>-<slug>.md),
+If this delivers an architect plan (.claude/plans/<date>-<slug>.md),
 link it and summarize its Context (why) + what's delivered. Point to the plan;
 don't restate it.
 

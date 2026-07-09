@@ -1,6 +1,6 @@
 ---
 feature: WebSocket push (gabbo) — event-driven characteristic refresh, augmenting HTTP polling
-status: blocked # planned | in-progress | done | cancelled | blocked
+status: beta # v0.4.0-beta.1; Phase 3 standby/reconnect edges remain open
 date: 2026-06-20
 branch: feat/websocket-push
 commit-type: feat
@@ -44,6 +44,7 @@ channel's real-device behaviour is confirmed.
 | 2026-06-22 | **Finding:** reference implementation `Dress13/homebridge-bose-soundtouch` confirms `gabbo` protocol on real hardware | The plugin's `soundtouchWebSocket.ts` uses `new WebSocket("ws://${host}:8080", "gabbo")` with the `ws` package and confirms: (1) sub-protocol negotiation works; (2) `volumeUpdated`, `nowPlayingUpdated`, `nowSelectionUpdated`, `presetsUpdated`, `zoneUpdated`, `bassUpdated`, `connectionStateUpdated` all fire; (3) several carry inline data (volume, nowPlaying, presets, zone, bass) — not only tickles; (4) a fixed 5 s reconnect delay on `close` is sufficient in practice; (5) client-sent 30 s pings keep the socket alive; (6) `connectionStateUpdated` fires with `state`/`up` fields — useful for standby detection. Remaining unknowns: exact socket behaviour on speaker standby/power-off (closed vs silent), server-side idle timeout, and real-frame timing. | — |
 | 2026-06-22 | **Decision (revised):** Spike C Part 2 is **narrowed**, not a hard phase-1 blocker | Connection pattern and all major event shapes are now confirmed by the reference. Phase 1 (connection + lifecycle) can proceed once the testing prerequisites (disabled flag, logging) ship. Phase 3 (standby edge cases, reconnect tuning) still benefits from a real-device capture, but it is no longer blocking Phase 1. | Holding all phases behind Spike C (over-cautious given confirmed reference) |
 | 2026-06-22 | **Decision:** keep native `WebSocket` (Node 22/24) for runtime; `ws` for devDep only | Reference uses `ws` package at runtime; Node 22/24 native `WebSocket` (undici) supports sub-protocols (`new WebSocket(url, protocols)`) and avoids adding a runtime dependency. Sub-protocol negotiation confirmed equivalent. `ws` stays as devDep for the fake-gabbo test server only. | Switching to `ws` as a runtime dep (adds supply-chain surface with no functional benefit on Node 22+) |
+| 2026-07-09 | Phase 1 and Phase 2 implementation merged and released to beta | PR #117 added `GabboClient`, parser, fake-gabbo harness, lifecycle wiring, and broad refresh; PR #124 debounced notifications; PR #125 mapped gabbo events to specific characteristics. All are contained in `v0.4.0-beta.1`. Phase 3 real-device standby/reconnect tuning remains open. | Leaving the whole plan marked `blocked` after the delivered phases shipped |
 
 ## If cancelled
 
@@ -108,21 +109,21 @@ Sequenced **after plan 06**. Each phase is its own PR.
 
 > Do **not** start until Spike C is resolved and plan 06 has merged.
 
-- [ ] (Spike C) Resolve real-device behaviour — see `ROADMAP.md` → Spike C
-- [ ] Phase 1: `gabbo` WebSocket client (connect, parse, reconnect, teardown)
-- [ ] Phase 1: trigger accessory `refresh()` on state-change tickles
-- [ ] Phase 1: add `ws` + `@types/ws` devDependencies; fake-gabbo test harness
-- [ ] Phase 1: tear down clients on unregister/shutdown (reuse plan 06 lifecycle)
-- [ ] Phase 2: map individual tickles → individual characteristic refreshes
+- [ ] (Spike C) Resolve real-device standby/reconnect behaviour — see `ROADMAP.md` → Spike C
+- [x] Phase 1: `gabbo` WebSocket client (connect, parse, reconnect, teardown)
+- [x] Phase 1: trigger accessory `refresh()` on state-change tickles
+- [x] Phase 1: add `ws` + `@types/ws` devDependencies; fake-gabbo test harness
+- [x] Phase 1: tear down clients on unregister/shutdown (reuse plan 06 lifecycle)
+- [x] Phase 2: map individual tickles → individual characteristic refreshes
 - [ ] Phase 3: relax/disable polling fallback; handle reconnect + zone sequences
-- [ ] Add/update tests (client unit + integration push-updates-HAP)
+- [x] Add/update tests (client unit + integration push-updates-HAP)
 - [ ] Update `config.schema.json` if a push/fallback config field is added
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` — with a real speaker: change volume/source from the Bose
       app and confirm HomeKit reflects it near-instantly (faster than the poll
       interval); pull the speaker's power and confirm the client reconnects
