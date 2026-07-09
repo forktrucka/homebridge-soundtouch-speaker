@@ -1,6 +1,6 @@
 ---
 feature: disabled flag — unregister a speaker from Homebridge without removing its config
-status: planned
+status: beta # v0.4.0-beta.1
 date: 2026-06-21
 branch: feat/disabled-flag
 commit-type: feat
@@ -32,6 +32,7 @@ off while testing the WebSocket path (Spike C Part 2).
 | 2026-06-21 | Per-accessory flag only (not global) | Disabling all speakers at once is not a useful test scenario | Global flag — too blunt for targeted testing |
 | 2026-06-21 | Use `unregisterPlatformAccessories` for cached accessories of disabled devices | Keeps stale-pruning logic consistent with existing pattern in `discoverDevices()` | Leaving the cached accessory in place — leaves a ghost in the Home app |
 | 2026-06-21 | State lives in config.json (not a runtime toggle) | Homebridge config is the right persistence layer; survives restarts without extra storage | In-memory toggle — lost on restart; separate state file — unnecessary complexity |
+| 2026-07-09 | Implementation merged and released to beta | PR #119 merged 2026-06-23 and is contained in `v0.4.0-beta.1`; code evidence: `AccessoryConfig.disabled`, `config.schema.json`, `platform.ts` disabled skip/unregister branch, and platform/config tests | Leaving plan in active `planned` state |
 
 ## If cancelled
 
@@ -57,17 +58,17 @@ off while testing the WebSocket path (Spike C Part 2).
 
 ## Implementation checklist
 
-- [ ] Add `disabled?: boolean` to `AccessoryConfig` in `src/ExternalPlatformConfig.ts`
-- [ ] Verify `disabled` flows through `flattenAccessoryConfiguration`; add a targeted `PlatformConfiguration` test
-- [ ] In `platform.ts` `discoverDevices()`: when `device.disabled === true`, call `unregisterPlatformAccessories` if a cached accessory exists, then `continue`
-- [ ] Update `config.schema.json` — `disabled` boolean in per-accessory section with description
-- [ ] Add `platform.ts` tests for the disabled skip-and-unregister path
+- [x] Add `disabled?: boolean` to `AccessoryConfig` in `src/ExternalPlatformConfig.ts`
+- [x] Verify `disabled` flows through `flattenAccessoryConfiguration`; add a targeted `PlatformConfiguration` test
+- [x] In `platform.ts` `discoverDevices()`: when `device.disabled === true`, call `unregisterPlatformAccessories` if a cached accessory exists, then `continue`
+- [x] Update `config.schema.json` — `disabled` boolean in per-accessory section with description
+- [x] Add `platform.ts` tests for the disabled skip-and-unregister path
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` — set `disabled: true` for one speaker in Homebridge UI, save → confirm accessory disappears from Home app; flip back → confirm it reappears
 
 ## PR / release notes

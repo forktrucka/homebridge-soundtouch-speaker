@@ -1,6 +1,6 @@
 ---
 feature: Structured error chaining, context fields, and fine-grained log-level control
-status: planned
+status: beta # v0.4.0-beta.1
 date: 2026-06-20
 branch: feat/structured-errors-logging
 commit-type: feat
@@ -57,6 +57,7 @@ This plan addresses both with zero new dependencies:
 | 2026-06-21 | `ContextError` constructor is `private`; exposes `static wrap(message, context, cause)` | Follows the repo-wide static factory convention (coding-conventions skill). `wrap()` eliminates the `{ cause: err }` options bag at every catch site and is the idiomatic creation path. `throw new ContextError(...)` remains acceptable only inside the class itself. | `new ContextError(...)` at all call sites (violates factory convention for complex-arg Error subclasses) |
 | 2026-06-21 | commit-type is `feat:` — minor release | `logLevel` config option is user-visible and expands capability. | `refactor:` (wrong — user-facing config change) |
 | 2026-06-21 | Use `homebridge-lib`'s `formatError()` per node in the cause chain | Already a runtime dep. Handles ECONNREFUSED, axios errors, plain Errors consistently. | Reimplementing formatError (duplication); `.stack` raw (verbose, unreadable for ECONNREFUSED) |
+| 2026-07-09 | Implementation merged with design drift: `AppError` replaced the planned `ContextError` name | PR #120 merged 2026-06-23 and is contained in `v0.4.0-beta.1`; code evidence: `src/errors.ts` now provides `AppError.create(...)` with typed context/cause, `FormattedLogger` renders cause chains by log level, and `config.schema.json` exposes `logLevel` | Leaving plan in active `planned` state; renaming implemented `AppError` back to `ContextError` just for plan fidelity |
 
 ## If cancelled
 
@@ -230,32 +231,32 @@ All catch sites use `ContextError.wrap(message, context, cause)` — never
 
 ## Implementation checklist
 
-- [ ] Add `ContextError` class to `src/errors.ts`
-- [ ] Add `logLevel` to `ExternalPlatformConfig.ts` (keep `verbose` as deprecated alias)
-- [ ] Update `PlatformConfiguration.ts` — add `logLevel: LogLevel`, resolve from config,
+- [x] Add structured `AppError` class to `src/errors.ts`
+- [x] Add `logLevel` to `ExternalPlatformConfig.ts` (keep `verbose` as deprecated alias)
+- [x] Update `PlatformConfiguration.ts` — add `logLevel: LogLevel`, resolve from config,
       remove `verbose` property
-- [ ] Update `config.schema.json` — add `logLevel` enum to `global`
-- [ ] Update `src/platform.ts` — use `configuration.logLevel` instead of
+- [x] Update `config.schema.json` — add `logLevel` enum to `global`
+- [x] Update `src/platform.ts` — use `configuration.logLevel` instead of
       `configuration.verbose ? DEBUG : INFO`
-- [ ] Update `src/utils/FormattedLogger.ts` — level-aware `error()` with cause chain
-      traversal and `ContextError` context rendering
-- [ ] Update `src/devices/SoundTouch/SoundTouchDevice.ts` — wrap catch/throw sites
-- [ ] Update `src/devices/SoundTouch/api/api.ts` — wrap `_req` network error
-- [ ] Update `src/platform.ts` — wrap both catch sites with `ContextError`
-- [ ] Update `src/accessories/SoundTouchSpeakerPlatformAccessory.ts` — polling catch
-- [ ] Update `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts`
-- [ ] Update `src/accessories/services/SoundTouchSpeakerOnCharacteristic.ts`
-- [ ] Update `src/accessories/services/SoundTouchSpeakerInformationCharacteristic.ts`
-- [ ] Add/update `FormattedLogger` tests (plain, ContextError, chain at DEBUG, chain at INFO)
-- [ ] Add `PlatformConfiguration` tests for `logLevel` resolution
-- [ ] `npm run typecheck && npm run lint && npm test`
+- [x] Update `src/utils/FormattedLogger.ts` — level-aware `error()` with cause chain
+      traversal and structured error context rendering
+- [x] Update `src/devices/SoundTouch/SoundTouchDevice.ts` — wrap catch/throw sites
+- [x] Update `src/devices/SoundTouch/api/api.ts` — wrap `_req` network error
+- [x] Update `src/platform.ts` — wrap both catch sites with structured errors
+- [x] Update `src/accessories/SoundTouchSpeakerPlatformAccessory.ts` — polling catch
+- [x] Update `src/accessories/services/SoundTouchSpeakerBrightnessCharacteristic.ts`
+- [x] Update `src/accessories/services/SoundTouchSpeakerOnCharacteristic.ts`
+- [x] Update `src/accessories/services/SoundTouchSpeakerInformationCharacteristic.ts`
+- [x] Add/update `FormattedLogger` tests (plain, structured error, chain at DEBUG, chain at INFO)
+- [x] Add `PlatformConfiguration` tests for `logLevel` resolution
+- [x] `npm run typecheck && npm run lint && npm test`
 - [ ] `npm run knip` — confirm no unused exports
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` with `logLevel: 'debug'` + bad IP — expect full chain:
       `network request failed [endpoint: /volume]\n  caused by: ECONNREFUSED …`
 - [ ] `npm run watch` with `logLevel: 'info'` (default) — same scenario shows concise:

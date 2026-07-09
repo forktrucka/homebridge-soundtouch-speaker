@@ -15,15 +15,6 @@
       "global": {
         "type": "object",
         "properties": {
-          "pollingInterval": {
-            "type": "number",
-            "description": "DEPRECATED — this value is no longer used and can be removed from your config."
-          },
-          "verbose": {
-            "type": "boolean",
-            "default": false,
-            "description": "DEPRECATED — use logLevel: \"debug\" instead."
-          },
           "logLevel": {
             "type": "string",
             "enum": ["debug", "info", "warn", "error"],
@@ -35,7 +26,129 @@
             "enum": ["switch", "lightbulb"],
             "default": "switch",
             "description": "Default HomeKit accessory type for all speakers. 'lightbulb' exposes volume via Brightness."
+          },
+          "presets": {
+            "type": "array",
+            "description": "Station presets to push to all speakers when preset sync runs.",
+            "condition": {
+              "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+            },
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["station"],
+                  "description": "Preset type. Currently only 'station' is supported."
+                },
+                "slot": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6,
+                  "description": "Preset slot on the speaker (1–6)."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Display name for this preset."
+                },
+                "tuneInId": {
+                  "type": "string",
+                  "description": "TuneIn station ID (e.g. 's12345')."
+                },
+                "imageUrl": {
+                  "type": "string",
+                  "description": "Optional URL for the station artwork."
+                }
+              }
+            }
+          },
+          "presetSyncEnabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, the plugin pushes the configured presets to all speakers on the schedule below.",
+            "condition": {
+              "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+            }
+          },
+          "presetSyncSchedule": {
+            "type": "string",
+            "default": "0 0 * * *",
+            "description": "Cron expression controlling when preset sync runs (default: midnight daily).",
+            "condition": {
+              "functionBody": "return model.global && model.global.server && model.global.server.enabled === true && model.global.presetSyncEnabled === true"
+            }
+          },
+          "server": {
+            "type": "object",
+            "description": "Local HTTP server that receives Bose Cloud push notifications.",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "default": false,
+                "description": "Enable the local callback server."
+              },
+              "host": {
+                "type": "string",
+                "default": "homebridge.local",
+                "description": "Hostname or IP that Bose's cloud uses to reach this server.",
+                "condition": {
+                  "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+                }
+              },
+              "port": {
+                "type": "integer",
+                "default": 8000,
+                "description": "Port the callback server listens on.",
+                "condition": {
+                  "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+                }
+              }
+            }
+          },
+          "pollingInterval": {
+            "type": "number",
+            "description": "DEPRECATED — this value is no longer used and can be removed from your config."
+          },
+          "verbose": {
+            "type": "boolean",
+            "default": false,
+            "description": "DEPRECATED — use logLevel: \"debug\" instead."
           }
+        }
+      },
+      "presets": {
+        "type": "array",
+        "description": "Station presets to push to all speakers (top-level alias for global.presets — prefer setting presets under global).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["station"],
+              "description": "Preset type. Currently only 'station' is supported."
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6,
+              "description": "Preset slot on the speaker (1–6)."
+            },
+            "name": {
+              "type": "string",
+              "description": "Display name for this preset."
+            },
+            "tuneInId": {
+              "type": "string",
+              "description": "TuneIn station ID (e.g. 's12345')."
+            },
+            "imageUrl": {
+              "type": "string",
+              "description": "Optional URL for the station artwork."
+            }
+          }
+        },
+        "condition": {
+          "functionBody": "return !model.global || !model.global.presets || model.global.presets.length === 0"
         }
       },
       "accessories": {
@@ -66,10 +179,6 @@
               "required": false,
               "description": "Room to use to find accessory if ip is not set"
             },
-            "pollingInterval": {
-              "type": "integer",
-              "description": "DEPRECATED — this value is no longer used and can be removed from your config."
-            },
             "accessoryType": {
               "type": "string",
               "enum": ["switch", "lightbulb"],
@@ -80,6 +189,17 @@
               "type": "boolean",
               "default": false,
               "description": "When true, removes this speaker from HomeKit without deleting the config. Flip back to false to re-register."
+            },
+            "presetSyncEnabled": {
+              "type": "boolean",
+              "description": "Override preset sync for this speaker. When set, takes precedence over the global setting.",
+              "condition": {
+                "functionBody": "return model.global && model.global.server && model.global.server.enabled === true"
+              }
+            },
+            "pollingInterval": {
+              "type": "integer",
+              "description": "DEPRECATED — this value is no longer used and can be removed from your config."
             }
           }
         },
