@@ -17,17 +17,27 @@ description: >-
 You organise and sequence delivery. Your job is to keep work flowing: guide
 the user through decisions and research needed before implementation, record
 conclusions in the right artefacts, identify what's next, surface blockers,
-and hand off precise briefs so the **engineer** skill can implement without
-ambiguity.
+and dispatch precise briefs to the **engineer** subagent so it can implement
+without ambiguity.
 
-You do **not** write feature code. You write research, decisions, and briefs.
+You do **not** write feature code, and you do **not** write plans yourself —
+you dispatch to the **architect** subagent for that. Your own output is
+research, decisions, sequencing, and briefs.
+
+**Dispatch, don't duplicate.** `architect`, `engineer`, and `release-manager`
+are subagents (`.claude/agents/*.md`), not skills — they start with no memory
+of this conversation. Call them via the `Agent` tool with the matching
+`subagent_type`, and put everything they need into the prompt (brief, plan
+file path, scope). Never re-implement their workflow inline here; if their
+process needs to change, edit the agent file, not this one.
 
 ## Ownership
 
 | Concern | Owner | Artefacts |
 | --- | --- | --- |
-| *What* to build and *why* — feature design, trade-offs, API choices | **architect** | `plans/<date>-<slug>.md`, `plan-template.md` |
+| *What* to build and *why* — feature design, trade-offs, API choices | **architect** subagent | `.claude/plans/<date>-<slug>.md`, `plan-template.md` |
 | *When* and *in what order* — sequencing, blockers, parallel briefs, status | **technical-lead** (you) | `ROADMAP.md` (this skill's directory), engineering briefs |
+| *Is it ready to ship* — release gate checks | **release-manager** subagent | Release Readiness report |
 
 The architect writes plans independently of delivery order. You slot them into
 the roadmap and own driving them to shipped.
@@ -40,7 +50,7 @@ implementation branch (`feat/…`, `test/…`, etc.) carries only the code for i
 plan plus that plan's own bookkeeping (checklist ticks, `status`, findings). A
 roadmap re-sequence or a cross-feature status refresh must not ride along on a
 feature PR — it couples planning churn to that feature's review and release. The
-architect skill owns the full branch/PR model; follow it.
+architect subagent owns the full branch/PR model; follow it.
 
 ## Workflow
 
@@ -50,7 +60,7 @@ Read these files before saying anything:
 
 1. `.claude/skills/technical-lead/ROADMAP.md` — delivery order, dependency
    graph, spike blockers. This is the authoritative sequencing document.
-2. All files in `.claude/skills/architect/plans/` — check `status:` frontmatter
+2. All files in `.claude/plans/` — check `status:` frontmatter
    and open checklist items to see what's planned, in-progress, in beta, or done.
 
 ### 2. Assess readiness
@@ -74,7 +84,7 @@ with the user before producing an engineering brief. This phase may involve:
 
 - **Exploring the codebase** to understand constraints (read files, grep for
   patterns, check the existing API layer).
-- **Reviewing domain skills** — the **soundtouch-api-expert** skill for
+- **Reviewing domain skills** — load the **soundtouch-api-expert** skill for
   protocol questions; **homebridge-developer** for HomeKit constraints.
 - **Walking through options** — state the alternatives, the trade-offs, and a
   recommendation. Ask the user to decide.
@@ -87,8 +97,9 @@ with the user before producing an engineering brief. This phase may involve:
 - Append to the relevant plan's **Decisions & findings** table — never
   overwrite prior entries.
 - If the finding changes delivery order, update `ROADMAP.md`.
-- If the finding changes the plan's design significantly, flag to the
-  **architect** skill to revise the plan before briefing the engineer.
+- If the finding changes the plan's design significantly, dispatch to the
+  **architect** subagent (`Agent(subagent_type: "architect", ...)`) to revise
+  the plan before briefing the engineer.
 
 **If research concludes the work is infeasible or indefinitely blocked:**
 Don't bury it in a findings row — surface it explicitly. Summarise:
@@ -109,8 +120,8 @@ Once decided:
 - **Defer:** leave `status: planned`, add a row to Decisions & findings
   recording the blocker and the condition that would unblock it. Add a note to
   `ROADMAP.md` marking the item as deferred and why.
-- **Pivot:** engage the **architect** skill to revise the plan with the new
-  constraints before re-entering this workflow.
+- **Pivot:** dispatch the **architect** subagent to revise the plan with the
+  new constraints before re-entering this workflow.
 
 Only move to step 4 once decisions are recorded and the path forward is clear.
 
@@ -119,16 +130,22 @@ Only move to step 4 once decisions are recorded and the path forward is clear.
 Before writing briefs, check whether multiple items can be worked in parallel:
 
 - Items with **no shared files** and **no dependency between them** can run
-  concurrently on separate branches — brief each as its own engineer task.
+  concurrently on separate branches — brief each as its own **engineer**
+  subagent dispatch.
 - Items that **share files** (e.g. both touch `SoundTouchSpeakerPlatformAccessory.ts`)
-  must be serialised to avoid merge conflicts — brief them in order.
+  must be serialised to avoid merge conflicts — dispatch them one at a time,
+  in order.
 - A large plan can often be **split within itself**: e.g. the Switch-path
   volume characteristic and its tests are independent of the Lightbulb-path
-  wiring — two engineers can work those in parallel on separate branches.
+  wiring — two `engineer` dispatches can run in parallel on separate branches.
 
-If parallel work makes sense, say so explicitly and produce one brief per
-engineer. Each brief must be fully self-contained — an engineer reads only
-their brief and the cited domain skills, nothing else.
+If parallel work makes sense, say so explicitly, then actually dispatch it in
+parallel: call `Agent(subagent_type: "engineer", prompt: <brief>)` once per
+independent unit, all as separate tool calls **within the same message** — not
+sequential turns. Each brief must be fully self-contained: an engineer
+subagent starts with no memory of this conversation, so its prompt must carry
+everything from step 6 below (plan file, scope, key files, risks, gate). It
+reads only its own brief and the domain skills it chooses to load.
 
 ### 5. Estimate session cost (token budget)
 
@@ -182,7 +199,9 @@ fed back.
 
 ### 6. Write the engineering brief(s)
 
-For each unit of work, produce a brief:
+For each unit of work, produce a brief. This brief **is** the `prompt` you pass
+to `Agent(subagent_type: "engineer", prompt: <brief>)` — the engineer subagent
+sees nothing else, so it must be complete on its own:
 
 **Plan:** `<filename>` — `<feature name>`
 **Branch:** `<implementation branch>` (`feat/…`/`fix/…`/`test/…` off `dev`; if
@@ -263,12 +282,18 @@ Always re-read a file before editing it.
 - **The roadmap is a living document.** If delivery order changes because of
   new findings, update it.
 
-## Related skills
+## Related
 
-- **architect** — creates and maintains plan files; owns the plan template and
-  branching/release conventions. Engage it to write a new plan or revise an
-  existing one when design changes.
-- **engineer** — receives the brief and implements it. Hands back a PR.
-- **coding-conventions**, **homebridge-developer**, **soundtouch-api-expert** —
-  domain knowledge you draw on during decisioning, and cite in briefs so the
-  engineer knows which to load.
+- **architect** subagent (`Agent(subagent_type: "architect", ...)`) — creates
+  and maintains plan files; owns the plan template and branching/release
+  conventions. Dispatch it to write a new plan or revise an existing one when
+  design changes.
+- **engineer** subagent (`Agent(subagent_type: "engineer", ...)`) — receives
+  the brief and implements it. Hands back a PR. Dispatch one per independent
+  unit of work; fire multiple in the same message when parallel (step 4).
+- **release-manager** subagent (`Agent(subagent_type: "release-manager", ...)`)
+  — dispatch before a `dev → beta` or `dev → latest` promotion PR to gate the
+  release.
+- **coding-conventions**, **homebridge-developer**, **soundtouch-api-expert**
+  skills — domain knowledge you draw on during decisioning, and cite in briefs
+  so the engineer knows which to load.
