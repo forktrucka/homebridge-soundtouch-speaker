@@ -218,23 +218,19 @@ export class SoundTouchDevice implements BaseDevice {
   }
 
   static async deviceIsOn(device: SoundTouchDevice): Promise<boolean> {
-    try {
-      const source = await device.api.getSource();
+    const source = await device.api.getSource();
 
-      if (!source) {
-        return false;
-      }
-
-      switch (source) {
-        case SourceStatus.standBy:
-          return false;
-        case SourceStatus.invalid:
-          return true;
-        default:
-          return true;
-      }
-    } catch {
+    if (!source) {
       return false;
+    }
+
+    switch (source) {
+      case SourceStatus.standBy:
+        return false;
+      case SourceStatus.invalid:
+        return true;
+      default:
+        return true;
     }
   }
 }

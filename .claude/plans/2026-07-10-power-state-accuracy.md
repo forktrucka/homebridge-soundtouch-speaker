@@ -74,29 +74,31 @@ Audit findings (verified 2026-07-10) that make HomeKit power state lie:
 
 ## Implementation checklist
 
-- [ ] Read `coding-conventions` and `homebridge-developer` skills first
-- [ ] `deviceIsOn`: delete the catch; audit every caller (`getOn`, `refresh`
+- [x] Read `coding-conventions` and `homebridge-developer` skills first
+- [x] `deviceIsOn`: delete the catch; audit every caller (`getOn`, `refresh`
       in the On characteristic, anything else via grep) and decide
       propagate-vs-catch per the decisions table
-- [ ] Reconciliation loop: try/catch around `refresh()`, log at debug, loop
-      continues
-- [ ] `setOn`: `const actual = await SoundTouchDevice.deviceIsOn(this.device)`
+- [x] Reconciliation loop: try/catch around `refresh()`, log at debug, loop
+      continues (already in place on `dev` from #127 — verified, no change
+      needed)
+- [x] `setOn`: `const actual = await SoundTouchDevice.deviceIsOn(this.device)`
       then press only when `actual !== value`; errors propagate to `wrapHapSet`
-- [ ] Platform restore branch: refresh `context.deviceId` + `displayName`,
+- [x] Platform restore branch: refresh `context.deviceId` + `displayName`,
       `updatePlatformAccessories` when changed
-- [ ] Wrap `didFinishLaunching` body in try/catch with `AppError` logging
-- [ ] New On-characteristic tests: getOn on/standby/error → HapStatusError;
+- [x] Wrap `didFinishLaunching` body in try/catch with `AppError` logging
+- [x] New On-characteristic tests: getOn on/standby/error → HapStatusError;
       setOn drift cases (cache says off, device on → no press when target on)
-- [ ] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run typecheck && npm run lint && npm test`
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` — unplug a speaker: tile shows "No Response" (not
       "Off"); toggle power from Home app twice rapidly: no double-toggle;
       rename a device in config: restored accessory context updates
+      (skipped — no real speaker available in this session; noted in the PR)
 
 ## PR / release notes
 

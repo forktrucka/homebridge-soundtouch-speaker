@@ -52,7 +52,8 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
 
   async setOn(value: CharacteristicValue): Promise<void> {
     const desiredPowerStatus = value as boolean;
-    if (this.characteristic.value !== desiredPowerStatus) {
+    const actualPowerStatus = await SoundTouchDevice.deviceIsOn(this.device);
+    if (actualPowerStatus !== desiredPowerStatus) {
       await this.device.api.pressKey(KeyValue.power);
     }
     this.log.debug('set status - %s', desiredPowerStatus ? 'on' : 'off');
