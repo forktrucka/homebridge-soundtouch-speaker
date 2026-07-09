@@ -214,5 +214,126 @@ describe('GabboClient', () => {
         jest.useRealTimers();
       }
     });
+
+    it('doubles the reconnect delay after each failed attempt, capping at 300000ms', async () => {
+      jest.useFakeTimers({ advanceTimers: false });
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+
+      try {
+        client.connect();
+        await nextEventWithTimeout(client, 'connected');
+
+        await server.stop();
+        await nextEvent(client, 'disconnected');
+
+        const expectedDelays = [
+          5000, 10000, 20000, 40000, 80000, 160000, 300000, 300000,
+        ];
+
+        for (const expectedDelay of expectedDelays) {
+          const lastCall = setTimeoutSpy.mock.calls.at(-1);
+
+          expect(lastCall?.[1]).toBe(expectedDelay);
+
+          const disconnectedAgain = nextEvent(client, 'disconnected');
+          jest.advanceTimersByTime(expectedDelay);
+          await disconnectedAgain;
+        }
+      } finally {
+        setTimeoutSpy.mockRestore();
+        jest.useRealTimers();
+      }
+    });
+
+    it('resets the reconnect delay to the base value after a successful reconnect', async () => {
+      jest.useFakeTimers({ advanceTimers: false });
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+
+      try {
+        client.connect();
+        await nextEventWithTimeout(client, 'connected');
+
+        // First failure: schedules a 5s delay, then a 10s delay.
+        await server.stop();
+        await nextEvent(client, 'disconnected');
+
+        let lastCall = setTimeoutSpy.mock.calls.at(-1);
+        expect(lastCall?.[1]).toBe(5000);
+
+        const secondFailure = nextEvent(client, 'disconnected');
+        jest.advanceTimersByTime(5000);
+        await secondFailure;
+
+        lastCall = setTimeoutSpy.mock.calls.at(-1);
+        expect(lastCall?.[1]).toBe(10000);
+
+        // Bring the server back on the same port so the next attempt succeeds.
+        port = await server.start(port);
+        const reconnected = nextEvent(client, 'connected');
+        jest.advanceTimersByTime(10000);
+        await reconnected;
+
+        // Fail again: the delay should have reset to the base value.
+        const disconnectedAfterReset = nextEvent(client, 'disconnected');
+        await server.stop();
+        await disconnectedAfterReset;
+
+        lastCall = setTimeoutSpy.mock.calls.at(-1);
+        expect(lastCall?.[1]).toBe(5000);
+      } finally {
+        setTimeoutSpy.mockRestore();
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  describe('liveness detection', () => {
+    it('closes the socket and reconnects when no activity is seen for over 2x the ping interval', async () => {
+      jest.useFakeTimers({ advanceTimers: false });
+
+      try {
+        client.connect();
+        await nextEventWithTimeout(client, 'connected');
+
+        const errorEvents: unknown[] = [];
+        client.on('error', (payload) => errorEvents.push(payload));
+
+        // Ping interval is 30s; staleness threshold is 2x that (60s), so the
+        // third tick (90s) is the first one to observe a stale connection.
+        const disconnected = nextEvent(client, 'disconnected');
+        jest.advanceTimersByTime(90000);
+        await disconnected;
+
+        expect(client.isConnected).toBe(false);
+        expect(errorEvents).toHaveLength(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('does not close the socket when messages keep arriving', async () => {
+      jest.useFakeTimers({ advanceTimers: false });
+
+      try {
+        client.connect();
+        await nextEventWithTimeout(client, 'connected');
+
+        const disconnectedEvents: unknown[] = [];
+        client.on('disconnected', (payload) => disconnectedEvents.push(payload));
+
+        // Advance through two ping ticks, pushing a frame right before each
+        // one so lastActivityAt never goes stale.
+        jest.advanceTimersByTime(25000);
+        server.push('<updates deviceID="DEV1"></updates>');
+        jest.advanceTimersByTime(25000);
+        server.push('<updates deviceID="DEV1"></updates>');
+        jest.advanceTimersByTime(25000);
+
+        expect(client.isConnected).toBe(true);
+        expect(disconnectedEvents).toHaveLength(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });

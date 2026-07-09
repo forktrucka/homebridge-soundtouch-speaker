@@ -20,10 +20,10 @@ export class FakeGabboServer {
   /** The sub-protocol each connection negotiated, in connection order. */
   readonly negotiatedProtocols: string[] = [];
 
-  start(): Promise<number> {
+  start(port = 0): Promise<number> {
     const server = new WebSocketServer({
       host: '127.0.0.1',
-      port: 0,
+      port,
       // Reject the upgrade outright unless the client offered `gabbo`...
       verifyClient: (info: { req: IncomingMessage }) =>
         String(info.req.headers['sec-websocket-protocol'] ?? '')

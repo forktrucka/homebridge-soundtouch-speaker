@@ -1,10 +1,25 @@
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { FakeGabboServer } from './helpers/fake-gabbo-server.js';
 import {
   parseGabboFrame,
   type GabboNotification,
 } from '../devices/SoundTouch/api/notifications/gabbo-notification.js';
 import { Endpoints } from '../devices/SoundTouch/api/endpoints.js';
+import { GabboClient } from '../devices/SoundTouch/api/GabboClient.js';
+
+/** Wait for an event to fire on an EventEmitter, resolving with its first argument. */
+function nextEvent(emitter: GabboClient, event: string): Promise<unknown> {
+  return new Promise((resolve) => {
+    emitter.once(event, (payload) => resolve(payload));
+  });
+}
 
 /**
  * Spike C, Part 1 (no hardware): prove our connect → receive → parse → dispatch
@@ -98,6 +113,79 @@ describe('gabbo WebSocket notifications', () => {
         await frame
       );
       expect(notifications).toEqual([]);
+    });
+  });
+
+  /**
+   * Spike C, Part 2 (resilience): a `GabboClient` connected to a server that
+   * goes silent (stops responding to pings, never actually closes the TCP
+   * connection) must notice the dead connection, force a close, and
+   * reconnect once the server comes back — without leaking timers.
+   */
+  describe('reconnect resilience', () => {
+    let client: GabboClient | undefined;
+
+    afterEach(() => {
+      client?.disconnect();
+      client = undefined;
+    });
+
+    it('closes and reconnects a client when the server goes silent, then recovers', async () => {
+      client = GabboClient.create('127.0.0.1', port);
+
+      jest.useFakeTimers({ advanceTimers: false });
+
+      try {
+        client.connect();
+        await nextEvent(client, 'connected');
+        expect(client.isConnected).toBe(true);
+
+        // The server never closes the connection, but also never sends
+        // anything back — simulating a half-open/dead peer.
+        const disconnected = nextEvent(client, 'disconnected');
+        jest.advanceTimersByTime(90000); // > STALE_CONNECTION_MS (2x30s ping interval)
+        await disconnected;
+
+        expect(client.isConnected).toBe(false);
+
+        // The server is still up on the same port, so the scheduled
+        // reconnect (5s backoff) should succeed.
+        const reconnected = nextEvent(client, 'connected');
+        jest.advanceTimersByTime(5000);
+        await reconnected;
+
+        expect(client.isConnected).toBe(true);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('leaves no pending timers after disconnect()', async () => {
+      client = GabboClient.create('127.0.0.1', port);
+
+      jest.useFakeTimers({ advanceTimers: false });
+
+      try {
+        client.connect();
+        await nextEvent(client, 'connected');
+
+        client.disconnect();
+
+        // If the ping interval or a reconnect timer were still scheduled,
+        // this would throw synchronously (fake timers surface leaks via a
+        // pending-timer count) or trigger further 'connected'/'disconnected'
+        // events after being advanced well past every relevant interval.
+        const events: string[] = [];
+        client.on('connected', () => events.push('connected'));
+        client.on('disconnected', () => events.push('disconnected'));
+
+        jest.advanceTimersByTime(600000);
+
+        expect(events).toHaveLength(0);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });

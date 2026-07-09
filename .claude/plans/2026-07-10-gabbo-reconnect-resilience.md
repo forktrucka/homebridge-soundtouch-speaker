@@ -1,6 +1,6 @@
 ---
 feature: Gabbo WebSocket reconnect backoff and dead-connection detection
-status: planned
+status: in-progress
 date: 2026-07-10
 branch: fix/gabbo-resilience
 commit-type: fix
@@ -39,8 +39,8 @@ Listeners attach per-socket so they don't accumulate. A permanent no-op
 | 2026-07-10 | Exponential backoff: start 5 s, double per failed attempt, cap 5 min, reset to 5 s on successful `open` | Stops hammering offline speakers; 5 min cap keeps recovery reasonably fast | Fixed longer delay (slow recovery after brief outages); jitter (single client per speaker, unnecessary) |
 | 2026-07-10 | Liveness via `lastActivityAt` timestamp updated on every incoming `message`; in the ping interval, if `now - lastActivityAt > 2 × PING_INTERVAL_MS`, call `socket.close()` to force the normal close→reconnect path | Speakers push frequent notifications; native WebSocket API exposes no pong event, so app-level activity tracking is the available signal. Reuses existing close-path cleanup instead of a parallel teardown path | Raw `ws`-library ping/pong (would add a runtime dep — `ws` is devDep-only per the websocket-push plan); counting sent pings (no ack to observe) |
 | 2026-07-10 | `Date.now()` must be injectable or the tests must use jest fake timers | Existing `GabboClient.test.ts` and `fake-gabbo-server.ts` integration harness exist; fake timers are the established pattern — check how `GabboClient.test.ts` currently handles the ping interval before choosing | — |
-| 2026-07-10 | `error` handler left as-is (re-emit only) | On connection-refused Node's WebSocket fires `error` then `close`, so reconnect already triggers via close. Verify with the fake-gabbo harness during implementation; only add handling if close doesn't fire | Reconnect from the error handler (risk of double-scheduling alongside close) |
 | 2026-07-10 | `attempt` counter lives on the class, reset in the `open` listener | Simplest state that survives across `openSocket()` calls | — |
+| 2026-07-10 | **Reversed:** the `error` handler now also routes through the same disconnect/reconnect teardown as `close`, guarded by a per-socket `handledDisconnect` flag so both firing together can't double-schedule | Verified against the real Node global `WebSocket` (not just the fake-gabbo harness): a pre-open failure (connection refused, handshake rejected) fires only `error`, never `close`; a post-open drop fires only `close`, never `error`. The original assumption ("error is always followed by close") was wrong — without this fix, an offline speaker at `connect()` time would fire one `error` and then never reconnect, since only `close` scheduled reconnects | Leaving `error` as re-emit-only (would silently break reconnect-from-offline, the primary case this plan exists to fix) |
 
 ## If cancelled
 
@@ -68,29 +68,34 @@ Listeners attach per-socket so they don't accumulate. A permanent no-op
 
 ## Implementation checklist
 
-- [ ] Read `coding-conventions` skill before editing
-- [ ] Add backoff: `reconnectAttempts` field; delay =
+- [x] Read `coding-conventions` skill before editing
+- [x] Add backoff: `reconnectAttempts` field; delay =
       `min(RECONNECT_DELAY_MS * 2 ** attempts, RECONNECT_MAX_DELAY_MS)`;
       increment when scheduling, reset to 0 in the `open` listener
-- [ ] Add `lastActivityAt` updated in the `message` listener; initialize in
+- [x] Add `lastActivityAt` updated in the `message` listener; initialize in
       the `open` listener
-- [ ] In the ping interval: if connected and
+- [x] In the ping interval: if connected and
       `Date.now() - lastActivityAt > STALE_CONNECTION_MS`, log/emit and
       `this.socket?.close()` (close listener handles cleanup + reconnect)
-- [ ] Unit tests with fake timers: delays grow 5s→10s→20s…→cap at 300s;
+- [x] Also route `error` through the same disconnect/reconnect teardown as
+      `close` (see Decisions & findings — `error` and `close` are not
+      reliably paired on Node's global `WebSocket`)
+- [x] Unit tests with fake timers: delays grow 5s→10s→20s…→cap at 300s;
       reset after successful open; silent socket closed after 60 s
-- [ ] Integration test: fake-gabbo server stops responding → client
+- [x] Integration test: fake-gabbo server stops responding → client
       reconnects; verify no timer leaks (cleanup on `disconnect()`)
-- [ ] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run typecheck && npm run lint && npm test`
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` — power-cycle a real speaker: reconnect delays grow in
       the debug log, then reset after it comes back; pull ethernet/wifi to
       test half-open detection (state resumes within ~2 poll cycles)
+      (not run — no physical speaker available in this session; noted in the
+      PR description as skipped)
 
 ## PR / release notes
 
