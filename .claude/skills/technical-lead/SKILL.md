@@ -60,8 +60,18 @@ Read these files before saying anything:
 
 1. `.claude/skills/technical-lead/ROADMAP.md` — delivery order, dependency
    graph, spike blockers. This is the authoritative sequencing document.
-2. All files in `.claude/plans/` — check `status:` frontmatter
-   and open checklist items to see what's planned, in-progress, in beta, or done.
+2. The active plan files directly under `.claude/plans/` (not `done/`) — check
+   `status:` frontmatter and open checklist items to see what's planned,
+   in-progress, or in beta.
+3. `.claude/plans/done/INDEX.md` — the one-line-per-plan archive index of
+   shipped work. Scan this instead of opening every file in `done/`; open an
+   individual archived plan only when you need its detail (e.g. to compare a
+   new plan against how a similar past one actually went). It is also the list
+   the closure sweep in step 7 works from.
+
+Estimate-vs-actual sizing history is in
+`.claude/skills/technical-lead/CALIBRATION.md` — read it in step 5 when sizing
+work, not routinely here.
 
 ### 2. Assess readiness
 
@@ -193,9 +203,9 @@ drivers below, not from line count alone.
 
 **Calibrate.** After a unit ships, compare the estimate to what it actually
 took (smooth vs. many fix-loops, finished in one pass vs. split) and add a row
-to the plan's Decisions & findings noting the variance. Update the band in
-`ROADMAP.md` if the estimate was off. Estimates only get sharper if actuals are
-fed back.
+to `CALIBRATION.md` (this skill's directory) noting the variance; also record
+it in the plan's Decisions & findings. Update the band in `ROADMAP.md` if the
+estimate was off. Estimates only get sharper if actuals are fed back.
 
 ### 6. Write the engineering brief(s)
 
@@ -240,18 +250,21 @@ opened. If the plan lists additional manual verification steps, list them.
 When handing off to the engineer, set `status: in-progress` in the plan file
 frontmatter. When the PR is merged to dev and a beta release is cut, set
 `status: beta` with the version in a comment (e.g. `# v0.3.0-beta.1`). When
-promoted to `latest`, set `status: done`, move the file to `plans/done/`, and
-**remove the item from `ROADMAP.md` entirely** — done work has no place in the
-delivery sequence. If the work is cancelled or found impossible, set
-`status: cancelled`, fill in the plan's "If cancelled" section, move the file
-to `plans/cancelled/`, and likewise remove it from the ROADMAP.
+promoted to `latest`, set `status: done`, move the file to `plans/done/`, add a
+row to `plans/done/INDEX.md`, and **remove the item from `ROADMAP.md` entirely**
+— done work has no place in the delivery sequence. If the work is cancelled or
+found impossible, set `status: cancelled`, fill in the plan's "If cancelled"
+section, move the file to `plans/cancelled/`, and likewise remove it from the
+ROADMAP.
 
-**Closure sweep (do this during every survey):** for each plan in `plans/done/`
-with `status: beta`, run `npm view homebridge-soundtouchspeaker dist-tags` to
-check whether `latest` has shipped at or above that version. If it has, update
-the frontmatter to `status: done # <YYYY-MM-DD>` (today's date) and remove the
-item from `ROADMAP.md`. Do not leave done or beta plans in the ROADMAP — they
-add noise and make the active delivery sequence harder to read.
+**Closure sweep (do this during every survey):** using `plans/done/INDEX.md`,
+for each row still marked `beta`, run `npm view homebridge-soundtouchspeaker
+dist-tags` to check whether `latest` has shipped at or above that version. If it
+has, update the plan file's frontmatter to `status: done # <YYYY-MM-DD>`
+(today's date), update its row in `INDEX.md` (`Status` → `done`, `Shipped` →
+today), and remove the item from `ROADMAP.md`. Do not leave done or beta plans
+in the ROADMAP — they add noise and make the active delivery sequence harder to
+read.
 
 When delivery order changes, update `ROADMAP.md`. The roadmap is your
 document — keep it current.
