@@ -1,6 +1,6 @@
 ---
 feature: Harden BoseCloudServer TuneIn station-id handling
-status: planned
+status: in-progress
 date: 2026-07-10
 branch: fix/bose-cloud-server-hardening
 commit-type: fix
@@ -61,28 +61,29 @@ validate the id shape, encode at every interpolation site.
 
 ## Implementation checklist
 
-- [ ] Read `coding-conventions` skill (ESM `.js` import rule) before editing
-- [ ] Confirm the station-id pattern against api-reference/captures; define
+- [x] Read `coding-conventions` skill (ESM `.js` import rule) before editing
+- [x] Confirm the station-id pattern against api-reference/captures; define
       `const STATION_ID_PATTERN = /^[a-z]?\d+$/i` (or as corrected) near the
       other constants at the top of `BoseCloudServer.ts`
-- [ ] Reject non-matching ids with 400 in `_handleRequest` before
+- [x] Reject non-matching ids with 400 in `_handleRequest` before
       `_resolveTuneIn` is called; log at debug with the remote address
-- [ ] `encodeURIComponent` the id in all five URL interpolations in
+- [x] `encodeURIComponent` the id in all five URL interpolations in
       `_resolveTuneIn`
-- [ ] Tests: `123&render=xml` → 400 and axios mock never called;
+- [x] Tests: `123&render=xml` → 400 and axios mock never called;
       `../../etc` → 400; valid `s24939` → 200 and the mock-received URL
       contains the encoded id; reflected `name` falls back to the raw id only
       for valid ids
-- [ ] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run typecheck && npm run lint && npm test`
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` — with `server.enabled: true`, confirm a real speaker
       (or `curl http://<host>:8000/bmx/tunein/v1/playback/station/s24939`)
-      still resolves a station, and a malformed id returns 400
+      still resolves a station, and a malformed id returns 400 — skipped, no
+      real speaker available in this session
 
 ## PR / release notes
 
