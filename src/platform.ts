@@ -62,13 +62,19 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
 
     this.api.on('didFinishLaunching', async () => {
       this.logger.debug('Started didFinishLaunching callback');
-      this.logNetworkInterfaces();
-      await this.discoverDevices();
-      if (this.configuration.serverEnabled) {
-        await this._startBoseCloudServer();
-        await this._setupPresets();
+      try {
+        this.logNetworkInterfaces();
+        await this.discoverDevices();
+        if (this.configuration.serverEnabled) {
+          await this._startBoseCloudServer();
+          await this._setupPresets();
+        }
+        this.logger.debug('Finished didFinishLaunching callback');
+      } catch (e: unknown) {
+        this.logger.error(
+          AppError.create({ name: 'DidFinishLaunchingFailed', cause: e })
+        );
       }
-      this.logger.debug('Finished didFinishLaunching callback');
     });
 
     this.api.on('shutdown', () => {
@@ -173,12 +179,23 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             existingAccessory.displayName
           );
 
+          const contextChanged =
+            existingAccessory.context.deviceId !== device.id ||
+            existingAccessory.displayName !== device.name;
+
+          existingAccessory.context.deviceId = device.id;
+          existingAccessory.displayName = device.name;
+
           const wrapper = await SoundTouchSpeakerPlatformAccessory.create({
             platform: this,
             accessory: existingAccessory,
             device,
           });
           this._accessoryWrappers.set(uuid, wrapper);
+
+          if (contextChanged) {
+            this.api.updatePlatformAccessories([existingAccessory]);
+          }
         } else {
           this.logger.info('Adding new accessory:', device.name);
 

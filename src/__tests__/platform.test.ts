@@ -18,6 +18,7 @@ function buildDevice(props: { id: string; name: string; disabled: boolean }) {
 function buildPlatform() {
   const registerPlatformAccessories = jest.fn();
   const unregisterPlatformAccessories = jest.fn();
+  const updatePlatformAccessories = jest.fn();
 
   const homebridgeApi = {
     hap: {
@@ -32,6 +33,7 @@ function buildPlatform() {
     })),
     registerPlatformAccessories,
     unregisterPlatformAccessories,
+    updatePlatformAccessories,
     on: jest.fn(),
   };
 
@@ -50,7 +52,13 @@ function buildPlatform() {
     homebridgeApi as never
   );
 
-  return { platform, registerPlatformAccessories, unregisterPlatformAccessories };
+  return {
+    platform,
+    registerPlatformAccessories,
+    unregisterPlatformAccessories,
+    updatePlatformAccessories,
+    homebridgeApi,
+  };
 }
 
 describe('SoundTouchHomebridgePlatform', () => {
@@ -113,6 +121,42 @@ describe('SoundTouchHomebridgePlatform', () => {
       await platform.discoverDevices();
 
       expect(unregisterPlatformAccessories).not.toHaveBeenCalled();
+    });
+
+    it('refreshes stale context on a restored accessory when the device was renamed', async () => {
+      const device = buildDevice({ id: 'dev5', name: 'New Name', disabled: false });
+      const { platform, updatePlatformAccessories } = buildPlatform();
+      jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
+
+      const cachedAccessory = {
+        displayName: 'Old Name',
+        UUID: 'uuid:dev5',
+        context: { deviceId: 'stale-id' },
+      };
+      platform.configureAccessory(cachedAccessory as never);
+
+      await platform.discoverDevices();
+
+      expect(cachedAccessory.context.deviceId).toBe('dev5');
+      expect(cachedAccessory.displayName).toBe('New Name');
+      expect(updatePlatformAccessories).toHaveBeenCalledWith([cachedAccessory]);
+    });
+
+    it('does not call updatePlatformAccessories when a restored accessory context is unchanged', async () => {
+      const device = buildDevice({ id: 'dev6', name: 'Same Name', disabled: false });
+      const { platform, updatePlatformAccessories } = buildPlatform();
+      jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
+
+      const cachedAccessory = {
+        displayName: 'Same Name',
+        UUID: 'uuid:dev6',
+        context: { deviceId: 'dev6' },
+      };
+      platform.configureAccessory(cachedAccessory as never);
+
+      await platform.discoverDevices();
+
+      expect(updatePlatformAccessories).not.toHaveBeenCalled();
     });
   });
 });
