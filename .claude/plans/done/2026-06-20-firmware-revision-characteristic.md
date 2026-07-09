@@ -49,6 +49,8 @@ populated on the `AccessoryInformation` service.
   - [ ] `it('sets FirmwareRevision to the component softwareVersion when the serial matches')` — assert `api.getCharacteristicValue('AccessoryInformation', 'FirmwareRevision')` equals `'1.0.0'`
   - [ ] `it('does not set FirmwareRevision when no component serial matches the device id')` — assert value is `undefined`
 
+> shipped; checklist was not maintained
+
 ## Verification
 
 - [ ] `npm run lint`

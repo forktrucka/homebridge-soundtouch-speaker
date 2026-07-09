@@ -1,6 +1,6 @@
 ---
 feature: Plan-doc hygiene, roadmap fixes, and TuneInClient dead-code removal
-status: planned
+status: in-progress
 date: 2026-07-10
 branch: chore/plan-hygiene-dead-code
 commit-type: chore
@@ -49,15 +49,15 @@ except deleting an unused class.
 
 ## Implementation checklist
 
-- [ ] Read `coding-conventions` skill first
-- [ ] Delete `TuneInClient.ts` + test; fix any re-export in `src/presets/index.ts`
-- [ ] `npm run knip` — confirm clean (and fix anything else it flags that
+- [x] Read `coding-conventions` skill first
+- [x] Delete `TuneInClient.ts` + test; fix any re-export in `src/presets/index.ts`
+- [x] `npm run knip` — confirm clean (and fix anything else it flags that
       this deletion exposes)
-- [ ] Append corrections to the internet-radio done-plan
-- [ ] Add "shipped; checklist not maintained" notes to the four done-plans;
+- [x] Append corrections to the internet-radio done-plan
+- [x] Add "shipped; checklist not maintained" notes to the four done-plans;
       remove the `</content></invoke>` artifact from prefer-it-over-test
-- [ ] Update `presetSyncSchedule` description in `config.schema.json`
-- [ ] `npm run typecheck && npm run lint && npm test`
+- [x] Update `presetSyncSchedule` description in `config.schema.json`
+- [x] `npm run typecheck && npm run lint && npm test`
 
 ## Verification
 

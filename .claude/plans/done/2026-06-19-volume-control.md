@@ -100,6 +100,8 @@ after, bundled with or as a quick follow-up to plan 01.
 - [ ] Add tests for `SoundTouchSpeakerBrightnessCharacteristic` (incl. a
       power+volume interaction test that would fail against the old 5 s sleep)
 
+> shipped; checklist was not maintained
+
 ## Verification
 
 - [ ] `npm run lint`

@@ -86,6 +86,8 @@ this. Default must stay `switch` so existing installs are unchanged.
 - [ ] Add `accessoryType` to `config.schema.json` (accessory + global)
 - [ ] Add/update tests
 
+> shipped; checklist was not maintained
+
 ## Verification
 
 - [ ] `npm run lint`
