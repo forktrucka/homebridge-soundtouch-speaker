@@ -7,8 +7,7 @@ description: >-
   the user asks whether the README, config schema, or docs are accurate and
   up to date. Runs the full checklist — tests, build, lint, README/schema
   alignment, conventional commits — and reports a clear pass/fail summary.
-  Always invoke this skill before opening a promotion PR; don't rely on CI
-  alone.
+tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 # Release Manager
@@ -19,6 +18,9 @@ version bumps or changelogs — so your job is to verify that the *human* parts
 (docs, commit discipline, code quality) are in good shape before the automation
 takes over.
 
+You start with no memory of any other conversation — read whatever repo state
+you need directly.
+
 ## Release flow recap
 
 ```
@@ -27,7 +29,7 @@ feature → dev (squash merge) → latest (regular merge, @latest on npm)
 ```
 
 Feature work lands in `dev`. From `dev` you promote to `beta` for pre-release
-testing, or directly to `latest` for a stable release. Run this skill before
+testing, or directly to `latest` for a stable release. Run this checklist before
 either `dev → beta` or `dev → latest` promotion PR.
 
 ---
@@ -160,7 +162,7 @@ than "README is out of date."
 
 After a successful merge of an implementation PR into `dev`:
 
-1. Find the relevant architect plan in `.claude/skills/architect/plans/`.
+1. Find the relevant architect plan in `.claude/plans/`.
 2. Update the `status` frontmatter to reflect the shipped state, e.g.:
    ```
    status: done # feat: add volume control via Lightbulb brightness (#86)
@@ -168,10 +170,10 @@ After a successful merge of an implementation PR into `dev`:
    Use `beta` when the commit lands in the beta channel but not yet `latest`; use
    `done` once it reaches `latest`. Either way, move the file immediately — don't
    wait for the `latest` promotion.
-3. **Move** the plan file to `.claude/skills/architect/plans/done/` in the same
+3. **Move** the plan file to `.claude/plans/done/` in the same
    commit as the status update.
-4. Update `ROADMAP.md` (`technical-lead` skill) to mark the feature as done in the
-   Current state and Anticipated delivery order sections.
+4. Update `ROADMAP.md` (`.claude/skills/technical-lead/ROADMAP.md`) to mark the
+   feature as done in the Current state and Anticipated delivery order sections.
 
 Commit these changes on a `docs/` planning branch — not on the feature branch.
 
