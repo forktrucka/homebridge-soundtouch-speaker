@@ -1,6 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it, jest } from '@jest/globals';
 import type { AxiosInstance } from 'axios';
+import { request as httpRequest } from 'node:http';
 import { BoseCloudServer } from '../BoseCloudServer.js';
+
+// `fetch` resolves `..` path segments client-side before the request is sent,
+// so it can't exercise the server's own defense against a raw traversal
+// string reaching the route handler. Use a raw request with the literal path.
+function rawGet(port: number, rawPath: string): Promise<{ status: number }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { host: '127.0.0.1', port, path: rawPath, method: 'GET' },
+      (res) => {
+        res.resume();
+        res.on('end', () => resolve({ status: res.statusCode ?? 0 }));
+      }
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 function mockLogger() {
   return {
@@ -132,6 +150,75 @@ describe('BoseCloudServer', () => {
       expect(json.audio.streamUrl).toBe('http://stream.example.com/live');
       expect(json.name).toBe('Example FM');
       expect(json.imageUrl).toBe('http://img.example.com/logo.png');
+
+      await s.stop();
+    });
+
+    it('returns 400 and never calls axios when the id has an injected query param', async () => {
+      const ax = mockAxios({});
+      const s = BoseCloudServer.create({
+        host: 'localhost',
+        port: 0,
+        logger: mockLogger(),
+        axiosInstance: ax,
+      });
+      await s.start();
+      const p = s.address()!.port;
+
+      const res = await fetch(
+        `http://127.0.0.1:${p}/bmx/tunein/v1/playback/station/123&render=xml`
+      );
+      expect(res.status).toBe(400);
+      expect((ax.get as jest.Mock).mock.calls).toHaveLength(0);
+
+      await s.stop();
+    });
+
+    it('returns 400 for an id containing path traversal segments', async () => {
+      const ax = mockAxios({});
+      const s = BoseCloudServer.create({
+        host: 'localhost',
+        port: 0,
+        logger: mockLogger(),
+        axiosInstance: ax,
+      });
+      await s.start();
+      const p = s.address()!.port;
+
+      const res = await rawGet(
+        p,
+        '/bmx/tunein/v1/playback/station/../../etc'
+      );
+      expect(res.status).toBe(400);
+      expect((ax.get as jest.Mock).mock.calls).toHaveLength(0);
+
+      await s.stop();
+    });
+
+    it('encodes the id in the outbound RadioTime URL for a valid id', async () => {
+      const ax = mockAxios(
+        { body: [{ url: 'http://stream.example.com/live' }] },
+        { body: [{ name: 'Example FM', logo: 'http://img.example.com/logo.png' }] }
+      );
+      const s = BoseCloudServer.create({
+        host: 'localhost',
+        port: 0,
+        logger: mockLogger(),
+        axiosInstance: ax,
+      });
+      await s.start();
+      const p = s.address()!.port;
+
+      const res = await fetch(
+        `http://127.0.0.1:${p}/bmx/tunein/v1/playback/station/s24939`
+      );
+      expect(res.status).toBe(200);
+
+      const [tuneUrl] = (ax.get as jest.Mock).mock.calls[0] as [string];
+      expect(tuneUrl).toContain(`id=${encodeURIComponent('s24939')}`);
+
+      const json = (await res.json()) as { name: string };
+      expect(json.name).toBe('Example FM');
 
       await s.stop();
     });

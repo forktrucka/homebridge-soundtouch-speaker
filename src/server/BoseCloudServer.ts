@@ -16,6 +16,11 @@ const SOURCE_PROVIDERS_XML = `<?xml version="1.0" encoding="UTF-8" standalone="y
 <sourceprovider id="25"><createdOn>2012-09-19T12:43:00.000+00:00</createdOn><name>TUNEIN</name><updatedOn>2012-09-19T12:43:00.000+00:00</updatedOn></sourceprovider>
 </sourceProviders>`;
 
+// TuneIn ids observed from real presets are a single letter type prefix
+// (e.g. `s` for station) followed by digits, e.g. `s7162`. See
+// docs/bose-cloud-setup.md and src/__device__/preset-concept.device.test.ts.
+const STATION_ID_PATTERN = /^[a-z]?\d+$/i;
+
 interface RadioTimeTuneResponse {
   body?: Array<{ url?: string }>;
 }
@@ -132,8 +137,10 @@ export class BoseCloudServer {
   }
 
   private async _resolveTuneIn(stationId: string): Promise<object> {
+    const encodedId = encodeURIComponent(stationId);
+
     const streamResp = await this.axios.get<RadioTimeTuneResponse>(
-      `http://opml.radiotime.com/Tune.ashx?id=${stationId}&formats=mp3,aac,ogg&render=json`
+      `http://opml.radiotime.com/Tune.ashx?id=${encodedId}&formats=mp3,aac,ogg&render=json`
     );
     const streamUrl = streamResp.data?.body?.[0]?.url ?? '';
 
@@ -141,7 +148,7 @@ export class BoseCloudServer {
     let imageUrl = '';
     try {
       const descResp = await this.axios.get<RadioTimeDescribeResponse>(
-        `https://opml.radiotime.com/describe.ashx?id=${stationId}&render=json`
+        `https://opml.radiotime.com/describe.ashx?id=${encodedId}&render=json`
       );
       name = descResp.data?.body?.[0]?.name ?? stationId;
       imageUrl = descResp.data?.body?.[0]?.logo ?? '';
@@ -149,12 +156,12 @@ export class BoseCloudServer {
       // name and imageUrl are cosmetic — don't abort on failure
     }
 
-    const reporting = `/v1/report?stream_id=e3342&guide_id=${stationId}&listen_id=3432432423&stream_type=liveRadio`;
+    const reporting = `/v1/report?stream_id=e3342&guide_id=${encodedId}&listen_id=3432432423&stream_type=liveRadio`;
     return {
       links: {
-        bmx_favorite: { href: `/v1/favorite/${stationId}` },
+        bmx_favorite: { href: `/v1/favorite/${encodedId}` },
         bmx_nowplaying: {
-          href: `/v1/now-playing/station/${stationId}`,
+          href: `/v1/now-playing/station/${encodedId}`,
           useInternalClient: 'ALWAYS',
         },
         bmx_reporting: { href: reporting },
@@ -215,8 +222,17 @@ export class BoseCloudServer {
       /^\/bmx\/tunein\/v1\/playback\/station\/(.+)$/
     );
     if (req.method === 'GET' && tuneInMatch) {
+      const stationId = tuneInMatch[1];
+      if (!STATION_ID_PATTERN.test(stationId)) {
+        this.logger.debug(
+          `[FakeBoseCloudServer] Rejected malformed TuneIn station id "${stationId}" from ${req.socket.remoteAddress}`
+        );
+        res.writeHead(400);
+        res.end();
+        return;
+      }
       try {
-        const payload = await this._resolveTuneIn(tuneInMatch[1]);
+        const payload = await this._resolveTuneIn(stationId);
         const body = JSON.stringify(payload);
         res.writeHead(200, {
           'Content-Type': 'application/json',
