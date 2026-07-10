@@ -110,6 +110,30 @@ describe('PresetManager', () => {
     });
   });
 
+  describe('#_msUntilNextCron', () => {
+    it('honors the day-of-month field instead of firing daily', () => {
+      const manager = PresetManager.create({ devices: [], stations: new Map() });
+      const now = new Date(2026, 6, 10, 0, 0, 0, 0);
+      jest.useFakeTimers().setSystemTime(now);
+
+      const ms = manager._msUntilNextCron('0 3 15 * *');
+
+      const expected =
+        new Date(2026, 6, 15, 3, 0, 0, 0).getTime() - now.getTime();
+      expect(ms).toBe(expected);
+
+      jest.useRealTimers();
+    });
+
+    it('falls back to a 24h retry when the schedule is invalid', () => {
+      const manager = PresetManager.create({ devices: [], stations: new Map() });
+
+      const ms = manager._msUntilNextCron('not a cron expression');
+
+      expect(ms).toBe(24 * 60 * 60 * 1000);
+    });
+  });
+
   describe('#start and #stop', () => {
     beforeEach(() => {
       jest.useFakeTimers();

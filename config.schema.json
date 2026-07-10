@@ -73,7 +73,7 @@
           "presetSyncSchedule": {
             "type": "string",
             "default": "0 0 * * *",
-            "description": "Cron expression controlling when preset sync runs (default: midnight daily). Only minute and hour fields are honored; day/month fields are ignored (fires daily).",
+            "description": "Cron expression controlling when preset sync runs (default: midnight daily). Standard 5-field syntax is supported: minute, hour, day-of-month, month, day-of-week.",
             "condition": {
               "functionBody": "return model.global && model.global.server && model.global.server.enabled === true && model.global.presetSyncEnabled === true"
             }
