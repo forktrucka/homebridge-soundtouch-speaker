@@ -1,6 +1,6 @@
 ---
 feature: Gabbo WebSocket reconnect backoff and dead-connection detection
-status: in-progress
+status: in-progress # merged to dev via PR #146, awaiting beta cut
 date: 2026-07-10
 branch: fix/gabbo-resilience
 commit-type: fix

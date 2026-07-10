@@ -33,19 +33,12 @@ flowchart TD
 
 | Order | Plan | Branch | Status | Why this position |
 | ----- | ---- | ------ | ------ | ----------------- |
-| 1 | **BoseCloudServer hardening** | `fix/bose-cloud-server-hardening` | 🟢 Ready (parallel-safe) | Security fix (station-id injection into outbound URLs) to code already in 0.4.0-beta — land before promoting dev→latest. `fix:` → patch. No file overlap with 2–4. |
-| 2 | **Gabbo reconnect resilience** | `fix/gabbo-resilience` | 🟢 Ready (parallel-safe) | Reconnect backoff + half-open-socket detection; also unfreezes the reconciliation poll gated on `isConnected`. Delivers the reconnect portion of WebSocket Phase 3, narrowing Spike C Part 2 (see below). `fix:` → patch. |
-| 3 | **Power state accuracy** | `fix/power-state-accuracy` | 🟢 Ready (parallel-safe) | `deviceIsOn` error propagation ("No Response" instead of false "Off"), toggle-drift fix, restore-context refresh, missing On-characteristic tests. `fix:` → patch. |
-| 4 | **Plan hygiene + dead code** | `chore/plan-hygiene-dead-code` | 🟢 Ready (parallel-safe) | Deletes dead `TuneInClient`, corrects stale done-plan docs, schema description fix. `chore:` → no release. |
-| 5 | **Speaker zones** | `feat/speaker-zones` | 🟢 Unblocked | `zones` config array; `SoundTouchZoneAccessory`; zone API activation at startup sync. `feat:` → minor. Zone API already implemented in `api/zone.ts`. Queued behind the remediation batch so the fixes ride the next beta. |
-| 6 | **Spike C Part 2** | — | 🟡 Unblocked (needs real device) | Scope narrowed by plan 2 above: reconnect/half-open handling ships without capture data; remaining questions are standby socket behaviour and heartbeat cadence only. |
-| 7 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Blocked on TV-vs-Switch spike (verify Television+InputSource on a real device). |
-| 8 | **[04] PWA — Phase 1** | `feat/pwa` | 🔴 Blocked (spike A) | Blocked on spike A (reverse-engineer hotspot provisioning HTTP API at `http://192.0.2.1`). |
-| 9 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via zone API. Needs phase 1 scaffold. |
-| 10 | **[04] PWA — Phase 3** | `feat/pwa` | 🔴 Blocked (spike B) | Homebridge config sync. Blocked on spike B + phase 1. |
-
-Items 1–4 (the 2026-07-10 remediation batch from the post-#141 review) share no
-files and can run as parallel engineer dispatches on separate branches.
+| 1 | **Speaker zones** | `feat/speaker-zones` | 🟢 Unblocked | `zones` config array; `SoundTouchZoneAccessory`; zone API activation at startup sync. `feat:` → minor. Zone API already implemented in `api/zone.ts`. The 2026-07-10 remediation batch (BoseCloudServer hardening #147, gabbo resilience #146, power state accuracy #144, plan hygiene #145) merged to `dev` ahead of this — awaiting the next beta cut. |
+| 2 | **Spike C Part 2** | — | 🟡 Unblocked (needs real device) | Scope narrowed by the merged gabbo-resilience fix: reconnect/half-open handling shipped without capture data; remaining questions are standby socket behaviour and heartbeat cadence only. |
+| 3 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Blocked on TV-vs-Switch spike (verify Television+InputSource on a real device). |
+| 4 | **[04] PWA — Phase 1** | `feat/pwa` | 🔴 Blocked (spike A) | Blocked on spike A (reverse-engineer hotspot provisioning HTTP API at `http://192.0.2.1`). |
+| 5 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via zone API. Needs phase 1 scaffold. |
+| 6 | **[04] PWA — Phase 3** | `feat/pwa` | 🔴 Blocked (spike B) | Homebridge config sync. Blocked on spike B + phase 1. |
 
 ## Session cost estimates
 
@@ -56,10 +49,6 @@ count. Bands: **Small** (room to spare), **Medium** (one fits comfortably),
 
 | Plan | Band | Drivers that set the band |
 | ---- | ---- | ------------------------- |
-| **BoseCloudServer hardening** | Small | Localised to one file; existing test harness already injects a mock axios; deterministic. |
-| **Gabbo reconnect resilience** | Medium | Async timing iteration risk (fake timers for backoff + staleness); integration-test changes against the fake-gabbo harness. |
-| **Power state accuracy** | Medium | Cross-file (device, accessory, characteristic, platform); new test file for the On characteristic; toggle semantics need care. |
-| **Plan hygiene + dead code** | Small | Mechanical deletion + doc edits; knip run is the only iteration risk. |
 | **Speaker zones** | Heavy | New `ZoneConfig` type + config schema; `zones` threaded through `PlatformConfiguration`; `SoundTouchZoneAccessory` + `SoundTouchZoneOnCharacteristic`; startup `getZone()` sync; zone set/dissolve via `setZone`/`removeZoneSlave`. |
 | **[03] Source selection** | TBD (blocked) | Estimate after TV-vs-Switch spike resolves the architecture. |
 | **[04] PWA — Phase 1–3** | TBD (blocked) | New `web/` workspace + embedded `src/server/`. Each phase its own session minimum. |

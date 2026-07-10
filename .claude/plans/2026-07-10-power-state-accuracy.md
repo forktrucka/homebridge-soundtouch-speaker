@@ -1,6 +1,6 @@
 ---
 feature: Accurate power state — error propagation, toggle drift, stale restore context
-status: planned
+status: in-progress # merged to dev via PR #144, awaiting beta cut
 date: 2026-07-10
 branch: fix/power-state-accuracy
 commit-type: fix
