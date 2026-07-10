@@ -2,7 +2,7 @@
 feature: Progressive Web App — WiFi provisioning, source selection + group management, Homebridge config write
 status: planned # planned | in-progress | done | cancelled
 date: 2026-06-19
-updated: 2026-07-09
+updated: 2026-07-10
 branch: feat/pwa
 commit-type: feat
 ---
@@ -74,6 +74,121 @@ uses a **flux** model (Svelte stores + an `actions` module); development gets
 - Speakers are 2.4 GHz only and require WPA2-Personal.
 - WiFi-only reset (without full factory reset): hold **BLUETOOTH + VOLUME DOWN**.
 - Full factory reset: hold **PRESET 1 + VOLUME DOWN** until restart.
+
+**Per-model setup-mode / reset procedures (research, 2026-07-10):**
+
+Bose's own docs split this into two distinct, differently-named flows for every
+preset/display model: **"Putting a system into Setup mode"** (non-destructive,
+`PRESET 2 + VOL-` family) vs. **"Resetting your product"** (destructive,
+`PRESET 1 + VOL-` family). The PWA's "join WiFi" flow should point users at the
+*setup-mode* article/combo, not the factory-reset one — the general findings
+above conflated the two. Soundbar/amp/adapter models don't have PRESET/VOLUME
+buttons at all and need bespoke instructions.
+
+| Model | Setup-mode procedure | LED / indicator | Confidence |
+| --- | --- | --- | --- |
+| SoundTouch 10 | Hold `2` + `Vol -` until Wi-Fi LED glows amber | Solid amber | Confirmed (support.bose.com/s/article/st10-speakerwireless-putting-a-system-into-setup-mode) |
+| SoundTouch 20 (orig., display) | Hold `AUX` 15s until display blanks | Display blank, then setup flow | Confirmed — resolves prior "unconfirmed" AUX-15s note (support.bose.com/s/article/soundtouch-20-wi-fi-music-system-resetting-your-product) |
+| SoundTouch 20 III / 30 III | Hold `2` + `Vol -` ~5s until "Setup" shown on display | Display reads "Setup", Wi-Fi LED solid amber | Confirmed (support.bose.com/.../soundtouch-20-III-wireless-speaker-resettng-your-product) |
+| SoundTouch 300 soundbar | **No PRESET/VOL buttons.** Hold `9` on remote/panel until all lights flash | All lights flash, then Wi-Fi LED solid amber | Confirmed (support.bose.com/s/article/stsb300-soundbar-putting-a-system-into-setup-mode) |
+| SoundTouch Portable | Not separately documented; factory reset (`Preset 1` + `Vol -` 10s) is confirmed. Setup-mode-only combo (`2`+`Vol-`) likely exists per the shared article family but wasn't confirmed by direct fetch | Amber (reset path) | **Probable, not confirmed** |
+| SoundTouch SA-5 amplifier | **Single `Control` button**, no presets/volume. Hold ~3s until Wi-Fi LED amber. Gotcha: holding 8–10s (too long) instead disables Wi-Fi/Bluetooth | Solid amber | Confirmed (support.bose.com/s/article/soundtouch-sa-5-amplifier-resetting-your-product) |
+| SoundTouch Wireless Link Adapter | **Single rear `Control` button.** See detailed subsection below — this is the project's real test device | See below | Confirmed against the official owner's manual (2026-07-10 deep-dive) |
+| SoundTouch Flex | No model-specific article found — may not be a real SoundTouch-line product (possibly confused with non-SoundTouch Bose Flexible-line speakers) | — | **Unconfirmed / not found** — verify against Bose's current product list before including in the PWA's model picker |
+
+#### SoundTouch Wireless Link Adapter — deep dive (2026-07-10, project's real test device)
+
+Source: official Bose owner's manual (`support.bose.com` articles are an
+unfetchable Salesforce SPA shell; the manual, read via a ManualsLib mirror of
+the same document, was used as the primary source instead —
+`https://www.manualslib.com/manual/1222731/Bose-Soundtouch-Wireless-Link.html`,
+canonical PDF at
+`https://assets.bose.com/content/dam/Bose_DAM/Web/consumer_electronics/global/products/speakers/soundtouch_wireless_link/PDF/774339_og_soundtouch-adapter_en.pdf`
+though that URL wasn't directly fetchable from this environment). Relevant
+pages: 23–24 (LEDs), 27–29 (troubleshooting/reset), 30–31 (USB setup
+connector). A newer "2018" ManualsLib listing (id `1580059`) also exists and
+wasn't diffed against this one — check it if the unit's firmware/hardware
+revision looks different.
+
+**One button, three operations — split by power-cycle, not duration:**
+
+- **Enter setup mode (keeps existing network config):** hold `Control` **8–10s**
+  while already powered on, until the Wi-Fi LED flashes once then glows solid
+  amber.
+- **Disable networking:** hold `Control` **8–10s** the same way, until the
+  Wi-Fi LED turns **off** entirely — this is a third, distinct state (not
+  setup mode, not connected). Easy to overshoot into this if timing is off.
+- **Factory reset (wipes network + source settings):** unplug power, **hold
+  `Control` while reconnecting power**, release once the Wi-Fi LED is solid
+  amber. Manual gives no numeric duration for this one — the differentiator
+  from "enter setup mode" is that the button is held *through a cold boot*,
+  not while already running. End LED state (solid amber) is identical to
+  plain setup-mode entry, so the power-cycle is the only way to tell which
+  path you're on. Bose notes the SoundTouch account/presets survive this but
+  become unassociated from the unit until re-setup with the same account.
+
+**LEDs (two indicators — Wi-Fi and Bluetooth; this model does support
+Bluetooth pass-through per manual ch. 20):**
+
+| Wi-Fi LED | Meaning |
+| --- | --- |
+| Blinking white | Searching for Wi-Fi network |
+| Solid white (dim) | Power-saving mode, connected |
+| Solid white (bright) | On and connected |
+| Solid amber | Setup mode |
+| Blinking fast amber | Firmware error |
+| Off | Networking disabled |
+
+| Bluetooth LED | Meaning |
+| --- | --- |
+| Slow blinking white | Ready to connect |
+| Blinking white | Connecting |
+| Solid white | Connected |
+
+No documented "factory-reset-in-progress" LED state — presumably passes
+through normal boot states before landing on solid amber, but not confirmed.
+
+**Provisioning-relevant quirks:**
+
+- **Same-subnet requirement (openHAB community report):** this model appears
+  stricter than regular SoundTouch speakers about the controlling client's
+  source IP — a user hit persistent `COMMUNICATION_ERROR`/connect-timeout
+  until their client was on the same subnet/network as the adapter (no such
+  issue on a SoundTouch 10 on the same LAN). Worth testing explicitly: if the
+  PWA/hapi server host is ever on a different subnet/VLAN from the adapter,
+  provisioning may silently fail. (`community.openhab.org/t/bosesoundtouch-binding-is-not-connecting-to-bose-soundtouch-wireless-link-adapter/46236`)
+- **Firmware update quirk (AVS Forum, unconfirmed — thread paywalled):**
+  reports of firmware updates getting stuck (Wi-Fi LED blinking white then
+  amber) via both app and USB; Bose support apparently advised updating
+  incrementally rather than jumping to latest, warning of bricking risk on
+  skipped steps. Worth checking the test unit's current firmware version
+  before/during provisioning testing.
+- **USB setup connector exists** (rear USB-A to USB-Micro-B) as a fallback
+  provisioning path via a "SoundTouch app for computer" from
+  `global.Bose.com/Support/STWL` — manual explicitly warns not to plug in
+  unless the guided setup prompts for it. Not needed for the HTTP-based PWA
+  approach, but useful as a manual fallback if HTTP provisioning testing gets
+  stuck on the real unit.
+- **`/info` endpoint:** expected to return the standard SoundTouch `/info` XML
+  (same `deviceID` convention as other models), but the exact `type`/
+  `deviceType` string this model reports and whether it lists two MAC
+  addresses (Wi-Fi vs. Bluetooth vs. a second radio) was not confirmed from
+  secondhand sources. **Action item: once the test unit is on the network,
+  capture a real `GET /info` response from it directly** rather than
+  guessing — this should be the first thing done with the physical device
+  once network-joined, both to settle this and to seed Spike A's "what does
+  this model actually report" question for the model-picker/auto-detect
+  logic mentioned above.
+
+Implication for the PWA: the "join WiFi" onboarding screen cannot use one
+generic "hold these two buttons" graphic — it needs a per-model-family
+instruction set (display/preset models vs. soundbar vs. amp vs. adapter vs.
+portable), selected by a model picker or auto-detected from `/info`.
+
+Sources are WebSearch snippet-cache citations of `support.bose.com` articles,
+not full-page fetches (Bose's support site is a JS-rendered SPA that
+`WebFetch` cannot render). If verbatim quoting is needed later, re-fetch via a
+JS-rendering method or manually visit the article before finalizing copy.
 
 **Still unknown — must resolve on a real speaker:**
 1. **What HTTP calls does `http://192.0.2.1` actually make?** Connect a laptop
