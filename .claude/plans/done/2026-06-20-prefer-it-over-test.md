@@ -85,6 +85,8 @@ Watch for `test.each` / `test.skip` / `test.only` — none exist today (verified
 - [ ] Grep to confirm zero `\btest\(` remain under `src`
 - [ ] (Optional) enable `jest/consistent-test-it` in `eslint.config.js`
 
+> shipped; checklist was not maintained
+
 ## Verification
 
 - [ ] `npm run lint`
@@ -96,5 +98,3 @@ Watch for `test.each` / `test.skip` / `test.only` — none exist today (verified
 
 - **PR title:** `test: prefer it() over test() across the suite`
 - **Targets:** `dev` (no release — `test:` type)
-</content>
-</invoke>

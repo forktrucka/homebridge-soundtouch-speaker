@@ -1,3 +1,4 @@
+import { Cron } from 'croner';
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 import { Logger } from '../utils/FormattedLogger.js';
 import { PresetStation } from './PresetStation.js';
@@ -85,20 +86,19 @@ export class PresetManager {
   }
 
   _msUntilNextCron(schedule: string): number {
-    const parts = schedule.trim().split(/\s+/);
-    const minute = parseInt(parts[0] ?? '0', 10);
-    const hour = parseInt(parts[1] ?? '0', 10);
-
-    if (isNaN(minute) || isNaN(hour)) {
+    let next: Date | null;
+    try {
+      next = new Cron(schedule).nextRun();
+    } catch {
+      // Unparseable schedule — fall back to a daily retry
       return 24 * 60 * 60 * 1000;
     }
 
-    const now = new Date();
-    const next = new Date(now);
-    next.setHours(hour, minute, 0, 0);
-    if (next.getTime() <= now.getTime()) {
-      next.setDate(next.getDate() + 1);
+    if (!next) {
+      // No future run computable (e.g. schedule already past) — fall back to a daily retry
+      return 24 * 60 * 60 * 1000;
     }
-    return next.getTime() - now.getTime();
+
+    return next.getTime() - Date.now();
   }
 }
