@@ -1,6 +1,6 @@
 ---
 feature: Plan-doc hygiene, roadmap fixes, and TuneInClient dead-code removal
-status: in-progress # PR #145 open
+status: in-progress # merged to dev via PR #145, awaiting beta cut
 date: 2026-07-10
 branch: chore/plan-hygiene-dead-code
 commit-type: fix

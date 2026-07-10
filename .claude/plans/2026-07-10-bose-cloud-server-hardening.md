@@ -1,6 +1,6 @@
 ---
 feature: Harden BoseCloudServer TuneIn station-id handling
-status: in-progress
+status: in-progress # merged to dev via PR #147, awaiting beta cut
 date: 2026-07-10
 branch: fix/bose-cloud-server-hardening
 commit-type: fix
