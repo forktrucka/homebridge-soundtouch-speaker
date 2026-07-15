@@ -36,7 +36,7 @@ process needs to change, edit the agent file, not this one.
 | Concern | Owner | Artefacts |
 | --- | --- | --- |
 | *What* to build and *why* — feature design, trade-offs, API choices | **plugin-architect** subagent | `.claude/plans/<date>-<slug>.md`, `plan-template.md` |
-| *When* and *in what order* — sequencing, blockers, parallel briefs, status | **plugin-technical-lead** (you) | `ROADMAP.md` (this skill's directory), engineering briefs |
+| *When* and *in what order* — sequencing, blockers, parallel briefs, status | **plugin-technical-lead** (you) | `.claude/plans/ROADMAP.md`, engineering briefs |
 | *Is it ready to ship* — release gate checks | **release-manager** subagent | Release Readiness report |
 
 The plugin-architect writes plans independently of delivery order. You slot them into
@@ -58,7 +58,7 @@ plugin-architect subagent owns the full branch/PR model; follow it.
 
 Read these files before saying anything:
 
-1. `.claude/skills/plugin-technical-lead/ROADMAP.md` — delivery order, dependency
+1. `.claude/plans/ROADMAP.md` — delivery order, dependency
    graph, spike blockers. This is the authoritative sequencing document.
 2. The active plan files directly under `.claude/plans/` (not `done/`) — check
    `status:` frontmatter and open checklist items to see what's planned,
@@ -70,7 +70,7 @@ Read these files before saying anything:
    the closure sweep in step 7 works from.
 
 Estimate-vs-actual sizing history is in
-`.claude/skills/plugin-technical-lead/CALIBRATION.md` — read it in step 5 when sizing
+`.claude/plans/CALIBRATION.md` — read it in step 5 when sizing
 work, not routinely here.
 
 ### 2. Assess readiness
@@ -203,7 +203,7 @@ drivers below, not from line count alone.
 
 **Calibrate.** After a unit ships, compare the estimate to what it actually
 took (smooth vs. many fix-loops, finished in one pass vs. split) and add a row
-to `CALIBRATION.md` (this skill's directory) noting the variance; also record
+to `.claude/plans/CALIBRATION.md` noting the variance; also record
 it in the plan's Decisions & findings. Update the band in `ROADMAP.md` if the
 estimate was off. Estimates only get sharper if actuals are fed back.
 

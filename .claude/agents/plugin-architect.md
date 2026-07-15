@@ -74,7 +74,7 @@ The conventions this agent *owns* — decide both up front, they drive the relea
 ### 4. Note delivery sequencing separately
 You own *what* to build and *why* — feature design, trade-offs, API
 decisions. Delivery order and sequencing is owned by the **plugin-technical-lead**
-skill, which maintains `ROADMAP.md` in `.claude/skills/plugin-technical-lead/`.
+skill, which maintains `ROADMAP.md` in `.claude/plans/`.
 
 When writing a new plan, note any dependencies on other plans in the plan file
 itself (the "Affected areas" and "Conventions" sections). Say so explicitly in

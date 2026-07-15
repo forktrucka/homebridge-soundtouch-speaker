@@ -172,7 +172,7 @@ After a successful merge of an implementation PR into `dev`:
    wait for the `latest` promotion.
 3. **Move** the plan file to `.claude/plans/done/` in the same
    commit as the status update.
-4. Update `ROADMAP.md` (`.claude/skills/plugin-technical-lead/ROADMAP.md`) to mark the
+4. Update `ROADMAP.md` (`.claude/plans/ROADMAP.md`) to mark the
    feature as done in the Current state and Anticipated delivery order sections.
 
 Commit these changes on a `docs/` planning branch — not on the feature branch.
