@@ -20,7 +20,7 @@ patterns already in `src/` — this skill points to the canonical examples rathe
 than restating them.
 
 > **Language, build, lint, and test tooling** (including the ESM `.js`-import
-> rule) live in the **homebridge-coding-conventions** skill. This skill covers only what is
+> rule) live in the **plugin-coding-conventions** skill. This skill covers only what is
 > specific to Homebridge: architecture, HomeKit wiring, and verified-plugin
 > compliance.
 
@@ -91,7 +91,7 @@ discovery uses bonjour / multicast-dns.
 
 Generic test setup (Jest + `@swc/jest`, colocated `__tests__/`, coverage,
 commands, the "typecheck + lint + test before done" gate) is in the
-**homebridge-coding-conventions** skill. Homebridge-specific testing notes:
+**plugin-coding-conventions** skill. Homebridge-specific testing notes:
 
 - **Manual mock `__mocks__/homebridge.js`** exists because SWC does not inline
   Homebridge's `const enum`s (e.g. `LogLevel`); `moduleNameMapper` maps
@@ -183,9 +183,9 @@ Homebridge thread) · AccessoryInformation populated with a unique SerialNumber 
 
 ## Related skills
 
-- **homebridge-coding-conventions** — TypeScript/ESM rules, lint/format, generic Jest setup,
+- **plugin-coding-conventions** — TypeScript/ESM rules, lint/format, generic Jest setup,
   logging, and the pre-done checks.
 - **soundtouch-api-expert** — the Bose SoundTouch HTTP/XML + WebSocket protocol.
-- **architect** — planning a feature, and the branching/release flow
+- **plugin-architect** — planning a feature, and the branching/release flow
   (conventional commits, semantic-release `latest`→`dev`→`beta`). For the full
   contribution rules see `CONTRIBUTING.md`.

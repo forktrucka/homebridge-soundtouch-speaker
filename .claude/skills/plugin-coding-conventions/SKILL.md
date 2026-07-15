@@ -1,5 +1,5 @@
 ---
-name: homebridge-coding-conventions
+name: plugin-coding-conventions
 description: >-
   How code is written, formatted, built, and tested in this repo: TypeScript
   ESM import rules, the ESLint/Prettier/knip toolchain, the Jest + SWC test
@@ -12,10 +12,10 @@ description: >-
   — it owns the PR title and description conventions.
 ---
 
-# Homebridge coding conventions
+# Plugin coding conventions
 
 The canonical, language/tooling-level conventions for this repo. Domain skills
-(`homebridge-developer`, `soundtouch-api-expert`) and `architect` link here
+(`homebridge-developer`, `soundtouch-api-expert`) and `plugin-architect` link here
 rather than restating this — keep style/build/test rules in this one place.
 
 ## Contents
@@ -307,7 +307,7 @@ anything that isn't a valid Conventional Commit.
 - Lower-case after the colon, no trailing period, one line (~50–72 chars).
 - Describe the change, not the files: `feat: add volume control`, not
   `Added volume control to the speaker.`
-- When the PR delivers an **architect plan**, mirror that plan's `commit-type`
+- When the PR delivers an **plugin-architect plan**, mirror that plan's `commit-type`
   and `PR title` field exactly.
 
 ### Description
@@ -318,7 +318,7 @@ The repo ships a fill-in template at `.github/PULL_REQUEST_TEMPLATE.md`.
 Two sections:
 
 - **What & why** — the change and the reason, *not* the files touched (the diff
-  shows those). When the PR delivers an architect plan, link it and summarize its
+  shows those). When the PR delivers a plugin-architect plan, link it and summarize its
   Context + what's delivered. With no plan, one or two sentences is enough.
 - **Verification** — the checks you ran (`npm run typecheck && npm run lint &&
   npm test`, plus any live `npm run watch` check) and what's still pending.
@@ -342,4 +342,4 @@ Nothing pushed to the repo carries AI or assistant attribution:
 This skill covers TypeScript style, build/test tooling, and PR conventions only.
 For plugin architecture and HomeKit wiring see **homebridge-developer**; for the
 Bose protocol see **soundtouch-api-expert**; for planning, branching, and release
-flow see **architect** and `CONTRIBUTING.md`.
+flow see **plugin-architect** and `CONTRIBUTING.md`.
