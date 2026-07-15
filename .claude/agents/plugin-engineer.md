@@ -10,6 +10,7 @@ description: >-
   or research. Does NOT trigger for questions about what to build next,
   architecture decisions, or documentation.
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, EnterWorktree, ExitWorktree, TaskCreate, TaskUpdate
+model: claude-sonnet-5
 ---
 
 # Plugin engineer

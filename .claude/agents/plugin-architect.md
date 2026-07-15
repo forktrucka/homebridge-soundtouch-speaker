@@ -11,6 +11,7 @@ description: >-
   file that stays up to date as work proceeds. Does NOT write feature code —
   hand off to the plugin-engineer subagent for that.
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+model: claude-opus-4-8
 ---
 
 # Homebridge architect — plan & track feature rollouts
