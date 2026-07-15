@@ -1,17 +1,17 @@
 <!--
 PR description template — keep it concise. A reviewer should grasp the change
 without opening the diff. Delete any section that doesn't apply, and delete
-these comments before submitting. Full rules: coding-conventions skill →
+these comments before submitting. Full rules: plugin-coding-conventions skill →
 "Pull requests".
 
 No AI/assistant attribution anywhere — no "Generated with …" footer here, and no
-Co-Authored-By/session trailers in commits (coding-conventions →
+Co-Authored-By/session trailers in commits (plugin-coding-conventions →
 "No AI / assistant attribution").
 
 Title (set above, not here): Conventional Commit — `<type>: <imperative summary>`
 (feat / fix / feat! / chore / docs / ci / test / refactor). The type drives the
 release (feat → minor, fix → patch, feat! → major, others → none). Squash-merged,
-so the title becomes the released commit message. When delivering an architect
+so the title becomes the released commit message. When delivering a plugin-architect
 plan, mirror that plan's PR title field.
 -->
 
@@ -21,7 +21,7 @@ plan, mirror that plan's PR title field.
 One short paragraph. Describe the change and the reason for it — not the files
 touched (the diff already shows those).
 
-If this delivers an architect plan (.claude/plans/<date>-<slug>.md),
+If this delivers a plugin-architect plan (.claude/plans/<date>-<slug>.md),
 link it and summarize its Context (why) + what's delivered. Point to the plan;
 don't restate it.
 

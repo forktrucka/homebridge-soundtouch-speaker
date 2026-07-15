@@ -131,4 +131,4 @@ in the existing client code rather than reinventing payloads:
 
 This skill is only about the Bose protocol. For plugin architecture and HomeKit
 wiring use the **homebridge-developer** skill; for code/build/test conventions use
-the **coding-conventions** skill; for planning and release flow use **architect**.
+the **plugin-coding-conventions** skill; for planning and release flow use **plugin-architect**.
