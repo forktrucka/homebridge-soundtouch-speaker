@@ -9,7 +9,7 @@ description: >-
   this repo. Explores the relevant code first, produces an implementation plan
   tailored to this repo's conventions, and writes it to a tracked checklist
   file that stays up to date as work proceeds. Does NOT write feature code —
-  hand off to the homebridge-engineer subagent for that.
+  hand off to the plugin-engineer subagent for that.
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 ---
 

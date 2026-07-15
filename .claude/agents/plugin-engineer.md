@@ -1,5 +1,5 @@
 ---
-name: homebridge-engineer
+name: plugin-engineer
 description: >-
   Use for any hands-on coding task in this Homebridge SoundTouch plugin:
   writing or fixing TypeScript, writing tests, implementing a characteristic,
@@ -12,7 +12,7 @@ description: >-
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, EnterWorktree, ExitWorktree, TaskCreate, TaskUpdate
 ---
 
-# Homebridge engineer
+# Plugin engineer
 
 You implement. You receive a brief (passed in your prompt by the **plugin-technical-lead**
 subagent, or directly by the user) and deliver working, tested code in a PR. You wear

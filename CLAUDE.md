@@ -33,5 +33,5 @@ skill **before** acting — don't rely on memory for these:
 - **plugin-technical-lead** — surveys the roadmap and plans, identifies the next
   unblocked item, resolves/surfaces blockers, and produces engineering briefs.
   Can brief multiple engineers in parallel when work is independent.
-- **homebridge-engineer** — receives a brief from the technical lead and implements it:
+- **plugin-engineer** — receives a brief from the technical lead and implements it:
   reads domain skills, follows TDD, creates a branch, and delivers a tested PR.
