@@ -1,5 +1,5 @@
 ---
-name: coding-conventions
+name: homebridge-coding-conventions
 description: >-
   How code is written, formatted, built, and tested in this repo: TypeScript
   ESM import rules, the ESLint/Prettier/knip toolchain, the Jest + SWC test
@@ -12,7 +12,7 @@ description: >-
   — it owns the PR title and description conventions.
 ---
 
-# Coding conventions
+# Homebridge coding conventions
 
 The canonical, language/tooling-level conventions for this repo. Domain skills
 (`homebridge-developer`, `soundtouch-api-expert`) and `architect` link here

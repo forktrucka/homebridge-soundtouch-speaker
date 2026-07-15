@@ -9,7 +9,7 @@ description: >-
   this repo. Explores the relevant code first, produces an implementation plan
   tailored to this repo's conventions, and writes it to a tracked checklist
   file that stays up to date as work proceeds. Does NOT write feature code —
-  hand off to the engineer subagent for that.
+  hand off to the homebridge-engineer subagent for that.
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 ---
 
@@ -38,7 +38,7 @@ Produce an implementation plan that honors the repo's conventions. Don't restate
 them — load the owning skills (via the `Skill` tool) and call out what the feature
 specifically touches:
 
-- **Code/build/test style:** follow the **coding-conventions** skill (TS ESM,
+- **Code/build/test style:** follow the **homebridge-coding-conventions** skill (TS ESM,
   lint/format, Jest setup, the typecheck+lint+test gate).
 - **Plugin architecture & config flow:** follow the **homebridge-developer** skill
   — in particular, a user-facing option means updating `config.schema.json` plus
@@ -122,7 +122,7 @@ exploration:
   the **homebridge-developer** skill.
 - **Bose HTTP/XML + WebSocket API client (`src/devices/SoundTouch/api/`):** the
   **soundtouch-api-expert** skill.
-- **Code/build/test conventions:** the **coding-conventions** skill.
+- **Code/build/test conventions:** the **homebridge-coding-conventions** skill.
 
 Read the relevant skill(s) via the `Skill` tool before drafting the plan so file
 paths and patterns in it are accurate.

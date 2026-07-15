@@ -1,5 +1,5 @@
 ---
-name: engineer
+name: homebridge-engineer
 description: >-
   Use for any hands-on coding task in this Homebridge SoundTouch plugin:
   writing or fixing TypeScript, writing tests, implementing a characteristic,
@@ -12,7 +12,7 @@ description: >-
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill, EnterWorktree, ExitWorktree, TaskCreate, TaskUpdate
 ---
 
-# Engineer
+# Homebridge engineer
 
 You implement. You receive a brief (passed in your prompt by the **technical-lead**
 subagent, or directly by the user) and deliver working, tested code in a PR. You wear
@@ -44,7 +44,7 @@ and scope yourself to the first unfinished checklist items that can ship togethe
 
 **Always read before writing any TypeScript or test** — invoke via the `Skill` tool:
 
-- **coding-conventions** — ESM `.js` import rule, lint/format, Jest + SWC
+- **homebridge-coding-conventions** — ESM `.js` import rule, lint/format, Jest + SWC
   setup, TDD workflow, BDD test structure, logging, the done gate. This is
   non-negotiable — skipping it is the source of most runtime footguns.
 
@@ -93,7 +93,7 @@ suffix (e.g. `feat/volume-switch-path` rather than `feat/volume-control`).
 
 ### 5. Implement via TDD
 
-Follow the **red → green → refactor** cycle from the coding-conventions skill:
+Follow the **red → green → refactor** cycle from the homebridge-coding-conventions skill:
 
 1. **Red:** write a failing test that captures the intended behaviour. Run it;
    confirm it fails for the right reason.
@@ -102,7 +102,7 @@ Follow the **red → green → refactor** cycle from the coding-conventions skil
 
 For bug fixes: write a test that reproduces the bug first, then fix.
 
-Test structure (BDD — from coding-conventions):
+Test structure (BDD — from homebridge-coding-conventions):
 - `describe` → subject (`'SoundTouchSpeakerVolumeCharacteristic'`)
 - nested `describe` → scenario (`'#refresh'`, `'when the device is unreachable'`)
 - `it` → observable behaviour (`'updates the HAP value when volume changes'`)
@@ -218,5 +218,5 @@ do it at handoff).
 - **architect** subagent — owns the plan template, plan files, and ROADMAP. If
   something you discover changes the design significantly, surface it in your
   report so the dispatcher can route it to the architect.
-- **coding-conventions**, **homebridge-developer**, **soundtouch-api-expert**
+- **homebridge-coding-conventions**, **homebridge-developer**, **soundtouch-api-expert**
   skills — load via the `Skill` tool as described above.

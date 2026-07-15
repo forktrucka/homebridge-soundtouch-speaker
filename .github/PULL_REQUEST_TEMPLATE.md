@@ -1,11 +1,11 @@
 <!--
 PR description template — keep it concise. A reviewer should grasp the change
 without opening the diff. Delete any section that doesn't apply, and delete
-these comments before submitting. Full rules: coding-conventions skill →
+these comments before submitting. Full rules: homebridge-coding-conventions skill →
 "Pull requests".
 
 No AI/assistant attribution anywhere — no "Generated with …" footer here, and no
-Co-Authored-By/session trailers in commits (coding-conventions →
+Co-Authored-By/session trailers in commits (homebridge-coding-conventions →
 "No AI / assistant attribution").
 
 Title (set above, not here): Conventional Commit — `<type>: <imperative summary>`
