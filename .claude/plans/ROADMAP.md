@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-07-10
+Last updated: 2026-07-17
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
@@ -86,26 +86,17 @@ What must be resolved:
 1. `api.user.storagePath()` gives the writable directory — confirm atomic write (write-then-rename) doesn't corrupt Homebridge state.
 2. Does Homebridge Config UI X watch for external config changes and reload, or is a restart always required?
 
-### Spike C Part 2 — gabbo WebSocket real-device capture
-**Blocks:** [07] WebSocket Phase 3 only (Phase 1 is now unblocked — see below). Part 1 complete (#66).
+### Spike C Part 2 — gabbo WebSocket real-device capture — RESOLVED (2026-07-17)
+**Blocked:** [07] WebSocket Phase 3. Part 1 complete (#66).
 
-**Scope narrowed (2026-07-10):** the `fix/gabbo-resilience` plan implements
-reconnect backoff and half-open-socket detection without needing capture data,
-answering question 5 and most of the reconnect tuning. Only questions 3
-(heartbeat cadence / idle timeout) and 4 (standby socket behaviour) still need
-a real-device capture.
+**Status (2026-06-22):** Questions 1 and 2 were **confirmed** by reference implementation `Dress13/homebridge-bose-soundtouch` (TypeScript, real-device tested): `gabbo` sub-protocol accepted; all major event shapes match the v1.1 reference; several carry inline data (volume, nowPlaying, presets, zone, bass). Fixed 5 s reconnect + 30 s client-side ping confirmed sufficient in practice.
 
-**Status (2026-06-22):** Questions 1 and 2 below are **confirmed** by reference implementation `Dress13/homebridge-bose-soundtouch` (TypeScript, real-device tested): `gabbo` sub-protocol accepted; all major event shapes match the v1.1 reference; several carry inline data (volume, nowPlaying, presets, zone, bass). Fixed 5 s reconnect + 30 s client-side ping confirmed sufficient in practice.
+**Real-device capture completed 2026-07-17** against the "Remote" speaker (10.0.0.22), resolving the last two open questions:
 
-Remaining open questions (still need real-device capture):
+3. Heartbeat / idle-timeout cadence — **no server heartbeat at all**; the socket is push-only and silent when nothing changes (2+ min fully idle produced zero traffic after the initial handshake).
+4. Standby/power-off socket behaviour — **socket stays open and silent**; 113 s of standby produced no close/ping/traffic, and on power-on, activity (including last-source resume) arrived on the same connection with no reconnect needed.
 
-3. Heartbeat / empty-update cadence and server-side idle-timeout behaviour.
-4. What happens to the socket on **standby/power-off** — closed? silent? Reconnect trigger?
-5. Multi-device reconnect behaviour after a drop.
-
-Run a focused gabbo capture against the device while toggling volume/power/source/preset and putting it into standby.
-
-**Time-box:** one capture session.
+**Conclusion:** no idle-timeout defense or standby-triggered reconnect logic is needed for Phase 3 — the existing 5 s reconnect-on-`close` + 30 s client ping (already implemented) is sufficient, since standby produces no traffic rather than a drop. Findings recorded in `plans/done/2026-06-20-websocket-push.md` Decisions & findings (2026-07-17 row). Phase 3 (relax/disable polling fallback, handle reconnect + zone sequences) is now unblocked and can be scoped as a follow-up session against that plan.
 
 ## Key coupling notes
 
