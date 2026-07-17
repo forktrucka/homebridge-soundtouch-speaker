@@ -335,6 +335,22 @@ Nothing pushed to the repo carries AI or assistant attribution:
 - **Review comments:** keep them minimal — some tooling auto-appends attribution
   that can't be suppressed, so comment only when it adds real value.
 
+### No device/network internals
+
+This repo is **public**. Real-device testing (spikes, debugging sessions
+against an actual SoundTouch speaker) must not leak identifying details into
+anything committed or posted — commit messages, PR titles/descriptions, plan
+files, or review comments:
+
+- No LAN IP addresses, MAC addresses (or values derived from them, like a
+  hotspot SSID suffix), device serial numbers, Bose account IDs, or home WiFi
+  SSIDs.
+- Refer to test devices generically ("the speaker", "the adapter", a
+  plan-local nickname) and describe findings in terms of *behavior*, not raw
+  identifiers.
+- If a literal value is genuinely needed for reproducibility, ask the user
+  first rather than assuming it's fine to publish.
+
 ---
 
 ## Scope
