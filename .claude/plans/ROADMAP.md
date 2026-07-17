@@ -64,20 +64,22 @@ each time a unit ships.
 
 ## Spikes (blockers)
 
-### Spike A — SoundTouch setup-mode hotspot HTTP API
+### Spike A — SoundTouch setup-mode hotspot HTTP API — mostly resolved (2026-07-17)
 **Blocks:** [04] PWA Phase 1.
 
 What we know:
-- Enter setup mode: hold **PRESET 2 + VOLUME DOWN** until Wi-Fi indicator turns solid amber.
-- Speaker broadcasts "Bose SoundTouch Wi-Fi Network" hotspot.
-- Setup web UI is at `http://192.0.2.1` (port 80). Note: `192.168.1.1` is a different Bose product — do not use.
-- Standard SoundTouch API (port 8090) also available at `192.0.2.1:8090` during setup.
+- Enter setup mode: hold **PRESET 2 + VOLUME DOWN** until Wi-Fi indicator turns solid amber, on models that have those buttons. **On the project's real test device (SoundTouch Wireless Link Adapter), this does not apply** — see the model-specific procedure table and deep-dive in `plans/2026-06-19-progressive-web-app.md`; real-device testing found the documented 8–10s hold is wrong for this unit (actual threshold is ~2–4s).
+- Speaker broadcasts a setup hotspot — **name is model-specific**, not a single fixed SSID. The Wireless Link Adapter broadcasts `Bose ST WLA (<last 3 MAC octets>)` (confirmed: `Bose ST WLA (FFAD16)`), not the generic "Bose SoundTouch Wi-Fi Network" from the general docs.
+- Setup web UI is at `http://192.0.2.1` (port 80, plain HTTP — browsers flag it "Not Secure"). Note: `192.168.1.1` is a different Bose product — do not use.
+- Standard SoundTouch API (port 8090) also available at `192.0.2.1:8090` during setup — **confirmed by real-device capture**, returns the same `/info` XML shape as normal operation.
 
-What must be resolved:
-1. Connect a laptop to the hotspot, open browser devtools, walk through WiFi setup. Capture: endpoints, methods, request/response bodies, any tokens.
-2. Does the UI scan for available networks, or does the user type the SSID manually?
-3. What happens after credentials are submitted — how long until the hotspot drops?
-4. Does the phone reconnect to the home network automatically?
+What was resolved (real-device capture, 2026-07-17, against the Wireless Link Adapter):
+2. **Scans for networks** — the setup UI performs a live WiFi scan and presents a dropdown of all nearby SSIDs (not just one guessed/pre-selected network); a "..." menu likely covers manual/hidden-network entry (not explored).
+3. **Hotspot does not drop until the join actually succeeds** — a wrong password shows an X/retry state and the hotspot stays up for another attempt; only a successful join (checkmark) ends the setup hotspot.
+4. **No, the phone does not auto-reconnect home-network** — after a successful join, the client device stays associated with (or disconnected from) the now-defunct setup hotspot and requires the user to manually reselect their home WiFi. The **speaker/adapter itself** does rejoin the home network and its previous DHCP lease automatically (confirmed reachable at the same IP immediately after). The PWA must account for this — after a successful join, show the user an explicit "reconnect your phone to WiFi manually" instruction rather than assuming automatic hand-back.
+
+Still open:
+1. **Exact request/response shape of the join submission is still unconfirmed.** Mobile Safari has no devtools network tab, so the actual form `action`/method and payload weren't captured — only the rendered UI and outcomes (scan dropdown, unlabeled submit button, X-vs-checkmark result states) were observed. If Phase 1 implementation needs the literal wire format (rather than just replicating the observed UX), a follow-up capture from a laptop connected directly to the hotspot (with real devtools) is still needed.
 
 ### Spike B — Homebridge config write path
 **Blocks:** [04] PWA Phase 3.
