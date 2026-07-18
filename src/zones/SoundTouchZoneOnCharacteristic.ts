@@ -128,6 +128,10 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
   }
 
   private async _isZoneActive(): Promise<boolean> {
+    const primaryIsOn = await SoundTouchDevice.deviceIsOn(this.device);
+    if (!primaryIsOn) {
+      return false;
+    }
     const zone = await this.device.api.getZone();
     if (!zone) {
       return false;

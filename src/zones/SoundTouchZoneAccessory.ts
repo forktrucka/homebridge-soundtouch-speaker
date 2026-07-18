@@ -5,9 +5,11 @@ import { ZoneConfiguration } from '../PlatformConfiguration.js';
 import { SoundTouchZoneOnCharacteristic } from './SoundTouchZoneOnCharacteristic.js';
 import { SoundTouchZoneVolumeCharacteristic } from './SoundTouchZoneVolumeCharacteristic.js';
 import { Logger } from '../utils/FormattedLogger.js';
+import { AppError } from '../errors.js';
 
 const SOUNDTOUCH_MANUFACTURER = 'Bose';
 const ZONE_MODEL = 'SoundTouch Zone';
+const ZONE_RECONCILIATION_INTERVAL_MS = 60 * 1000;
 
 function zoneServiceName(props: {
   config: ZoneConfiguration;
@@ -19,21 +21,33 @@ function zoneServiceName(props: {
 export class SoundTouchZoneAccessory {
   private readonly onCharacteristic: SoundTouchZoneOnCharacteristic;
   private readonly volumeCharacteristic?: SoundTouchZoneVolumeCharacteristic;
+  private readonly primary: SoundTouchDevice;
+  private readonly name: string;
   private readonly log: Logger;
+  private _isPolling = false;
 
   private constructor(props: {
     onCharacteristic: SoundTouchZoneOnCharacteristic;
     volumeCharacteristic?: SoundTouchZoneVolumeCharacteristic;
+    primary: SoundTouchDevice;
+    name: string;
     log: Logger;
   }) {
     this.onCharacteristic = props.onCharacteristic;
     this.volumeCharacteristic = props.volumeCharacteristic;
+    this.primary = props.primary;
+    this.name = props.name;
     this.log = props.log;
   }
 
   async init(): Promise<void> {
     await this.onCharacteristic.init();
     await this.volumeCharacteristic?.init();
+
+    this._isPolling = true;
+    this._reconcile().then(() => {
+      //no-op
+    });
   }
 
   async refresh(): Promise<void> {
@@ -41,11 +55,43 @@ export class SoundTouchZoneAccessory {
     await this.volumeCharacteristic?.refresh();
   }
 
-  // No independent polling loop today — zone state is refreshed at startup and
-  // on demand. Kept for interface parity with SoundTouchSpeakerPlatformAccessory
-  // so platform shutdown can iterate zone wrappers uniformly.
   stopPolling(): void {
-    // no-op
+    this._isPolling = false;
+  }
+
+  private async _reconcile(): Promise<void> {
+    while (this._isPolling) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, ZONE_RECONCILIATION_INTERVAL_MS)
+      );
+      if (!this.primary.gabbo.isConnected) {
+        this.log.debug(
+          `[${this.name}] primary offline — skipping zone reconciliation poll`
+        );
+        continue;
+      }
+      try {
+        await this.refresh();
+      } catch (e: unknown) {
+        this.log.warn(
+          AppError.create({
+            name: 'PollingRefreshFailed',
+            device: this.name,
+            cause: e,
+          })
+        );
+      }
+    }
+  }
+
+  static createWithCharacteristics(props: {
+    onCharacteristic: SoundTouchZoneOnCharacteristic;
+    volumeCharacteristic?: SoundTouchZoneVolumeCharacteristic;
+    primary: SoundTouchDevice;
+    name: string;
+    log: Logger;
+  }): SoundTouchZoneAccessory {
+    return new SoundTouchZoneAccessory(props);
   }
 
   static async create(props: {
@@ -98,6 +144,8 @@ export class SoundTouchZoneAccessory {
     const zoneAccessory = new SoundTouchZoneAccessory({
       onCharacteristic,
       volumeCharacteristic,
+      primary,
+      name: config.name,
       log: platform.logger,
     });
 

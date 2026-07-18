@@ -150,6 +150,9 @@ describe('Zone lifecycle', () => {
       '/getZone',
       zoneXml([{ deviceId: SLAVE_DEVICE_ID, ipAddress: '127.0.0.1' }])
     );
+    // The zone only reads "on" when its primary is powered on — see
+    // SoundTouchZoneOnCharacteristic._isZoneActive's primary-power gate.
+    primaryServer.setResponse('/nowPlaying', nowPlayingXml('AUX'));
     createPlatform();
 
     await api.emitDidFinishLaunching();
