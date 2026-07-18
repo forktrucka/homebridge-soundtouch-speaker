@@ -238,6 +238,30 @@
               "required": false,
               "default": "switch",
               "description": "HomeKit accessory type for this zone. 'lightbulb' also exposes zone volume via Brightness, shifting every member speaker's volume by the same relative amount."
+            },
+            "defaultSource": {
+              "type": "object",
+              "required": false,
+              "description": "Source played on the primary when this zone is activated and the primary isn't already playing something. Never overrides an already-playing primary.",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["preset"],
+                  "required": true,
+                  "default": "preset",
+                  "description": "Kind of default source. Currently only a preset slot on the primary is supported."
+                },
+                "slot": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 6,
+                  "required": true,
+                  "condition": {
+                    "functionBody": "return model.zones && model.zones[arrayIndices[0]] && model.zones[arrayIndices[0]].defaultSource && model.zones[arrayIndices[0]].defaultSource.type === 'preset';"
+                  },
+                  "description": "Preset slot (1–6) on the primary speaker to select when the zone activates idle."
+                }
+              }
             }
           }
         }

@@ -35,12 +35,30 @@ export function infoXml(
   );
 }
 
-export function nowPlayingXml(source: string, deviceId = 'DEV-INT-1'): string {
+export function nowPlayingXml(
+  source: string,
+  deviceId = 'DEV-INT-1',
+  location?: string
+): string {
   return (
     `<nowPlaying deviceID="${deviceId}" source="${source}">` +
-    `<ContentItem source="${source}"/>` +
+    `<ContentItem source="${source}"${location ? ` location="${location}"` : ''}/>` +
     '</nowPlaying>'
   );
+}
+
+export function presetsXml(
+  presets: { slot: number; source: string; location?: string }[]
+): string {
+  const presetXml = presets
+    .map(
+      (p) =>
+        `<preset id="${p.slot}" createdOn="1000" updateOn="1000">` +
+        `<ContentItem source="${p.source}"${p.location ? ` location="${p.location}"` : ''} isPresetable="true"/>` +
+        '</preset>'
+    )
+    .join('');
+  return `<presets>${presetXml}</presets>`;
 }
 
 function volumeXml(

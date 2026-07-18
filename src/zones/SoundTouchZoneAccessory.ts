@@ -83,6 +83,7 @@ export class SoundTouchZoneAccessory {
       slaves,
       platform,
       service,
+      defaultSource: config.defaultSource,
     });
 
     const volumeCharacteristic = isLightbulb

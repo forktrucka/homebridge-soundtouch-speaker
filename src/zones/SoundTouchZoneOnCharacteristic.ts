@@ -7,17 +7,20 @@ import {
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../platform.js';
 import { SoundTouchSpeakerCharacteristic } from '../accessories/services/SoundTouchSpeakerCharacteristic.js';
-import { KeyValue } from '../devices/SoundTouch/api/index.js';
-import type { Zone } from '../devices/SoundTouch/api/index.js';
+import { KeyValue, SourceStatus } from '../devices/SoundTouch/api/index.js';
+import type { NowPlaying, Zone } from '../devices/SoundTouch/api/index.js';
+import type { ZoneDefaultSourceConfig } from '../ExternalPlatformConfig.js';
 
 export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
   private readonly slaves: SoundTouchDevice[];
+  private readonly defaultSource?: ZoneDefaultSourceConfig;
   private characteristic: Characteristic;
 
   private constructor({
     service,
     slaves,
+    defaultSource,
     ...props
   }: {
     device: SoundTouchDevice;
@@ -25,11 +28,13 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
     service: Service;
     platform: SoundTouchHomebridgePlatform;
     accessory: PlatformAccessory;
+    defaultSource?: ZoneDefaultSourceConfig;
   }) {
     super(props);
 
     this.service = service;
     this.slaves = slaves;
+    this.defaultSource = defaultSource;
     this.characteristic = this.service.getCharacteristic(
       this.platform.characteristic.On
     );
@@ -62,6 +67,7 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
     const desired = value as boolean;
     if (desired) {
       await this._ensureDevicesPowered(true);
+      await this._applyDefaultSourceIfIdle();
       await this.device.api.setZone(this._buildZone());
       this.log.debug('zone activated');
     } else {
@@ -116,6 +122,54 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
     }
   }
 
+  /**
+   * Fill-if-empty: selects the configured default source on the primary
+   * only when the primary has nothing meaningful playing. Never overrides
+   * an already-playing primary — this is what makes it compose cleanly
+   * with the primary's own resume-last-played-source (triggered from its
+   * own On tile, a separate code path) and with a session started before
+   * the zone was activated.
+   */
+  private async _applyDefaultSourceIfIdle(): Promise<void> {
+    if (!this.defaultSource) {
+      return;
+    }
+
+    const nowPlaying = await this.device.api.getNowPlaying();
+    if (!this._isPrimaryIdle(nowPlaying)) {
+      return;
+    }
+
+    const presets = await this.device.api.getPresets();
+    const preset = presets?.find(
+      (candidate) => candidate.id === this.defaultSource?.slot
+    );
+    if (!preset) {
+      this.log.warn(
+        `configured zone default source preset slot ${this.defaultSource.slot} is empty on the device — skipping`
+      );
+      return;
+    }
+
+    await this.device.api.selectSource(preset.contentItem);
+  }
+
+  private _isPrimaryIdle(nowPlaying: NowPlaying | undefined): boolean {
+    if (!nowPlaying) {
+      return true;
+    }
+    if (
+      nowPlaying.source === SourceStatus.standBy ||
+      nowPlaying.source === SourceStatus.invalid
+    ) {
+      return true;
+    }
+    if (!nowPlaying.contentItem.source || !nowPlaying.contentItem.location) {
+      return true;
+    }
+    return false;
+  }
+
   private _buildZone(): Zone {
     return {
       master: this.device.id,
@@ -142,6 +196,7 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
     slaves: SoundTouchDevice[];
     platform: SoundTouchHomebridgePlatform;
     service: Service;
+    defaultSource?: ZoneDefaultSourceConfig;
   }): Promise<SoundTouchZoneOnCharacteristic> {
     const { primary, ...rest } = props;
     return new SoundTouchZoneOnCharacteristic({ device: primary, ...rest });
