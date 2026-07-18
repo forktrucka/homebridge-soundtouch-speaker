@@ -21,6 +21,24 @@ import { PresetManager, PresetStation } from './presets/index.js';
 import { BoseCloudServer } from './server/BoseCloudServer.js';
 import { SoundTouchZoneAccessory } from './zones/SoundTouchZoneAccessory.js';
 
+/**
+ * Shallow-compares two zone member-device-id maps for equality, ignoring key
+ * insertion order. Used to decide whether a zone accessory's persisted
+ * `context.memberDeviceIds` actually changed and needs to be written back via
+ * `updatePlatformAccessories`.
+ */
+function memberDeviceIdsEqual(
+  a: Record<string, string>,
+  b: Record<string, string>
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  return aKeys.every((key) => a[key] === b[key]);
+}
+
 export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly service: typeof Service;
   public readonly characteristic: typeof Characteristic;
@@ -305,36 +323,91 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     return this._discoveredDevices.find((device) => device.name === name);
   }
 
+  private _findDeviceById(id: string): SoundTouchDevice | undefined {
+    return this._discoveredDevices.find((device) => device.id === id);
+  }
+
+  /**
+   * Resolves a single zone member reference (the configured `primary` string
+   * or one of the `slaves[]` strings) to a live device. Name-match is tried
+   * first — so an intentional config re-point (editing the name to aim at a
+   * different speaker) takes effect immediately — and a persisted device id
+   * from a prior successful resolution is tried second, so a speaker rename
+   * (config override edited, or its device-reported name changed) doesn't
+   * silently orphan the zone.
+   */
+  private _resolveZoneMember(props: {
+    reference: string;
+    persistedIds: Record<string, string>;
+  }): { device: SoundTouchDevice; id: string } | undefined {
+    const byName = this._findDeviceByName(props.reference);
+    if (byName) {
+      return { device: byName, id: byName.id };
+    }
+
+    const persistedId = props.persistedIds[props.reference];
+    if (persistedId) {
+      const byId = this._findDeviceById(persistedId);
+      if (byId) {
+        return { device: byId, id: persistedId };
+      }
+    }
+
+    return undefined;
+  }
+
   private async _resolveZones(): Promise<void> {
     for (const zoneConfig of this.configuration.zones) {
-      const primary = this._findDeviceByName(zoneConfig.primary);
-      if (!primary) {
+      const uuid = this.api.hap.uuid.generate(`zone::${zoneConfig.name}`);
+      const existingAccessory = this._accessories.get(uuid);
+      const persistedIds =
+        (existingAccessory?.context.memberDeviceIds as
+          Record<string, string> | undefined) ?? {};
+      const resolvedIds: Record<string, string> = {};
+
+      const primaryResolution = this._resolveZoneMember({
+        reference: zoneConfig.primary,
+        persistedIds,
+      });
+      if (!primaryResolution) {
         this.logger.warn(
-          `[Zones] Could not find primary speaker "${zoneConfig.primary}" for zone "${zoneConfig.name}" — skipping`
+          `[Zones] Zone "${zoneConfig.name}": primary speaker "${zoneConfig.primary}" could not be resolved (no longer discoverable — it may have been renamed, replaced, reset, or is offline) — skipping zone`
         );
         continue;
       }
+      resolvedIds[zoneConfig.primary] = primaryResolution.id;
 
       const slaves: SoundTouchDevice[] = [];
       for (const slaveName of zoneConfig.slaves) {
-        const slave = this._findDeviceByName(slaveName);
-        if (!slave) {
+        const slaveResolution = this._resolveZoneMember({
+          reference: slaveName,
+          persistedIds,
+        });
+        if (!slaveResolution) {
           this.logger.warn(
-            `[Zones] Could not find slave speaker "${slaveName}" for zone "${zoneConfig.name}" — skipping that slave`
+            `[Zones] Zone "${zoneConfig.name}": slave speaker "${slaveName}" could not be resolved (no longer discoverable — it may have been renamed, replaced, reset, or is offline) — skipping that slave`
           );
           continue;
         }
-        slaves.push(slave);
+        slaves.push(slaveResolution.device);
+        resolvedIds[slaveName] = slaveResolution.id;
       }
 
       if (slaves.length === 0) {
         this.logger.warn(
-          `[Zones] No resolvable slaves for zone "${zoneConfig.name}" — skipping zone`
+          `[Zones] Zone "${zoneConfig.name}": no slave speakers could be resolved (none are discoverable — they may have been renamed, replaced, reset, or are offline) — skipping zone`
         );
         continue;
       }
 
-      await this._registerZoneAccessory({ zoneConfig, primary, slaves });
+      await this._registerZoneAccessory({
+        zoneConfig,
+        primary: primaryResolution.device,
+        slaves,
+        uuid,
+        existingAccessory,
+        memberDeviceIds: { ...persistedIds, ...resolvedIds },
+      });
     }
   }
 
@@ -342,10 +415,18 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     zoneConfig: ZoneConfiguration;
     primary: SoundTouchDevice;
     slaves: SoundTouchDevice[];
+    uuid: string;
+    existingAccessory: PlatformAccessory | undefined;
+    memberDeviceIds: Record<string, string>;
   }): Promise<void> {
-    const { zoneConfig, primary, slaves } = props;
-    const uuid = this.api.hap.uuid.generate(`zone::${zoneConfig.name}`);
-    const existingAccessory = this._accessories.get(uuid);
+    const {
+      zoneConfig,
+      primary,
+      slaves,
+      uuid,
+      existingAccessory,
+      memberDeviceIds,
+    } = props;
 
     try {
       let accessory: PlatformAccessory;
@@ -362,6 +443,15 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         accessory = new this.api.platformAccessory(zoneConfig.name, uuid);
       }
 
+      const persistedMemberDeviceIds =
+        (accessory.context.memberDeviceIds as
+          Record<string, string> | undefined) ?? {};
+      const memberDeviceIdsChanged = !memberDeviceIdsEqual(
+        persistedMemberDeviceIds,
+        memberDeviceIds
+      );
+      accessory.context.memberDeviceIds = memberDeviceIds;
+
       const wrapper = await SoundTouchZoneAccessory.create({
         platform: this,
         accessory,
@@ -376,6 +466,8 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
           accessory,
         ]);
+      } else if (memberDeviceIdsChanged) {
+        this.api.updatePlatformAccessories([accessory]);
       }
 
       this._discoveredCacheUUIDs.push(uuid);
