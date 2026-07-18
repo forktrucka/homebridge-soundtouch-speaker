@@ -307,6 +307,10 @@ Always re-read a file before editing it.
 - **release-manager** subagent (`Agent(subagent_type: "release-manager", ...)`)
   — dispatch before a `dev → beta` or `dev → latest` promotion PR to gate the
   release.
+- **unreleased-pr-review** skill — run this (not release-manager directly)
+  when there's a backlog of PRs merged to `dev` that need their manual
+  verification steps consolidated and walked through before promotion; it
+  dispatches release-manager itself once that's done.
 - **plugin-coding-conventions**, **homebridge-developer**, **soundtouch-api-expert**
   skills — domain knowledge you draw on during decisioning, and cite in briefs
   so the engineer knows which to load.

@@ -35,3 +35,8 @@ skill **before** acting — don't rely on memory for these:
   Can brief multiple engineers in parallel when work is independent.
 - **plugin-engineer** — receives a brief from the technical lead and implements it:
   reads domain skills, follows TDD, creates a branch, and delivers a tested PR.
+- **unreleased-pr-review** — audits every PR merged to `dev` but not yet on
+  `beta`/`latest` (coverage + plan alignment via the **pr-coverage-auditor**
+  subagent), consolidates their outstanding manual test steps into one guided
+  walkthrough, then hands off to **release-manager** once everything's
+  verified.

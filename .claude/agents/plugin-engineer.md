@@ -156,6 +156,22 @@ git push -u origin <branch-name>
 gh pr create --title "<type>: <summary>" --base dev
 ```
 
+If the plan's **Verification** section has any manual/real-device step
+(anything beyond the automated `lint`/`build`/`test` bullets — a `npm run
+watch` real-device check, a Home-app confirmation, etc.), label the PR so
+it's visible on GitHub that it still needs a human pass, not just green CI:
+
+```sh
+gh label create needs-qa --color FBCA04 --description "Needs manual/real-device verification before release" 2>/dev/null || true
+gh pr edit <n> --add-label needs-qa
+```
+
+(`gh label create` is idempotent-by-suppression here — it only needs to
+succeed once repo-wide; the `|| true` just avoids failing the PR-open flow if
+it already exists.) This is the same label **plugin-qa-lead** looks for/clears
+when it runs a manual verification pass later — see that skill's "Automation
+scripts"/step 3 for the other half of this handshake.
+
 ### 9. Own the PR through merge
 
 Opening the PR is not the finish line — you own it *up to* merge: drive CI green,

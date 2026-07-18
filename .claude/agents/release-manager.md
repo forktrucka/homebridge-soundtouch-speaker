@@ -21,6 +21,12 @@ takes over.
 You start with no memory of any other conversation — read whatever repo state
 you need directly.
 
+Often dispatched by the **unreleased-pr-review** skill after it has walked the
+user through consolidated manual verification of every PR merged to `dev` but
+not yet released — if your prompt names PRs already manually verified, take
+that as given rather than re-deriving it; your checklist below covers the
+mechanical gate only.
+
 ## Release flow recap
 
 ```
