@@ -12,10 +12,14 @@ import { SoundTouchDevice } from './devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchSpeakerPlatformAccessory } from './accessories/SoundTouchSpeakerPlatformAccessory.js';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { Logger } from './utils/FormattedLogger.js';
-import { PlatformConfiguration } from './PlatformConfiguration.js';
+import {
+  PlatformConfiguration,
+  ZoneConfiguration,
+} from './PlatformConfiguration.js';
 import { AppError } from './errors.js';
 import { PresetManager, PresetStation } from './presets/index.js';
 import { BoseCloudServer } from './server/BoseCloudServer.js';
+import { SoundTouchZoneAccessory } from './zones/SoundTouchZoneAccessory.js';
 
 export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly service: typeof Service;
@@ -29,6 +33,12 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     string,
     SoundTouchSpeakerPlatformAccessory
   > = new Map();
+  private readonly _accessoryWrappersByDeviceId: Map<
+    string,
+    SoundTouchSpeakerPlatformAccessory
+  > = new Map();
+  private readonly _zoneWrappers: Map<string, SoundTouchZoneAccessory> =
+    new Map();
   private readonly _discoveredCacheUUIDs: string[] = [];
   private readonly _discoveredDevices: SoundTouchDevice[] = [];
 
@@ -80,6 +90,9 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     this.api.on('shutdown', () => {
       this.logger.debug('Stopping polling on shutdown');
       for (const wrapper of this._accessoryWrappers.values()) {
+        wrapper.stopPolling();
+      }
+      for (const wrapper of this._zoneWrappers.values()) {
         wrapper.stopPolling();
       }
       if (this._presetManager) {
@@ -192,6 +205,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             device,
           });
           this._accessoryWrappers.set(uuid, wrapper);
+          this._accessoryWrappersByDeviceId.set(device.id, wrapper);
 
           if (contextChanged) {
             this.api.updatePlatformAccessories([existingAccessory]);
@@ -209,6 +223,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             device,
           });
           this._accessoryWrappers.set(uuid, wrapper);
+          this._accessoryWrappersByDeviceId.set(device.id, wrapper);
 
           this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
             accessory,
@@ -221,6 +236,8 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         this.logger.error(`Failed to initialise accessory: ${device.name}`, e);
       }
     }
+
+    await this._resolveZones();
 
     for (const [uuid, accessory] of this._accessories) {
       if (!this._discoveredCacheUUIDs.includes(uuid)) {
@@ -236,11 +253,134 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
           wrapper.stopPolling();
           this._accessoryWrappers.delete(uuid);
         }
+        const deviceId = accessory.context.deviceId as string | undefined;
+        if (deviceId) {
+          this._accessoryWrappersByDeviceId.delete(deviceId);
+        }
+        const zoneWrapper = this._zoneWrappers.get(uuid);
+        if (zoneWrapper) {
+          zoneWrapper.stopPolling();
+          this._zoneWrappers.delete(uuid);
+        }
 
         this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
           accessory,
         ]);
       }
+    }
+  }
+
+  /**
+   * Triggers an immediate refresh of the given device's own registered
+   * speaker accessory (its standalone On tile in the Home app), if one is
+   * registered. Used by code paths — e.g. zone activation/deactivation —
+   * that power a device via a raw pressKey call bypassing that device's own
+   * SoundTouchSpeakerOnCharacteristic, so the Home app doesn't have to wait
+   * on a gabbo push event or the background reconciliation poll to catch up.
+   * No-ops when the device has no registered wrapper (e.g. a zone slave that
+   * was never discovered as its own standalone accessory). Never throws —
+   * refresh failures are logged and swallowed so callers aren't blocked.
+   */
+  async refreshAccessoryForDevice(deviceId: string): Promise<void> {
+    const wrapper = this._accessoryWrappersByDeviceId.get(deviceId);
+    if (!wrapper) {
+      return;
+    }
+    try {
+      await wrapper.refresh();
+    } catch (e: unknown) {
+      this.logger.error(
+        AppError.create({
+          name: 'RefreshAccessoryForDeviceFailed',
+          deviceId,
+          cause: e,
+        })
+      );
+    }
+  }
+
+  private _findDeviceByName(name: string): SoundTouchDevice | undefined {
+    return this._discoveredDevices.find((device) => device.name === name);
+  }
+
+  private async _resolveZones(): Promise<void> {
+    for (const zoneConfig of this.configuration.zones) {
+      const primary = this._findDeviceByName(zoneConfig.primary);
+      if (!primary) {
+        this.logger.warn(
+          `[Zones] Could not find primary speaker "${zoneConfig.primary}" for zone "${zoneConfig.name}" — skipping`
+        );
+        continue;
+      }
+
+      const slaves: SoundTouchDevice[] = [];
+      for (const slaveName of zoneConfig.slaves) {
+        const slave = this._findDeviceByName(slaveName);
+        if (!slave) {
+          this.logger.warn(
+            `[Zones] Could not find slave speaker "${slaveName}" for zone "${zoneConfig.name}" — skipping that slave`
+          );
+          continue;
+        }
+        slaves.push(slave);
+      }
+
+      if (slaves.length === 0) {
+        this.logger.warn(
+          `[Zones] No resolvable slaves for zone "${zoneConfig.name}" — skipping zone`
+        );
+        continue;
+      }
+
+      await this._registerZoneAccessory({ zoneConfig, primary, slaves });
+    }
+  }
+
+  private async _registerZoneAccessory(props: {
+    zoneConfig: ZoneConfiguration;
+    primary: SoundTouchDevice;
+    slaves: SoundTouchDevice[];
+  }): Promise<void> {
+    const { zoneConfig, primary, slaves } = props;
+    const uuid = this.api.hap.uuid.generate(`zone::${zoneConfig.name}`);
+    const existingAccessory = this._accessories.get(uuid);
+
+    try {
+      let accessory: PlatformAccessory;
+
+      if (existingAccessory) {
+        this.logger.info(
+          'Restoring existing zone accessory from cache:',
+          existingAccessory.displayName
+        );
+        existingAccessory.displayName = zoneConfig.name;
+        accessory = existingAccessory;
+      } else {
+        this.logger.info('Adding new zone accessory:', zoneConfig.name);
+        accessory = new this.api.platformAccessory(zoneConfig.name, uuid);
+      }
+
+      const wrapper = await SoundTouchZoneAccessory.create({
+        platform: this,
+        accessory,
+        config: zoneConfig,
+        primary,
+        slaves,
+      });
+      this._zoneWrappers.set(uuid, wrapper);
+
+      if (!existingAccessory) {
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
+          accessory,
+        ]);
+      }
+
+      this._discoveredCacheUUIDs.push(uuid);
+    } catch (e: unknown) {
+      this.logger.error(
+        `Failed to initialise zone accessory: ${zoneConfig.name}`,
+        e
+      );
     }
   }
 

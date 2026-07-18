@@ -42,11 +42,19 @@ export interface AccessoryConfig extends GlobalConfig {
   readonly disabled?: boolean;
 }
 
+export interface ZoneConfig {
+  readonly name: string;
+  readonly primary: string;
+  readonly slaves: string[];
+  readonly accessoryType?: 'switch' | 'lightbulb';
+}
+
 export interface ExternalPlatformConfig extends BasePlatformConfig {
   readonly discoverAllAccessories?: boolean;
   readonly accessories?: AccessoryConfig[];
   readonly global?: GlobalConfig;
   readonly presets?: PresetConfig[];
+  readonly zones?: ZoneConfig[];
 }
 
 export function flattenAccessoryConfiguration(props: {

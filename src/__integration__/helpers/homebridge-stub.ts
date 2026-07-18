@@ -34,18 +34,35 @@ const CharacteristicTypes = {
 
 class StubCharacteristic {
   value: CharacteristicValue | undefined = undefined;
+  private setHandler?: (value: CharacteristicValue) => unknown;
+  private getHandler?: () => unknown;
 
-  onSet(_handler: (value: CharacteristicValue) => unknown): this {
+  onSet(handler: (value: CharacteristicValue) => unknown): this {
+    this.setHandler = handler;
     return this;
   }
 
-  onGet(_handler: () => unknown): this {
+  onGet(handler: () => unknown): this {
+    this.getHandler = handler;
     return this;
   }
 
   updateValue(value: CharacteristicValue): this {
     this.value = value;
     return this;
+  }
+
+  /** Invokes the bound `onSet` handler, as HAP would on a HomeKit write. */
+  async invokeSet(value: CharacteristicValue): Promise<void> {
+    await this.setHandler?.(value);
+  }
+
+  /** Invokes the bound `onGet` handler, as HAP would on a HomeKit read. */
+  async invokeGet(): Promise<CharacteristicValue | undefined> {
+    if (!this.getHandler) {
+      return this.value;
+    }
+    return (await this.getHandler()) as CharacteristicValue;
   }
 }
 

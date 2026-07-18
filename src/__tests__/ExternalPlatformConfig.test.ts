@@ -1,5 +1,8 @@
 import { describe, expect, it } from '@jest/globals';
-import { flattenAccessoryConfiguration } from '../ExternalPlatformConfig.js';
+import {
+  ExternalPlatformConfig,
+  flattenAccessoryConfiguration,
+} from '../ExternalPlatformConfig.js';
 
 describe('calculateResultingAccessoryConfiguration', () => {
   it('it merges accessory and global configurations', () => {
@@ -85,5 +88,43 @@ describe('calculateResultingAccessoryConfiguration', () => {
       accessory: { ip: '10.0.0.1', accessoryType: 'switch' },
     });
     expect(result?.accessoryType).toBe('switch');
+  });
+});
+
+describe('ZoneConfig shape', () => {
+  it('accepts a top-level zones array with name, primary, and slaves', () => {
+    const config: ExternalPlatformConfig = {
+      platform: 'SoundTouchHomebridgePlugin',
+      zones: [
+        {
+          name: 'Downstairs',
+          primary: 'Kitchen',
+          slaves: ['Lounge', 'Hallway'],
+        },
+      ],
+    };
+
+    expect(config.zones).toHaveLength(1);
+    expect(config.zones?.[0]).toEqual({
+      name: 'Downstairs',
+      primary: 'Kitchen',
+      slaves: ['Lounge', 'Hallway'],
+    });
+  });
+
+  it('accepts an optional per-zone accessoryType override', () => {
+    const config: ExternalPlatformConfig = {
+      platform: 'SoundTouchHomebridgePlugin',
+      zones: [
+        {
+          name: 'Downstairs',
+          primary: 'Kitchen',
+          slaves: ['Lounge'],
+          accessoryType: 'lightbulb',
+        },
+      ],
+    };
+
+    expect(config.zones?.[0].accessoryType).toBe('lightbulb');
   });
 });

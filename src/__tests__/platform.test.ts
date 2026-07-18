@@ -65,15 +65,23 @@ describe('SoundTouchHomebridgePlatform', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (
-      SoundTouchSpeakerPlatformAccessory as jest.Mocked<typeof SoundTouchSpeakerPlatformAccessory>
-    ).create = jest.fn<typeof SoundTouchSpeakerPlatformAccessory.create>().mockResolvedValue({
-      stopPolling: jest.fn(),
-    } as unknown as SoundTouchSpeakerPlatformAccessory);
+      SoundTouchSpeakerPlatformAccessory as jest.Mocked<
+        typeof SoundTouchSpeakerPlatformAccessory
+      >
+    ).create = jest
+      .fn<typeof SoundTouchSpeakerPlatformAccessory.create>()
+      .mockResolvedValue({
+        stopPolling: jest.fn(),
+      } as unknown as SoundTouchSpeakerPlatformAccessory);
   });
 
   describe('discoverDevices', () => {
     it('registers a non-disabled device', async () => {
-      const device = buildDevice({ id: 'dev1', name: 'Kitchen', disabled: false });
+      const device = buildDevice({
+        id: 'dev1',
+        name: 'Kitchen',
+        disabled: false,
+      });
       const { platform, registerPlatformAccessories } = buildPlatform();
       jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
 
@@ -98,7 +106,11 @@ describe('SoundTouchHomebridgePlatform', () => {
       const { platform, unregisterPlatformAccessories } = buildPlatform();
       jest.spyOn(platform, 'searchDevices').mockResolvedValue([]);
 
-      const cachedAccessory = { displayName: 'Bedroom', UUID: 'uuid:dev3', context: {} };
+      const cachedAccessory = {
+        displayName: 'Bedroom',
+        UUID: 'uuid:dev3',
+        context: {},
+      };
       platform.configureAccessory(cachedAccessory as never);
 
       await platform.discoverDevices();
@@ -111,11 +123,19 @@ describe('SoundTouchHomebridgePlatform', () => {
     });
 
     it('does not unregister a cached accessory when its device is not disabled', async () => {
-      const device = buildDevice({ id: 'dev4', name: 'Study', disabled: false });
+      const device = buildDevice({
+        id: 'dev4',
+        name: 'Study',
+        disabled: false,
+      });
       const { platform, unregisterPlatformAccessories } = buildPlatform();
       jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
 
-      const cachedAccessory = { displayName: 'Study', UUID: 'uuid:dev4', context: {} };
+      const cachedAccessory = {
+        displayName: 'Study',
+        UUID: 'uuid:dev4',
+        context: {},
+      };
       platform.configureAccessory(cachedAccessory as never);
 
       await platform.discoverDevices();
@@ -124,7 +144,11 @@ describe('SoundTouchHomebridgePlatform', () => {
     });
 
     it('refreshes stale context on a restored accessory when the device was renamed', async () => {
-      const device = buildDevice({ id: 'dev5', name: 'New Name', disabled: false });
+      const device = buildDevice({
+        id: 'dev5',
+        name: 'New Name',
+        disabled: false,
+      });
       const { platform, updatePlatformAccessories } = buildPlatform();
       jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
 
@@ -143,7 +167,11 @@ describe('SoundTouchHomebridgePlatform', () => {
     });
 
     it('does not call updatePlatformAccessories when a restored accessory context is unchanged', async () => {
-      const device = buildDevice({ id: 'dev6', name: 'Same Name', disabled: false });
+      const device = buildDevice({
+        id: 'dev6',
+        name: 'Same Name',
+        disabled: false,
+      });
       const { platform, updatePlatformAccessories } = buildPlatform();
       jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
 
@@ -157,6 +185,74 @@ describe('SoundTouchHomebridgePlatform', () => {
       await platform.discoverDevices();
 
       expect(updatePlatformAccessories).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('refreshAccessoryForDevice', () => {
+    it('calls refresh on the registered accessory wrapper for the device', async () => {
+      const refresh = jest
+        .fn<() => Promise<void>>()
+        .mockResolvedValue(undefined);
+      (
+        SoundTouchSpeakerPlatformAccessory as jest.Mocked<
+          typeof SoundTouchSpeakerPlatformAccessory
+        >
+      ).create = jest
+        .fn<typeof SoundTouchSpeakerPlatformAccessory.create>()
+        .mockResolvedValue({
+          stopPolling: jest.fn(),
+          refresh,
+        } as unknown as SoundTouchSpeakerPlatformAccessory);
+
+      const device = buildDevice({
+        id: 'dev1',
+        name: 'Kitchen',
+        disabled: false,
+      });
+      const { platform } = buildPlatform();
+      jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
+      await platform.discoverDevices();
+
+      await platform.refreshAccessoryForDevice('dev1');
+
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when no accessory wrapper is registered for the device', async () => {
+      const { platform } = buildPlatform();
+
+      await expect(
+        platform.refreshAccessoryForDevice('unknown-device')
+      ).resolves.toBeUndefined();
+    });
+
+    it('logs and does not throw when the wrapper refresh fails', async () => {
+      const refresh = jest
+        .fn<() => Promise<void>>()
+        .mockRejectedValue(new Error('boom'));
+      (
+        SoundTouchSpeakerPlatformAccessory as jest.Mocked<
+          typeof SoundTouchSpeakerPlatformAccessory
+        >
+      ).create = jest
+        .fn<typeof SoundTouchSpeakerPlatformAccessory.create>()
+        .mockResolvedValue({
+          stopPolling: jest.fn(),
+          refresh,
+        } as unknown as SoundTouchSpeakerPlatformAccessory);
+
+      const device = buildDevice({
+        id: 'dev2',
+        name: 'Office',
+        disabled: false,
+      });
+      const { platform } = buildPlatform();
+      jest.spyOn(platform, 'searchDevices').mockResolvedValue([device]);
+      await platform.discoverDevices();
+
+      await expect(
+        platform.refreshAccessoryForDevice('dev2')
+      ).resolves.toBeUndefined();
     });
   });
 });

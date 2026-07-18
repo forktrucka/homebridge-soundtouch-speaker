@@ -1,6 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
 import { PlatformConfiguration } from '../PlatformConfiguration.js';
-import { PresetConfig } from '../ExternalPlatformConfig.js';
+import {
+  ExternalPlatformConfig,
+  PresetConfig,
+} from '../ExternalPlatformConfig.js';
 import { PLATFORM_NAME } from '../settings.js';
 import { LogLevel } from 'homebridge';
 
@@ -406,6 +409,127 @@ describe('PlatformConfiguration', () => {
       });
 
       expect(config.presets).toEqual([]);
+    });
+  });
+
+  describe('zone config', () => {
+    it('returns an empty zones array when zones is absent', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+      });
+
+      expect(config.zones).toEqual([]);
+    });
+
+    it('builds a zone from a valid config entry', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones: [{ name: 'Downstairs', primary: 'Kitchen', slaves: ['Lounge'] }],
+      });
+
+      expect(config.zones).toHaveLength(1);
+      expect(config.zones[0].name).toBe('Downstairs');
+      expect(config.zones[0].primary).toBe('Kitchen');
+      expect(config.zones[0].slaves).toEqual(['Lounge']);
+    });
+
+    it('defaults a zone accessoryType to switch', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones: [{ name: 'Downstairs', primary: 'Kitchen', slaves: ['Lounge'] }],
+      });
+
+      expect(config.zones[0].accessoryType).toBe('switch');
+    });
+
+    it('honours a per-zone accessoryType override', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones: [
+          {
+            name: 'Downstairs',
+            primary: 'Kitchen',
+            slaves: ['Lounge'],
+            accessoryType: 'lightbulb',
+          },
+        ],
+      });
+
+      expect(config.zones[0].accessoryType).toBe('lightbulb');
+    });
+
+    it('supports multiple slaves', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones: [
+          {
+            name: 'Downstairs',
+            primary: 'Kitchen',
+            slaves: ['Lounge', 'Hallway'],
+          },
+        ],
+      });
+
+      expect(config.zones[0].slaves).toEqual(['Lounge', 'Hallway']);
+    });
+
+    it('drops a zone entry missing name and does not include it', () => {
+      const zones = [
+        { primary: 'Kitchen', slaves: ['Lounge'] },
+      ] as unknown as ExternalPlatformConfig['zones'];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones,
+      });
+
+      expect(config.zones).toHaveLength(0);
+    });
+
+    it('drops a zone entry missing primary and does not include it', () => {
+      const zones = [
+        { name: 'Downstairs', slaves: ['Lounge'] },
+      ] as unknown as ExternalPlatformConfig['zones'];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones,
+      });
+
+      expect(config.zones).toHaveLength(0);
+    });
+
+    it('drops a zone entry with an empty slaves array', () => {
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones: [{ name: 'Downstairs', primary: 'Kitchen', slaves: [] }],
+      });
+
+      expect(config.zones).toHaveLength(0);
+    });
+
+    it('drops a zone entry missing slaves and does not include it', () => {
+      const zones = [
+        { name: 'Downstairs', primary: 'Kitchen' },
+      ] as unknown as ExternalPlatformConfig['zones'];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones,
+      });
+
+      expect(config.zones).toHaveLength(0);
+    });
+
+    it('keeps valid zone entries and drops invalid ones from the same array', () => {
+      const zones = [
+        { name: 'Downstairs', primary: 'Kitchen', slaves: ['Lounge'] },
+        { primary: 'Bedroom', slaves: ['Office'] },
+      ] as unknown as ExternalPlatformConfig['zones'];
+      const config = PlatformConfiguration.fromExternalConfiguration({
+        platform: PLATFORM_NAME,
+        zones,
+      });
+
+      expect(config.zones).toHaveLength(1);
+      expect(config.zones[0].name).toBe('Downstairs');
     });
   });
 });
