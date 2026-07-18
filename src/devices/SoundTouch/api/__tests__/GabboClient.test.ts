@@ -295,6 +295,69 @@ describe('GabboClient', () => {
         jest.useRealTimers();
       }
     });
+
+    it('routes a bare error event with no accompanying close into the same reconnect flow', async () => {
+      jest.useFakeTimers({ advanceTimers: false });
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+
+      try {
+        client.connect();
+        await nextEventWithTimeout(client, 'connected');
+
+        // Node's global WebSocket fires only 'error' (never 'close') on some
+        // failure paths. Simulate that here by dispatching a synthetic
+        // 'error' event directly on the client's underlying socket, without
+        // any corresponding 'close' event.
+        const socket = (client as unknown as { socket: WebSocket }).socket;
+        const disconnected = nextEvent(client, 'disconnected');
+
+        socket.dispatchEvent(new Event('error'));
+
+        await disconnected;
+
+        const lastCall = setTimeoutSpy.mock.calls.at(-1);
+        expect(lastCall?.[1]).toBe(5000);
+      } finally {
+        setTimeoutSpy.mockRestore();
+        jest.useRealTimers();
+      }
+    });
+
+    it('tears down and reconnects exactly once when both error and close fire for the same disconnect', async () => {
+      jest.useFakeTimers({ advanceTimers: false });
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+
+      try {
+        client.connect();
+        await nextEventWithTimeout(client, 'connected');
+
+        const disconnectedEvents: unknown[] = [];
+        const errorEvents: unknown[] = [];
+        client.on('disconnected', (payload) =>
+          disconnectedEvents.push(payload)
+        );
+        client.on('error', (payload) => errorEvents.push(payload));
+
+        const socket = (client as unknown as { socket: WebSocket }).socket;
+
+        // Both events dispatch synchronously (EventTarget.dispatchEvent runs
+        // listeners inline), so the teardown/reconnect flow has already run
+        // to completion by the time these calls return.
+        socket.dispatchEvent(new Event('error'));
+        socket.dispatchEvent(new Event('close'));
+
+        expect(disconnectedEvents).toHaveLength(1);
+        expect(errorEvents).toHaveLength(1);
+
+        const reconnectCalls = setTimeoutSpy.mock.calls.filter(
+          (call) => call[1] === 5000
+        );
+        expect(reconnectCalls).toHaveLength(1);
+      } finally {
+        setTimeoutSpy.mockRestore();
+        jest.useRealTimers();
+      }
+    });
   });
 
   describe('liveness detection', () => {
