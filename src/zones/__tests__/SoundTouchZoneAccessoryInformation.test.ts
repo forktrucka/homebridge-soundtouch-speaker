@@ -1,4 +1,11 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { SoundTouchZoneAccessory } from '../SoundTouchZoneAccessory.js';
 import { ZoneConfiguration } from '../../PlatformConfiguration.js';
 
@@ -12,11 +19,14 @@ function fakeDevice(id: string) {
   const getZone = jest
     .fn<() => Promise<undefined>>()
     .mockResolvedValue(undefined);
+  const getSource = jest
+    .fn<() => Promise<string>>()
+    .mockResolvedValue('STANDBY');
   return {
     id,
     name: id,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api: { host: '10.0.0.1', getZone } as any,
+    api: { host: '10.0.0.1', getZone, getSource } as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     configuration: {} as any,
   };
@@ -81,7 +91,7 @@ async function build({ isNewAccessory }: { isNewAccessory: boolean }) {
   const primary = fakeDevice('MASTER-1');
   const slaves = [fakeDevice('SLAVE-1')];
 
-  await SoundTouchZoneAccessory.create({
+  const zoneAccessory = await SoundTouchZoneAccessory.create({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     platform: platform as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,10 +104,25 @@ async function build({ isNewAccessory }: { isNewAccessory: boolean }) {
     isNewAccessory,
   });
 
+  // Stop the reconciliation loop started by init() — these tests only care
+  // about the one-time AccessoryInformation side effects of create().
+  zoneAccessory.stopPolling();
+
   return { setCharacteristic, platform };
 }
 
 describe('SoundTouchZoneAccessory information characteristic', () => {
+  beforeEach(() => {
+    // The reconciliation loop started by create()/init() schedules a real
+    // setTimeout; fake timers keep it from ever firing during this suite,
+    // which only cares about the one-time AccessoryInformation side effects.
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe('when the zone accessory is newly created', () => {
     it('sets the Name characteristic to the zone config name', async () => {
       const { setCharacteristic, platform } = await build({
