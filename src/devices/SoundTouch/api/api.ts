@@ -23,6 +23,7 @@ import {
 } from './bass-capabilities.js';
 import { Bass, bassFromElement } from './bass.js';
 import { Preset, presetFromElement } from './preset.js';
+import { Recent, recentFromElement } from './recent.js';
 import { Group, groupFromElement } from './group.js';
 import { promisify } from 'util';
 import { ContentItem, contentItemToElement } from './content-item.js';
@@ -221,6 +222,19 @@ export class API {
       if (presets) {
         if (presets.hasChild('preset')) {
           return compactMap(presets.getList('preset'), presetFromElement);
+        }
+      }
+    }
+    return undefined;
+  }
+
+  async getRecents(): Promise<Recent[] | undefined> {
+    const element = await this._get(Endpoints.recents);
+    if (element.hasChild('recents')) {
+      const recents = element.getChild('recents');
+      if (recents) {
+        if (recents.hasChild('recent')) {
+          return compactMap(recents.getList('recent'), recentFromElement);
         }
       }
     }

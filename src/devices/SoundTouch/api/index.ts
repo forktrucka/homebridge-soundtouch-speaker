@@ -17,6 +17,7 @@ export * from './network-info.js';
 export * from './now-playing.js';
 export * from './play-info.js';
 export * from './preset.js';
+export * from './recent.js';
 export * from './source.js';
 export * from './special-types.js';
 export * from './time.js';

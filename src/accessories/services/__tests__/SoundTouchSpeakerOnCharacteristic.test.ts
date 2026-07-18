@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { SoundTouchSpeakerOnCharacteristic } from '../SoundTouchSpeakerOnCharacteristic.js';
-import { SourceStatus } from '../../../devices/SoundTouch/api/index.js';
+import { SourceStatus, Recent } from '../../../devices/SoundTouch/api/index.js';
 
 class FakeHapStatusError extends Error {
   constructor(public readonly hapStatus: number) {
@@ -8,7 +8,9 @@ class FakeHapStatusError extends Error {
   }
 }
 
-async function build({ source = SourceStatus.ready }: { source?: string } = {}) {
+async function build({
+  source = SourceStatus.ready,
+}: { source?: string } = {}) {
   const updateValue = jest.fn();
   const hapCharacteristic = {
     value: source !== SourceStatus.standBy,
@@ -24,11 +26,17 @@ async function build({ source = SourceStatus.ready }: { source?: string } = {}) 
     .fn<() => Promise<string | undefined>>()
     .mockResolvedValue(source);
   const pressKey = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
+  const getRecents = jest
+    .fn<() => Promise<Recent[] | undefined>>()
+    .mockResolvedValue(undefined);
+  const selectSource = jest
+    .fn<() => Promise<boolean>>()
+    .mockResolvedValue(true);
 
   const device = {
     name: 'Test Speaker',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api: { getSource, pressKey } as any,
+    api: { getSource, pressKey, getRecents, selectSource } as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     configuration: {} as any,
   };
@@ -60,6 +68,8 @@ async function build({ source = SourceStatus.ready }: { source?: string } = {}) 
     hapCharacteristic,
     getSource,
     pressKey,
+    getRecents,
+    selectSource,
     updateValue,
   };
 }
@@ -90,7 +100,8 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
       const { hapCharacteristic, getSource } = await build();
       getSource.mockRejectedValue(new Error('network error'));
 
-      const handler = hapCharacteristic.onGet.mock.calls[0]?.[0] as () => Promise<unknown>;
+      const handler = hapCharacteristic.onGet.mock
+        .calls[0]?.[0] as () => Promise<unknown>;
       await expect(handler()).rejects.toBeInstanceOf(FakeHapStatusError);
     });
   });
@@ -124,21 +135,79 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
 
     describe('when the live state matches the target', () => {
       it('does not press the power key', async () => {
-        const { subject, pressKey } = await build({ source: SourceStatus.ready });
+        const { subject, pressKey } = await build({
+          source: SourceStatus.ready,
+        });
 
         await subject.setOn(true);
 
         expect(pressKey).not.toHaveBeenCalled();
       });
+
+      it('does not resume a source', async () => {
+        const { subject, getRecents, selectSource } = await build({
+          source: SourceStatus.ready,
+        });
+
+        await subject.setOn(true);
+
+        expect(getRecents).not.toHaveBeenCalled();
+        expect(selectSource).not.toHaveBeenCalled();
+      });
     });
 
     describe('when the live state differs from the target', () => {
       it('presses the power key', async () => {
-        const { subject, pressKey } = await build({ source: SourceStatus.standBy });
+        const { subject, pressKey } = await build({
+          source: SourceStatus.standBy,
+        });
 
         await subject.setOn(true);
 
         expect(pressKey).toHaveBeenCalledTimes(1);
+      });
+
+      it('resumes the most recent source after powering on', async () => {
+        const { subject, getRecents, selectSource, pressKey } = await build({
+          source: SourceStatus.standBy,
+        });
+        const mostRecentContentItem = { source: 'SPOTIFY', sourceAccount: 'a' };
+        getRecents.mockResolvedValue([
+          { contentItem: mostRecentContentItem, utcTime: new Date() },
+          {
+            contentItem: { source: 'AUX', sourceAccount: 'AUX' },
+            utcTime: new Date(),
+          },
+        ]);
+
+        await subject.setOn(true);
+
+        expect(pressKey).toHaveBeenCalledTimes(1);
+        expect(getRecents).toHaveBeenCalledTimes(1);
+        expect(selectSource).toHaveBeenCalledWith(mostRecentContentItem);
+      });
+
+      it('does not select a source when there are no recents', async () => {
+        const { subject, getRecents, selectSource } = await build({
+          source: SourceStatus.standBy,
+        });
+        getRecents.mockResolvedValue(undefined);
+
+        await subject.setOn(true);
+
+        expect(getRecents).toHaveBeenCalledTimes(1);
+        expect(selectSource).not.toHaveBeenCalled();
+      });
+
+      it('does not resume a source when powering off', async () => {
+        const { subject, getRecents, selectSource } = await build({
+          source: SourceStatus.ready,
+        });
+
+        await subject.setOn(false);
+
+        expect(getRecents).not.toHaveBeenCalled();
+        expect(selectSource).not.toHaveBeenCalled();
       });
     });
 
@@ -146,7 +215,9 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
       const { hapCharacteristic, getSource } = await build();
       getSource.mockRejectedValue(new Error('network error'));
 
-      const handler = hapCharacteristic.onSet.mock.calls[0]?.[0] as (v: unknown) => Promise<void>;
+      const handler = hapCharacteristic.onSet.mock.calls[0]?.[0] as (
+        v: unknown
+      ) => Promise<void>;
       await expect(handler(true)).rejects.toBeInstanceOf(FakeHapStatusError);
     });
   });

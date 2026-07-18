@@ -59,6 +59,15 @@ describe('parseGabboFrame', () => {
     expect(notification.refetch).toBe(Endpoints.presets);
   });
 
+  it('maps a recents tickle to a recents re-fetch', async () => {
+    const [notification] = await parseGabboFrame(
+      '<updates deviceID="DEV1"><recentsUpdated><recents/></recentsUpdated></updates>'
+    );
+
+    expect(notification.type).toBe('recents');
+    expect(notification.refetch).toBe(Endpoints.recents);
+  });
+
   it('maps a now-selection change with no re-fetch (inline only)', async () => {
     const [notification] = await parseGabboFrame(
       '<updates deviceID="DEV1"><nowSelectionUpdated><preset id="1"/>' +

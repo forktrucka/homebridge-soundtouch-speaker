@@ -1,6 +1,6 @@
 ---
 feature: HomeKit power-on mimics on-device resume of last-played source
-status: planned
+status: in-progress # PR opened against dev, awaiting review/merge
 date: 2026-07-10
 branch: fix/power-on-resume-last-source
 commit-type: fix
@@ -24,6 +24,9 @@ no-playback state instead.
 | 2026-07-10 | The plugin's power-on path today only sends `POST /key` with `KeyValue.power` (`SoundTouchSpeakerOnCharacteristic.setOn` → `api.ts:109-122` `pressKey`/`holdKey`/`_key`). Per the user, this does not reliably reproduce the on-device experience of resuming the last-played source. Rather than rely on firmware to do this off a bare `POWER` key, the plugin will explicitly resume the last-played source on power-on. | User confirmation of on-device behavior | Waiting on unverifiable firmware behavior instead of just implementing the resume explicitly |
 | 2026-07-10 | **The device exposes a `GET /recents` endpoint** — a firmware-maintained, ordered recently-played list of `ContentItem`s (with timestamps), pushed via the `RecentsUpdatedNotifyUI` WebSocket notification (`<recentsUpdated><recents>…</recents></recentsUpdated>`, api-reference.md:297). This is a better source of truth than reconstructing "last played" from `nowPlaying` polling: it's the same list/order the SoundTouch app's "recents" UI and the device's own resume behavior are presumably built on. **The plugin currently does nothing with it**: the gabbo notification parser recognizes the `recents` type but `GabboClient.ts:28` maps it to `undefined` (silently dropped, no event emitted), there is no `recents` entry in `endpoints.ts`, and no client method calls `/recents` anywhere in `src/devices/SoundTouch/api/`. Plan: add the endpoint + client method, wire the `RecentsUpdatedNotifyUI` notification through `GabboClient` like the other typed events, and on `setOn(true)` (after pressing `POWER`) call `selectSource` with the most-recent entry from `/recents`. | Read `api-reference.md` notification table; grepped `GabboClient.ts`, `endpoints.ts`, and `src/devices/SoundTouch/api/` for any existing `/recents` usage — confirmed none exists | Manually tracking last-played via `nowPlaying`/`NowPlayingChange` polling (the original approach in this plan) — rejected once `/recents` was found, since it duplicates device-maintained state and could drift from what the device itself considers "recent" (e.g. AUX/Bluetooth sessions without a `nowPlaying` XML the same way streaming sources have) |
 | 2026-07-10 | This plan touches `SoundTouchSpeakerOnCharacteristic.ts`, the same file `plans/2026-07-10-power-state-accuracy.md` (in-progress, `fix/power-state-accuracy`) is fixing for a separate stale-cache toggle bug. Sequence this branch after that one merges (or rebase onto it) to avoid conflicting edits to `setOn` — but the resume behavior itself is not blocked on it. | Avoid duplicate/conflicting edits to the same lines | Implementing both in the same branch — rejected to keep `power-state-accuracy` a clean single-purpose PR |
+| 2026-07-18 | `power-state-accuracy` was already merged to `dev` before this session started (`setOn` already does a live `getSource` read to decide whether to press `POWER`). Branched fresh from `dev` — no rebase needed. | Confirmed by reading the current `setOn` implementation on `dev` before starting | — |
+| 2026-07-18 | The v1.1 API PDF / `api-reference.md` documents the `RecentsUpdatedNotifyUI` notification shape but **not** the `GET /recents` response body itself — no real-device capture of `/recents` existed in this repo at session start. Initially modeled `getRecents()`/`recentFromElement` on the `/presets` shape (`<ContentItem>`, capitalized) and assumed newest-first ordering. | Read `api-reference.md`; no existing capture in-repo | — superseded by the next row |
+| 2026-07-18 | **Real-device capture confirms and corrects the above.** A live speaker's `GET /recents` returns `<recents><recent deviceID="…" utcTime="$UINT64" [id="…"]><contentItem source="…" type="…" location="…" sourceAccount="…" isPresetable="…"><itemName>…</itemName>[<containerArt>…</containerArt>]</contentItem></recent>…</recents>`. Two corrections vs. the initial `/presets`-based guess: (1) the nested element is **lowercase `<contentItem>`**, not `<ContentItem>` — `/presets` and `/recents` disagree on casing, and xml2js tag matching is case-sensitive, so the original parser would have silently returned `undefined` for every entry against a real device; (2) **ordering is confirmed newest-first** (most-recent `utcTime` is index 0), matching the assumption. Fixed `recent.ts` to match (`hasChild('contentItem')`/`getChild('contentItem')`) and re-verified end-to-end against the live device (built `dist/`, called `API.getRecents()` directly over the LAN) — 50 entries returned, correctly parsed, correctly ordered newest-first. | Live capture + direct `API.getRecents()` call against a real speaker on the LAN, 2026-07-18 | Shipping the uncorrected `/presets`-cased guess — would have silently no-op'd the resume feature on every real device (parser returns `undefined`, no crash, but no resume either) |
 
 ## If cancelled
 
@@ -72,29 +75,38 @@ no-playback state instead.
 
 ## Implementation checklist
 
-- [ ] Read `coding-conventions`, `homebridge-developer`, and
+- [x] Read `coding-conventions`, `homebridge-developer`, and
       `soundtouch-api-expert` skills first
-- [ ] Rebase onto/confirm merge status of `plans/2026-07-10-power-state-accuracy.md`
+- [x] Rebase onto/confirm merge status of `plans/2026-07-10-power-state-accuracy.md`
       before touching `setOn`; do not duplicate its live-read change
-- [ ] Add `recents = 'recents'` to `endpoints.ts` and a `getRecents()` method
+      (already merged — `setOn` does a live `getSource` read before deciding
+      whether to press `POWER`; this plan only adds the resume step)
+- [x] Add `recents = 'recents'` to `endpoints.ts` and a `getRecents()` method
       to `api.ts` (`GET /recents`), parsing the XML response into an ordered
       list of `{ ContentItem, timestamp }`
-- [ ] Wire `recentsUpdated` through `GabboClient` (currently dropped) so it's
+- [x] Wire `recentsUpdated` through `GabboClient` (currently dropped) so it's
       available as an event like `volumeUpdated`/`nowPlayingUpdated`
-- [ ] In `SoundTouchSpeakerOnCharacteristic.setOn(true)`, after
+- [x] In `SoundTouchSpeakerOnCharacteristic.setOn(true)`, after
       `pressKey(KeyValue.power)`, call `getRecents()` and `selectSource` with
       the most-recent entry's `ContentItem` (no-op if the list is empty)
-- [ ] Unit tests: `getRecents()` XML parsing; `setOn(true)` presses `POWER`
+- [x] Unit tests: `getRecents()` XML parsing; `setOn(true)` presses `POWER`
       then selects the most-recent `/recents` entry
-- [ ] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run typecheck && npm run lint && npm test`
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
-- [ ] `npm run watch` — against a real speaker: play a source, power off,
-      then HomeKit "On" → confirm the same content resumes
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
+- [x] `getRecents()` parsing verified directly against a real speaker
+      (built `dist/`, called `API.getRecents()` over the LAN) — confirmed the
+      response shape, fixed the lowercase-`contentItem` bug this caught, and
+      confirmed newest-first ordering (see 2026-07-18 finding)
+- [ ] `npm run watch` — full HomeKit end-to-end still not run this session:
+      play a source, power off, then HomeKit "On" → confirm the same content
+      resumes. The `/recents` parsing itself is now real-device-verified;
+      this remaining step exercises the full `setOn` → `pressKey` →
+      `getRecents` → `selectSource` path end-to-end through HomeKit.
 
 ## PR / release notes
 

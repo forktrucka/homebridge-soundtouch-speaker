@@ -11,7 +11,8 @@ export type GabboUpdateType =
   | 'presetsUpdated'
   | 'zoneUpdated'
   | 'bassUpdated'
-  | 'connectionStateUpdated';
+  | 'connectionStateUpdated'
+  | 'recentsUpdated';
 
 const NOTIFICATION_TYPE_TO_UPDATE_TYPE: Readonly<
   Record<GabboNotification['type'], GabboUpdateType | undefined>
@@ -25,7 +26,7 @@ const NOTIFICATION_TYPE_TO_UPDATE_TYPE: Readonly<
   connectionState: 'connectionStateUpdated',
   sources: undefined,
   info: undefined,
-  recents: undefined,
+  recents: 'recentsUpdated',
   swUpdateStatus: undefined,
   siteSurveyResults: undefined,
   acctMode: undefined,
@@ -57,7 +58,10 @@ export class GabboClient extends EventEmitter {
     this.on('error', () => undefined);
   }
 
-  static create(host: string, port: number = DEFAULT_WEBSOCKET_PORT): GabboClient {
+  static create(
+    host: string,
+    port: number = DEFAULT_WEBSOCKET_PORT
+  ): GabboClient {
     return new GabboClient(host, port);
   }
 
