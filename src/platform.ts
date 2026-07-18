@@ -20,6 +20,7 @@ import { AppError } from './errors.js';
 import { PresetManager, PresetStation } from './presets/index.js';
 import { BoseCloudServer } from './server/BoseCloudServer.js';
 import { SoundTouchZoneAccessory } from './zones/SoundTouchZoneAccessory.js';
+import { SoundTouchTVSpikeAccessory } from './accessories/SoundTouchTVSpikeAccessory.js';
 
 /**
  * Shallow-compares two zone member-device-id maps for equality, ignoring key
@@ -97,6 +98,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
           await this._startBoseCloudServer();
           await this._setupPresets();
         }
+        await this._maybeRunTVSpike();
         this.logger.debug('Finished didFinishLaunching callback');
       } catch (e: unknown) {
         this.logger.error(
@@ -490,6 +492,30 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this._boseCloudServer = server;
     } catch (e: unknown) {
       this.logger.error('[FakeBoseCloudServer] Failed to start server', e);
+    }
+  }
+
+  private async _maybeRunTVSpike(): Promise<void> {
+    if (!process.env.TV_SPIKE) {
+      return;
+    }
+
+    const wantedName = process.env.TV_SPIKE_DEVICE_NAME?.toLowerCase();
+    const device = wantedName
+      ? this._discoveredDevices.find((d) => d.name.toLowerCase() === wantedName)
+      : this._discoveredDevices[0];
+
+    if (!device) {
+      this.logger.warn(
+        '[TV Spike] TV_SPIKE set but no matching discovered device found'
+      );
+      return;
+    }
+
+    try {
+      await SoundTouchTVSpikeAccessory.create({ platform: this, device });
+    } catch (e: unknown) {
+      this.logger.error(AppError.create({ name: 'TVSpikeFailed', cause: e }));
     }
   }
 

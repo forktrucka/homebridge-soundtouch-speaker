@@ -1,9 +1,10 @@
 {
   "bridge": {
     "name": "PluginTemplate",
-    "username": "AA:BB:CC:DD:EE:FF",
+    "username": "2E:9B:44:6C:11:A7",
     "port": 51826,
-    "pin": "031-45-154"
+    "pin": "031-45-154",
+    "bind": "en0"
   },
   "description": "HomeBridge HTTP Status Control",
   "plugins": ["homebridge-soundtouchspeaker", "homebridge-config-ui-x"],
@@ -22,7 +23,7 @@
     {
       "name": "homebridge-soundtouchspeaker",
       "platform": "SoundTouchHomebridgePlugin",
-      "discoverAllAccessories": true,
+      "discoverAllAccessories": false,
       "global": {
         "verbose": true,
         "presets": [
@@ -36,8 +37,8 @@
       },
       "accessories": [
         {
-          "name": "Kitchen Speaker",
-          "room": "Kitchen"
+          "name": "Office",
+          "ip": "10.0.0.36"
         }
       ]
     }
