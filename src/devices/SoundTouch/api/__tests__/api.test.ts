@@ -302,19 +302,19 @@ describe('API', () => {
 
   describe('recents', () => {
     it('parses recents when present, in device order', async () => {
-      mock
-        .onGet(`${BASE}/recents`)
-        .reply(
-          200,
-          '<recents>' +
-            '<recent utcTime="1600000500">' +
-            '<ContentItem source="SPOTIFY" sourceAccount="a"><itemName>Latest</itemName></ContentItem>' +
-            '</recent>' +
-            '<recent utcTime="1600000000">' +
-            '<ContentItem source="AUX" sourceAccount="AUX"><itemName>Older</itemName></ContentItem>' +
-            '</recent>' +
-            '</recents>'
-        );
+      mock.onGet(`${BASE}/recents`).reply(
+        200,
+        // A real device nests a lowercase <contentItem> in /recents,
+        // unlike /presets which nests <ContentItem>.
+        '<recents>' +
+          '<recent deviceID="D" utcTime="1600000500">' +
+          '<contentItem source="SPOTIFY" sourceAccount="a"><itemName>Latest</itemName></contentItem>' +
+          '</recent>' +
+          '<recent deviceID="D" utcTime="1600000000">' +
+          '<contentItem source="AUX" sourceAccount="AUX"><itemName>Older</itemName></contentItem>' +
+          '</recent>' +
+          '</recents>'
+      );
 
       const recents = await api.getRecents();
 

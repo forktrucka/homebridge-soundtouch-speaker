@@ -7,10 +7,13 @@ export interface Recent {
 }
 
 export function recentFromElement(element: XMLElement): Recent | undefined {
-  if (!element.hasChild('ContentItem')) {
+  // Unlike /presets (which nests <ContentItem>), a real device's /recents
+  // response nests a lowercase <contentItem> — confirmed against a live
+  // speaker on 2026-07-18. xml2js tag matching is case-sensitive.
+  if (!element.hasChild('contentItem')) {
     return undefined;
   }
-  const contentItemElement = element.getChild('ContentItem');
+  const contentItemElement = element.getChild('contentItem');
   if (!contentItemElement) {
     return undefined;
   }
