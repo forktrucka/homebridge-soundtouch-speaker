@@ -203,6 +203,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             platform: this,
             accessory: existingAccessory,
             device,
+            isNewAccessory: false,
           });
           this._accessoryWrappers.set(uuid, wrapper);
           this._accessoryWrappersByDeviceId.set(device.id, wrapper);
@@ -221,6 +222,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             platform: this,
             accessory,
             device,
+            isNewAccessory: true,
           });
           this._accessoryWrappers.set(uuid, wrapper);
           this._accessoryWrappersByDeviceId.set(device.id, wrapper);
@@ -366,6 +368,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
         config: zoneConfig,
         primary,
         slaves,
+        isNewAccessory: existingAccessory === undefined,
       });
       this._zoneWrappers.set(uuid, wrapper);
 

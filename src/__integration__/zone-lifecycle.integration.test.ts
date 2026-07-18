@@ -7,6 +7,7 @@ import {
   jest,
 } from '@jest/globals';
 import type { ExternalPlatformConfig } from '../ExternalPlatformConfig.js';
+import type { PlatformAccessory } from 'homebridge';
 import { SoundTouchHomebridgePlatform } from '../platform.js';
 import {
   FakeSoundTouchServer,
@@ -487,6 +488,35 @@ describe('Zone lifecycle', () => {
     expect(primaryServer.requests.some((r) => r.path === '/select')).toBe(
       false
     );
+  });
+
+  it('does not revert a zone Name characteristic changed in the Home app when the accessory is restored from cache', async () => {
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const informationService = zoneAccessory?.services.find(
+      (s) => s.type.name === 'AccessoryInformation'
+    );
+    const nameCharacteristic = informationService?.characteristics.get('Name');
+    expect(nameCharacteristic?.value).toBe('Downstairs');
+
+    // Simulate a rename performed in the Home app.
+    nameCharacteristic?.updateValue('Downstairs Zone');
+
+    // Simulate a Homebridge restart: a fresh platform instance restores the
+    // (renamed) zone accessory from the cache, then discoverDevices() runs
+    // again down the zone restore branch.
+    const restartedPlatform = createPlatform();
+    restartedPlatform.configureAccessory(
+      zoneAccessory as unknown as PlatformAccessory
+    );
+
+    await api.emitDidFinishLaunching();
+
+    expect(nameCharacteristic?.value).toBe('Downstairs Zone');
   });
 
   it('skips the zone and does not register it when the primary cannot be resolved', async () => {

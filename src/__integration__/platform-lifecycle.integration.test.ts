@@ -119,6 +119,46 @@ describe('SoundTouchHomebridgePlatform', () => {
     });
   });
 
+  describe('preserving HomeKit accessory renames across a restart', () => {
+    it('does not revert a Name characteristic changed in the Home app when the accessory is restored from cache', async () => {
+      createPlatform();
+      await api.emitDidFinishLaunching();
+
+      const registered = api.registeredAccessories[0];
+      const informationService = registered.services.find(
+        (service) => service.type.name === 'AccessoryInformation'
+      );
+      const nameCharacteristic =
+        informationService?.characteristics.get('Name');
+      expect(nameCharacteristic?.value).toBe('Test Speaker');
+
+      // Simulate a rename performed in the Home app.
+      nameCharacteristic?.updateValue('Living Room Speaker');
+
+      // Simulate a Homebridge restart: a fresh platform instance restores the
+      // (renamed) accessory from the cache via configureAccessory(), then
+      // discoverDevices() runs again down the restore branch.
+      const restartedPlatform = createPlatform();
+      restartedPlatform.configureAccessory(
+        registered as unknown as PlatformAccessory
+      );
+
+      await api.emitDidFinishLaunching();
+
+      expect(nameCharacteristic?.value).toBe('Living Room Speaker');
+    });
+
+    it('still sets the Name characteristic on a genuinely new accessory', async () => {
+      createPlatform();
+
+      await api.emitDidFinishLaunching();
+
+      expect(api.getCharacteristicValue('AccessoryInformation', 'Name')).toBe(
+        'Test Speaker'
+      );
+    });
+  });
+
   describe('FirmwareRevision characteristic', () => {
     it('is set to the SCM component softwareVersion', async () => {
       server.setResponse(

@@ -1,6 +1,6 @@
 ---
 feature: Preserve HomeKit accessory renames across Homebridge restarts
-status: planned # planned | in-progress | beta | done | cancelled
+status: in-progress # planned | in-progress | beta | done | cancelled
 date: 2026-07-18
 branch: fix/preserve-homekit-rename # branched off dev (see sequencing note — zone half may fold into #162)
 commit-type: fix
@@ -60,6 +60,8 @@ The durable record so we don't re-litigate decisions or re-investigate facts.
 | 2026-07-18 | **New-accessory path still needs to set `Name` once** (not a no-op). | `SoundTouchSpeakerInformationCharacteristic.calculateDeviceName()` appends `" Speaker"` when the device name doesn't already end in it; `new platformAccessory(device.name, uuid)` only pre-sets the raw `device.name`. So first creation must push the computed name to get the intended initial label. | Never setting `Name` at all — would drop the `" Speaker"` suffix behaviour on genuinely new accessories. |
 | 2026-07-18 | **`fix:` commit type → patch release.** | Corrects a confirmed user-facing bug (renames revert). No new config, no new capability. | `feat:` (not a new feature), `chore:` (user-visible correctness fix). |
 | 2026-07-18 | **Secondary consideration to verify on-device, not part of the core fix:** the restore branch also reassigns `existingAccessory.displayName = device.name` (`platform.ts` line 200, and line 356 for zones). | `displayName` is Homebridge's internal/bridge-side cached name and, unlike re-pushing the HAP `Name` characteristic, is not the confirmed trigger of the HomeKit rename revert. The confirmed, code-diagnosed cause is the `Name` characteristic re-assertion. Flagged so the real-device verification step checks whether the `displayName` reassignment contributes; if it does, address as a follow-up rather than expanding this fix's scope speculatively. | Rewriting the `displayName` handling pre-emptively — unverified, risks regressing the legitimate config-driven rename path (renaming a speaker in config *should* still propagate). |
+| 2026-07-18 | **Sequencing resolved: option 2 (single combined `fix/` branch off `dev`, after #162 merged)** — both the speaker and zone halves shipped together in this PR. | By the time this session started, `dev` already had `feat/speaker-zones` (#162) and the power-key-hold-duration fix (#163) merged, so both files existed and were stable — no plumbing conflict to avoid. | Option 1 (split PRs) — moot once #162 had already merged. |
+| 2026-07-18 | **Confirmed both new integration restart-cycle tests actually catch the regression** — temporarily reverted the `Name` gate in `SoundTouchSpeakerInformationCharacteristic.init()` and re-ran the speaker restart-cycle test in isolation; it failed with the exact revert symptom (`Received: "Test Speaker"` instead of the renamed `"Living Room Speaker"`), then re-passed once the gate was restored. | Confirms the integration test is load-bearing, not a false-positive green. Running a single integration test file in isolation (rather than the full `npm test` run) needs `--forceExit` — pre-existing open-handle teardown behavior in this suite unrelated to this change; `npm test` itself exits cleanly. | — |
 
 ## If cancelled
 
@@ -166,20 +168,24 @@ is one plan — the delivery split is the technical lead's call.
 
 ## Implementation checklist
 
-- [ ] Thread `isNewAccessory` through
+- [x] Thread `isNewAccessory` through
       `SoundTouchSpeakerInformationCharacteristic` (constructor + `create`) and
       gate the `Name` set in `init()`
-- [ ] Thread `isNewAccessory` through
+- [x] Thread `isNewAccessory` through
       `SoundTouchSpeakerPlatformAccessory.create` → `createAccessory` →
       info-characteristic `create`
-- [ ] Compute and pass `isNewAccessory` from `discoverDevices()` (both branches)
-- [ ] Thread `isNewAccessory` through `SoundTouchZoneAccessory.create` →
+- [x] Compute and pass `isNewAccessory` from `discoverDevices()` (both branches)
+- [x] Thread `isNewAccessory` through `SoundTouchZoneAccessory.create` →
       `_setInformation` and pass it from `_registerZoneAccessory()`
-- [ ] Add `SoundTouchSpeakerInformationCharacteristic.test.ts`
-- [ ] Add zone `_setInformation` unit coverage
-- [ ] Add the restart-cycle integration scenario (rename survives restore)
-- [ ] `npm run typecheck && npm run lint && npm test`
-- [ ] `npm run knip` — confirm no unused exports introduced
+- [x] Add `SoundTouchSpeakerInformationCharacteristic.test.ts`
+- [x] Add zone `_setInformation` unit coverage (`SoundTouchZoneAccessoryInformation.test.ts`,
+      exercised via the `SoundTouchZoneAccessory.create` factory rather than
+      the private static directly)
+- [x] Add the restart-cycle integration scenario (rename survives restore) —
+      one scenario each in `platform-lifecycle.integration.test.ts` (speaker)
+      and `zone-lifecycle.integration.test.ts` (zone)
+- [x] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run knip` — confirm no unused exports introduced
 
 ## Verification
 
