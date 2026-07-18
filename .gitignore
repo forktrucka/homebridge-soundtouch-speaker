@@ -1,6 +1,10 @@
 # Ignore compiled code
 dist
 
+# Local-only notes that may name real devices/IPs on the user's home network —
+# never committed, even under .claude/ (which is otherwise tracked).
+*.local.md
+
 # ------------- Defaults ------------- #
 .DS_Store
 
