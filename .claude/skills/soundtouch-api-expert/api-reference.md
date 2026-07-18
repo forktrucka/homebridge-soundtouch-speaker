@@ -318,6 +318,28 @@ When a slave joins a zone, the master emits a series of per-slave updates:
 When a slave leaves, you'll see `<zoneUpdated/>` + `<nowPlayingUpdated/>`. The
 master also emits its own `<zoneUpdated/>` whenever a slave joins or leaves.
 
+### Real-device confirmed: idle, heartbeat, and standby behavior
+
+Confirmed by a live capture against a real speaker (2026-07-17), resolving
+what the v1.1 spec leaves ambiguous:
+
+- **No heartbeat/keepalive traffic exists.** The empty `<updates
+  deviceID="$MACADDR"></updates>` frame shown above is a documented *shape*,
+  not something observed being sent periodically — a fully idle socket
+  produced zero messages (not even an empty tickle) for 2+ minutes after the
+  initial `SoundTouchSdkInfo` handshake. Treat the channel as push-only and
+  silent when nothing changes; don't build any idle-timeout expectation
+  around it.
+- **The socket stays open and silent through standby/power-off** — no
+  `close`, no ping/pong, no traffic at all for 113s of standby in testing.
+  Activity (including the resumed source) arrives on the **same** connection
+  once powered back on — no reconnect is triggered by entering or leaving
+  standby.
+- Practical implication: a fixed reconnect-on-`close` (e.g. 5s) plus a
+  client-sent keepalive ping (e.g. 30s) is sufficient — there's no
+  server-side idle timeout to defend against, and standby is not a
+  disconnect event to special-case.
+
 ---
 
 ## Discovery details
