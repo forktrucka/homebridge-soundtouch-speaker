@@ -8,6 +8,20 @@ jest.mock('../zones/SoundTouchZoneAccessory.js');
 import { SoundTouchZoneAccessory } from '../zones/SoundTouchZoneAccessory.js';
 import type { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 import type { ExternalPlatformConfig } from '../ExternalPlatformConfig.js';
+import { AppError } from '../errors.js';
+
+function findRegisteredCallback(
+  on: jest.Mock,
+  event: string
+): () => Promise<void> {
+  const call = on.mock.calls.find(
+    ([registeredEvent]) => registeredEvent === event
+  );
+  if (!call) {
+    throw new Error(`No listener registered for "${event}"`);
+  }
+  return call[1] as () => Promise<void>;
+}
 
 function buildDevice(props: { id: string; name: string; disabled: boolean }) {
   return {
@@ -527,6 +541,43 @@ describe('SoundTouchHomebridgePlatform', () => {
         )
       ).toBe(true);
       expect(updatePlatformAccessories).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('didFinishLaunching listener', () => {
+    it('catches a rejection from the startup sequence and logs a DidFinishLaunchingFailed AppError', async () => {
+      const { platform, homebridgeApi } = buildPlatform();
+      const cause = new Error('discovery boom');
+      jest.spyOn(platform, 'discoverDevices').mockRejectedValue(cause);
+      const errorSpy = jest
+        .spyOn(platform.logger, 'error')
+        .mockImplementation(() => undefined);
+      const callback = findRegisteredCallback(
+        homebridgeApi.on as jest.Mock,
+        'didFinishLaunching'
+      );
+
+      await expect(callback()).resolves.toBeUndefined();
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      const loggedError = errorSpy.mock.calls[0][0] as AppError;
+      expect(loggedError).toBeInstanceOf(AppError);
+      expect(loggedError.name).toBe('DidFinishLaunchingFailed');
+      expect(loggedError.cause).toBe(cause);
+    });
+
+    it('does not log an error when the startup sequence completes successfully', async () => {
+      const { platform, homebridgeApi } = buildPlatform();
+      jest.spyOn(platform, 'discoverDevices').mockResolvedValue(undefined);
+      const errorSpy = jest.spyOn(platform.logger, 'error');
+      const callback = findRegisteredCallback(
+        homebridgeApi.on as jest.Mock,
+        'didFinishLaunching'
+      );
+
+      await expect(callback()).resolves.toBeUndefined();
+
+      expect(errorSpy).not.toHaveBeenCalled();
     });
   });
 });
