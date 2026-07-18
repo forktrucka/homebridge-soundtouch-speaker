@@ -172,6 +172,18 @@ covered even if the session ends mid-walkthrough. Then present it to the user
 so they know the scope up front (how many steps, roughly how many
 restarts/config edits) before starting.
 
+**Never put real device names or IPs in this file — it's tracked and this is
+a public repo.** Use generic role letters instead (a primary **P**, slave(s)
+**S**, a rename target **X**, etc.) and describe what each role is for. If
+the user's actual devices need to be mapped to those roles for the
+walkthrough (e.g. "which speaker is P?"), write that mapping to a *separate*
+file matching `*.local.md` (already `.gitignore`d repo-wide — verify with
+`git check-ignore -v <path>` if unsure, don't assume) — e.g.
+`.claude/qa/<YYYY-MM-DD>-device-map.local.md` — never into the tracked plan
+file itself. Use the real names/IPs in conversation and in `scripts/qa/`
+command invocations (those aren't committed either), but keep them out of
+anything that gets pushed.
+
 Use this shape for the file:
 
 ```markdown
