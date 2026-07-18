@@ -1,6 +1,6 @@
 ---
 feature: Speaker zones — configurable multi-room groups exposed as a HomeKit accessory
-status: planned
+status: in-review
 date: 2026-06-21
 branch: feat/speaker-zones
 commit-type: feat
@@ -39,6 +39,9 @@ is active (e.g. to quieten one room without leaving the zone entirely).
 | 2026-06-21 | Zone accessory type: always Switch by default; honour per-zone `accessoryType` override | A zone on/off is binary and doesn't imply volume control. Volume on the primary still works via the primary's own lightbulb. | Hard-code as Lightbulb (zone volume control is a separate, later feature) |
 | 2026-06-21 | Zone `accessoryType` can be overridden per zone in config | Keeps the pattern consistent with per-speaker `accessoryType`. | Global-only override (inflexible) |
 | 2026-06-21 | `SoundTouchZoneAccessory` and `SoundTouchZoneOnCharacteristic` use private constructors + static factory methods | Follows the repo-wide static factory convention (coding-conventions skill). Mirrors the existing pattern: `SoundTouchSpeakerPlatformAccessory.createAccessory()`, `SoundTouchDevice.fromConfiguredAccessory()`. Factory on `ZoneAccessory`: `static create(props: { config, primary, slaves, api, logger })`. Factory on `ZoneOnCharacteristic`: `static create(props: { service, primary, slaves, logger })`. | Public constructors with `new ZoneAccessory(...)` at call sites (violates factory convention) |
+| 2026-06-21 | `SoundTouchZoneOnCharacteristic` extends the existing `SoundTouchSpeakerCharacteristic` base (treating the primary as its `device`) rather than a bespoke base | Reuses `wrapHapGet`/`wrapHapSet`/HAP error handling/`DeviceLogger` wiring already proven for speaker characteristics; the public `create()` factory still takes `primary`/`slaves` per the plan's vocabulary, mapping `primary` to `device` internally. | A zone-specific base class (duplicates HAP error wrapping for no benefit) |
+| 2026-06-21 | `_resolveZones()` is called from inside `discoverDevices()`, not from a separate step in `didFinishLaunching` | The existing stale-accessory prune loop at the end of `discoverDevices()` walks every cached accessory not seen this run and unregisters it. Zone UUIDs must be pushed into the same `_discoveredCacheUUIDs` list *before* that loop runs, or a restart would immediately prune a previously-registered zone accessory. Calling `_resolveZones()` after the per-speaker loop but before the prune loop keeps zone accessories under the same pruning logic as speaker accessories for free. | Two separate top-level calls in `didFinishLaunching` (would need to duplicate the prune loop for zones) |
+| 2026-06-21 | Extended the integration test helpers (`FakeSoundTouchServer.requests[]`, `StubCharacteristic.invokeSet/invokeGet`) | Neither existed: the fake server didn't capture request bodies (needed to assert the `setZone`/`removeZoneSlave` XML payload), and the HAP stub's `onSet`/`onGet` were no-ops (needed to actually drive a characteristic write end-to-end). Both are additive and backward-compatible with existing integration tests. | Testing only at the unit level (would leave the platform-to-zone-accessory wiring, including startup pruning, unverified) |
 
 ## If cancelled
 
@@ -113,29 +116,31 @@ is active (e.g. to quieten one room without leaving the zone entirely).
 
 ## Implementation checklist
 
-- [ ] Add `ZoneConfig` to `src/ExternalPlatformConfig.ts`
-- [ ] Add `ZoneConfiguration` to `src/PlatformConfiguration.ts` and thread
+- [x] Add `ZoneConfig` to `src/ExternalPlatformConfig.ts`
+- [x] Add `ZoneConfiguration` to `src/PlatformConfiguration.ts` and thread
       through `fromExternalConfiguration`
-- [ ] Update `config.schema.json` with `zones` array
-- [ ] Update `PlatformConfiguration` and `ExternalPlatformConfig` tests
-- [ ] Create `src/zones/SoundTouchZoneOnCharacteristic.ts`
-- [ ] Create `src/zones/SoundTouchZoneAccessory.ts`
-- [ ] Add `_zoneWrappers` and `_resolveZones()` to `src/platform.ts`
-- [ ] Register/restore zone accessories in `discoverDevices()`
-- [ ] Add `src/zones/__tests__/SoundTouchZoneOnCharacteristic.test.ts`
-- [ ] Add `src/__integration__/zone-lifecycle.integration.test.ts`
-- [ ] `npm run typecheck && npm run lint && npm test`
-- [ ] `npm run knip` — confirm no unused exports
+- [x] Update `config.schema.json` with `zones` array
+- [x] Update `PlatformConfiguration` and `ExternalPlatformConfig` tests
+- [x] Create `src/zones/SoundTouchZoneOnCharacteristic.ts`
+- [x] Create `src/zones/SoundTouchZoneAccessory.ts`
+- [x] Add `_zoneWrappers` and `_resolveZones()` to `src/platform.ts`
+- [x] Register/restore zone accessories in `discoverDevices()`
+- [x] Add `src/zones/__tests__/SoundTouchZoneOnCharacteristic.test.ts`
+- [x] Add `src/__integration__/zone-lifecycle.integration.test.ts`
+- [x] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run knip` — confirm no unused exports
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` — confirm zone accessory appears in Home app; toggle zone
       on/off and verify slave speakers continue to respond independently
+      (not run against a real device this session — see note below)
 - [ ] Restart Homebridge with zone active — confirm zone characteristic
       initialises as "on" via `getZone()` startup sync
+      (not run against a real device this session — see note below)
 
 ## PR / release notes
 

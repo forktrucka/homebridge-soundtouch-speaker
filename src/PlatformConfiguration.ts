@@ -3,8 +3,12 @@ import {
   flattenAccessoryConfiguration,
   ExternalPlatformConfig,
   PresetConfig,
+  ZoneConfig,
 } from './ExternalPlatformConfig.js';
-import { DeviceConfiguration } from './devices/SoundTouch/SoundTouchDeviceConfiguration.js';
+import {
+  AccessoryType,
+  DeviceConfiguration,
+} from './devices/SoundTouch/SoundTouchDeviceConfiguration.js';
 import { PLATFORM_NAME } from './settings.js';
 import { Logger } from './utils/FormattedLogger.js';
 
@@ -15,6 +19,99 @@ const DEFAULT_PRESET_SYNC_SCHEDULE = '0 0 * * *'; // midnight daily
 const DEFAULT_SERVER_HOST = 'homebridge.local';
 const DEFAULT_SERVER_PORT = 8000;
 const DEFAULT_PRESET_SYNC_ENABLED = false;
+const DEFAULT_ZONE_ACCESSORY_TYPE: AccessoryType = 'switch';
+
+export class ZoneConfiguration {
+  readonly name: string;
+  readonly primary: string;
+  readonly slaves: string[];
+  readonly accessoryType: AccessoryType;
+
+  private constructor(props: {
+    name: string;
+    primary: string;
+    slaves: string[];
+    accessoryType: AccessoryType;
+  }) {
+    this.name = props.name;
+    this.primary = props.primary;
+    this.slaves = props.slaves;
+    this.accessoryType = props.accessoryType;
+  }
+
+  toJson() {
+    return JSON.stringify(this, null, 2);
+  }
+
+  static create(props: {
+    name: string;
+    primary: string;
+    slaves: string[];
+    accessoryType?: AccessoryType;
+  }): ZoneConfiguration {
+    return new ZoneConfiguration({
+      name: props.name,
+      primary: props.primary,
+      slaves: props.slaves,
+      accessoryType: props.accessoryType ?? DEFAULT_ZONE_ACCESSORY_TYPE,
+    });
+  }
+}
+
+function validateZones(
+  rawZones: ZoneConfig[] | undefined,
+  warn: (msg: string) => void
+): ZoneConfiguration[] {
+  if (!rawZones || rawZones.length === 0) {
+    return [];
+  }
+  const valid: ZoneConfiguration[] = [];
+  for (const raw of rawZones) {
+    const entry = raw as unknown as Record<string, unknown>;
+
+    if (!entry.name || typeof entry.name !== 'string') {
+      warn('zone entry is missing required field "name" — skipping');
+      continue;
+    }
+
+    if (!entry.primary || typeof entry.primary !== 'string') {
+      warn(
+        `zone "${entry.name}" is missing required field "primary" — skipping`
+      );
+      continue;
+    }
+
+    if (!Array.isArray(entry.slaves) || entry.slaves.length === 0) {
+      warn(
+        `zone "${entry.name}" is missing required field "slaves" (must be a non-empty array) — skipping`
+      );
+      continue;
+    }
+
+    const slaves = entry.slaves.filter(
+      (slave): slave is string => typeof slave === 'string' && slave.length > 0
+    );
+    if (slaves.length === 0) {
+      warn(`zone "${entry.name}" has no valid entries in "slaves" — skipping`);
+      continue;
+    }
+
+    const accessoryType =
+      entry.accessoryType === 'lightbulb' || entry.accessoryType === 'switch'
+        ? entry.accessoryType
+        : undefined;
+
+    valid.push(
+      ZoneConfiguration.create({
+        name: entry.name,
+        primary: entry.primary,
+        slaves,
+        accessoryType,
+      })
+    );
+  }
+  return valid;
+}
 
 function resolveLogLevel(
   logLevel?: 'debug' | 'info' | 'warn' | 'error',
@@ -109,6 +206,7 @@ export class PlatformConfiguration {
   presets: PresetConfig[];
   presetSyncSchedule: string;
   presetSyncEnabled: boolean;
+  zones: ZoneConfiguration[];
 
   private constructor(props: {
     name: string;
@@ -122,6 +220,7 @@ export class PlatformConfiguration {
     presets: PresetConfig[];
     presetSyncSchedule: string;
     presetSyncEnabled: boolean;
+    zones: ZoneConfiguration[];
   }) {
     this.name = props.name;
     this.discoverAllAccessories = props.discoverAllAccessories;
@@ -134,6 +233,7 @@ export class PlatformConfiguration {
     this.presets = props.presets;
     this.presetSyncSchedule = props.presetSyncSchedule;
     this.presetSyncEnabled = props.presetSyncEnabled;
+    this.zones = props.zones;
   }
 
   toJson() {
@@ -151,9 +251,10 @@ export class PlatformConfiguration {
     };
 
     const rawPresets = (props.presets ?? props.global?.presets) as
-      | unknown[]
-      | undefined;
+      unknown[] | undefined;
     const presets = validatePresets(rawPresets, warn);
+
+    const zones = validateZones(props.zones, warn);
 
     return new PlatformConfiguration({
       discoverAllAccessories:
@@ -190,6 +291,7 @@ export class PlatformConfiguration {
         props.global?.presetSyncSchedule ?? DEFAULT_PRESET_SYNC_SCHEDULE,
       presetSyncEnabled:
         props.global?.presetSyncEnabled ?? DEFAULT_PRESET_SYNC_ENABLED,
+      zones,
     });
   }
 }

@@ -66,9 +66,16 @@ function volumeXml(
  * override only the endpoints they care about; everything else falls back to
  * the canned defaults.
  */
+export interface ReceivedRequest {
+  readonly method: string;
+  readonly path: string;
+  readonly body: string;
+}
+
 export class FakeSoundTouchServer {
   private server?: Server;
   private readonly responses = new Map<string, string>();
+  readonly requests: ReceivedRequest[] = [];
 
   constructor() {
     for (const [endpoint, xml] of FakeSoundTouchServer.defaultResponses()) {
@@ -82,24 +89,32 @@ export class FakeSoundTouchServer {
 
   start(): Promise<number> {
     const server = createServer((req, res) => {
-      // Drain the request body so POST sockets close cleanly.
-      req.resume();
-
       const path = FakeSoundTouchServer.normalise(
         (req.url ?? '').split('?')[0]
       );
-      const xml = this.responses.get(path);
 
-      if (xml === undefined) {
-        res.writeHead(404, { 'content-type': 'application/xml' });
-        res.end(
-          `<errors><error value="404">no canned response for ${path.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`)}</error></errors>`
-        );
-        return;
-      }
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', () => {
+        this.requests.push({
+          method: req.method ?? 'GET',
+          path,
+          body: Buffer.concat(chunks).toString('utf8'),
+        });
 
-      res.writeHead(200, { 'content-type': 'application/xml' });
-      res.end(xml);
+        const xml = this.responses.get(path);
+
+        if (xml === undefined) {
+          res.writeHead(404, { 'content-type': 'application/xml' });
+          res.end(
+            `<errors><error value="404">no canned response for ${path.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`)}</error></errors>`
+          );
+          return;
+        }
+
+        res.writeHead(200, { 'content-type': 'application/xml' });
+        res.end(xml);
+      });
     });
     this.server = server;
 

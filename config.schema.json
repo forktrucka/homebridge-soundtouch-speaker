@@ -206,6 +206,41 @@
         "condition": {
           "functionBody": "return model.discoverAllAccessories !== true"
         }
+      },
+      "zones": {
+        "type": "array",
+        "description": "Multi-room groups. Each zone exposes a single HomeKit accessory that groups a primary speaker with one or more slaves when turned on.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "description": "Name shown in HomeKit for this zone."
+            },
+            "primary": {
+              "type": "string",
+              "required": true,
+              "description": "Name of the master speaker for this zone, matching its name under accessories (or its device-reported name)."
+            },
+            "slaves": {
+              "type": "array",
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              },
+              "description": "Names of the speakers to group with the primary when this zone is turned on."
+            },
+            "accessoryType": {
+              "type": "string",
+              "enum": ["switch", "lightbulb"],
+              "required": false,
+              "default": "switch",
+              "description": "HomeKit accessory type for this zone's on/off control."
+            }
+          }
+        }
       }
     }
   }
