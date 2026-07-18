@@ -33,6 +33,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
     string,
     SoundTouchSpeakerPlatformAccessory
   > = new Map();
+  private readonly _accessoryWrappersByDeviceId: Map<
+    string,
+    SoundTouchSpeakerPlatformAccessory
+  > = new Map();
   private readonly _zoneWrappers: Map<string, SoundTouchZoneAccessory> =
     new Map();
   private readonly _discoveredCacheUUIDs: string[] = [];
@@ -201,6 +205,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             device,
           });
           this._accessoryWrappers.set(uuid, wrapper);
+          this._accessoryWrappersByDeviceId.set(device.id, wrapper);
 
           if (contextChanged) {
             this.api.updatePlatformAccessories([existingAccessory]);
@@ -218,6 +223,7 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
             device,
           });
           this._accessoryWrappers.set(uuid, wrapper);
+          this._accessoryWrappersByDeviceId.set(device.id, wrapper);
 
           this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [
             accessory,
@@ -247,6 +253,10 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
           wrapper.stopPolling();
           this._accessoryWrappers.delete(uuid);
         }
+        const deviceId = accessory.context.deviceId as string | undefined;
+        if (deviceId) {
+          this._accessoryWrappersByDeviceId.delete(deviceId);
+        }
         const zoneWrapper = this._zoneWrappers.get(uuid);
         if (zoneWrapper) {
           zoneWrapper.stopPolling();
@@ -257,6 +267,35 @@ export class SoundTouchHomebridgePlatform implements DynamicPlatformPlugin {
           accessory,
         ]);
       }
+    }
+  }
+
+  /**
+   * Triggers an immediate refresh of the given device's own registered
+   * speaker accessory (its standalone On tile in the Home app), if one is
+   * registered. Used by code paths — e.g. zone activation/deactivation —
+   * that power a device via a raw pressKey call bypassing that device's own
+   * SoundTouchSpeakerOnCharacteristic, so the Home app doesn't have to wait
+   * on a gabbo push event or the background reconciliation poll to catch up.
+   * No-ops when the device has no registered wrapper (e.g. a zone slave that
+   * was never discovered as its own standalone accessory). Never throws —
+   * refresh failures are logged and swallowed so callers aren't blocked.
+   */
+  async refreshAccessoryForDevice(deviceId: string): Promise<void> {
+    const wrapper = this._accessoryWrappersByDeviceId.get(deviceId);
+    if (!wrapper) {
+      return;
+    }
+    try {
+      await wrapper.refresh();
+    } catch (e: unknown) {
+      this.logger.error(
+        AppError.create({
+          name: 'RefreshAccessoryForDeviceFailed',
+          deviceId,
+          cause: e,
+        })
+      );
     }
   }
 

@@ -304,6 +304,80 @@ describe('Zone lifecycle', () => {
     expect(switchService?.characteristics.get('On')).toBeDefined();
   });
 
+  it('refreshes the primary and slave standalone accessory On characteristics after activating the zone powers them on', async () => {
+    // Default /nowPlaying response on both fakes reports STANDBY, so both
+    // devices need powering on to activate the zone.
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    // init() already issued one /nowPlaying GET per device on startup; a
+    // successful refresh after the zone's power-on issues another.
+    const primaryNowPlayingCountBefore = primaryServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+    const slaveNowPlayingCountBefore = slaveServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const zoneOn = zoneAccessory?.services
+      .find((s) => s.type.name === 'Switch')
+      ?.characteristics.get('On');
+
+    await zoneOn?.invokeSet(true);
+
+    // Each device gets one /nowPlaying GET from the zone's own `deviceIsOn`
+    // power check, plus one more from the standalone accessory's own On
+    // characteristic refresh triggered after the power-on — two beyond the
+    // baseline, not just one.
+    const primaryNowPlayingCountAfter = primaryServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+    const slaveNowPlayingCountAfter = slaveServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+    expect(primaryNowPlayingCountAfter).toBe(primaryNowPlayingCountBefore + 2);
+    expect(slaveNowPlayingCountAfter).toBe(slaveNowPlayingCountBefore + 2);
+  });
+
+  it('refreshes the primary and slave standalone accessory On characteristics after deactivating the zone powers them off', async () => {
+    primaryServer.setResponse(
+      '/getZone',
+      zoneXml([{ deviceId: SLAVE_DEVICE_ID, ipAddress: '127.0.0.1' }])
+    );
+    primaryServer.setResponse('/nowPlaying', nowPlayingXml('AUX'));
+    slaveServer.setResponse('/nowPlaying', nowPlayingXml('AUX'));
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    const primaryNowPlayingCountBefore = primaryServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+    const slaveNowPlayingCountBefore = slaveServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const zoneOn = zoneAccessory?.services
+      .find((s) => s.type.name === 'Switch')
+      ?.characteristics.get('On');
+
+    await zoneOn?.invokeSet(false);
+
+    const primaryNowPlayingCountAfter = primaryServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+    const slaveNowPlayingCountAfter = slaveServer.requests.filter(
+      (r) => r.path === '/nowPlaying'
+    ).length;
+    expect(primaryNowPlayingCountAfter).toBe(primaryNowPlayingCountBefore + 2);
+    expect(slaveNowPlayingCountAfter).toBe(slaveNowPlayingCountBefore + 2);
+  });
+
   it('skips the zone and does not register it when the primary cannot be resolved', async () => {
     createPlatform({
       zones: [

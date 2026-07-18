@@ -84,6 +84,10 @@ async function build({
     source: slave2Source,
   });
 
+  const refreshAccessoryForDevice = jest
+    .fn<(deviceId: string) => Promise<void>>()
+    .mockResolvedValue(undefined);
+
   const platform = {
     characteristic: { On: 'OnUUID' },
     api: {
@@ -93,6 +97,7 @@ async function build({
       },
     },
     logger: { homebridgeLogger: { log: jest.fn() }, requiredLogLevel: 'debug' },
+    refreshAccessoryForDevice,
   };
 
   const subject = await SoundTouchZoneOnCharacteristic.create({
@@ -118,6 +123,7 @@ async function build({
     primary,
     slave1,
     slave2,
+    refreshAccessoryForDevice,
   };
 }
 
@@ -272,6 +278,63 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       expect(primary.api.pressKey).not.toHaveBeenCalled();
       expect(slave1.api.pressKey).not.toHaveBeenCalled();
       expect(slave2.api.pressKey).not.toHaveBeenCalled();
+    });
+
+    it('refreshes the primary and every slave own accessory after powering them on', async () => {
+      const { subject, refreshAccessoryForDevice } = await build({
+        primarySource: 'STANDBY',
+        slave1Source: 'STANDBY',
+        slave2Source: 'STANDBY',
+      });
+
+      await subject.setOn(true);
+
+      expect(refreshAccessoryForDevice).toHaveBeenCalledWith('MASTER-1');
+      expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-1');
+      expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-2');
+    });
+
+    it('does not refresh a device own accessory when its power state was already correct', async () => {
+      const { subject, refreshAccessoryForDevice } = await build({
+        primarySource: 'AUX',
+        slave1Source: 'AUX',
+        slave2Source: 'STANDBY',
+      });
+
+      await subject.setOn(true);
+
+      expect(refreshAccessoryForDevice).not.toHaveBeenCalledWith('MASTER-1');
+      expect(refreshAccessoryForDevice).not.toHaveBeenCalledWith('SLAVE-1');
+      expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-2');
+    });
+
+    it('refreshes the primary and every slave own accessory after powering them off', async () => {
+      const { subject, refreshAccessoryForDevice } = await build({
+        primarySource: 'AUX',
+        slave1Source: 'AUX',
+        slave2Source: 'AUX',
+      });
+
+      await subject.setOn(false);
+
+      expect(refreshAccessoryForDevice).toHaveBeenCalledWith('MASTER-1');
+      expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-1');
+      expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-2');
+    });
+
+    it('does not throw when refreshing a slave with no registered accessory wrapper fails', async () => {
+      const { subject, refreshAccessoryForDevice } = await build({
+        primarySource: 'STANDBY',
+        slave1Source: 'STANDBY',
+        slave2Source: 'STANDBY',
+      });
+      // Simulates a slave that was never discovered as its own standalone
+      // accessory — the platform-level no-op case is covered in platform.test.ts;
+      // here we confirm the zone characteristic itself never lets a rejection
+      // from the refresh call block or fail the zone operation.
+      refreshAccessoryForDevice.mockRejectedValueOnce(new Error('no wrapper'));
+
+      await expect(subject.setOn(true)).resolves.toBeUndefined();
     });
   });
 

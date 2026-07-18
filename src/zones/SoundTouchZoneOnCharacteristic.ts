@@ -78,9 +78,30 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
         const isOn = await SoundTouchDevice.deviceIsOn(device);
         if (isOn !== desired) {
           await device.api.pressKey(KeyValue.power);
+          await this._refreshOwnAccessory(device);
         }
       })
     );
+  }
+
+  /**
+   * Powering a device via a raw pressKey call (above) bypasses that device's
+   * own SoundTouchSpeakerOnCharacteristic entirely, so its standalone speaker
+   * accessory's On tile in the Home app never learns the state changed —
+   * neither the gabbo push event nor the 5-minute reconciliation poll fires
+   * promptly from this code path. Trigger an immediate refresh of that
+   * device's own registered accessory so the Home app reflects reality right
+   * away. Failures here must not block or fail the zone operation.
+   */
+  private async _refreshOwnAccessory(device: SoundTouchDevice): Promise<void> {
+    try {
+      await this.platform.refreshAccessoryForDevice(device.id);
+    } catch (e: unknown) {
+      this.log.debug(
+        'failed to refresh own accessory after zone power change',
+        e
+      );
+    }
   }
 
   private _buildZone(): Zone {
