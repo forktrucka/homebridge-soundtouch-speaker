@@ -39,7 +39,9 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     }
 
     if (this.device.configuration.pollingInterval > 0) {
-      this.log.warn('pollingInterval is deprecated and will be ignored — remove it from your config.');
+      this.log.warn(
+        'pollingInterval is deprecated and will be ignored — remove it from your config.'
+      );
     }
 
     this._isPolling = true;
@@ -47,7 +49,10 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       //no-op
     });
 
-    const eventMap = new Map<GabboUpdateType, SoundTouchSpeakerCharacteristic[]>();
+    const eventMap = new Map<
+      GabboUpdateType,
+      SoundTouchSpeakerCharacteristic[]
+    >();
     for (const characteristic of this.speakerCharacteristics) {
       for (const event of characteristic.gabboEvents) {
         const list = eventMap.get(event) ?? [];
@@ -56,7 +61,9 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
       }
     }
     for (const [event, characteristics] of eventMap) {
-      this.device.gabbo.on(event, () => this._refreshCharacteristics(characteristics));
+      this.device.gabbo.on(event, () =>
+        this._refreshCharacteristics(characteristics)
+      );
     }
 
     this.device.connectGabbo();
@@ -77,14 +84,18 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     this.device.disconnectGabbo();
   }
 
-  private _refreshCharacteristics(characteristics: SoundTouchSpeakerCharacteristic[]): void {
-    Promise.allSettled(characteristics.map((c) => c.refresh())).then((results) => {
-      for (const result of results) {
-        if (result.status === 'rejected') {
-          this.log.error('Gabbo-triggered refresh failed', result.reason);
+  private _refreshCharacteristics(
+    characteristics: SoundTouchSpeakerCharacteristic[]
+  ): void {
+    Promise.allSettled(characteristics.map((c) => c.refresh())).then(
+      (results) => {
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            this.log.error('Gabbo-triggered refresh failed', result.reason);
+          }
         }
       }
-    });
+    );
   }
 
   private async _refreshDeviceServices(): Promise<void> {
@@ -93,13 +104,21 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
         setTimeout(resolve, RECONCILIATION_INTERVAL_MS)
       );
       if (!this.device.gabbo.isConnected) {
-        this.log.debug(`${this.accessory.displayName} offline — skipping reconciliation poll`);
+        this.log.debug(
+          `${this.accessory.displayName} offline — skipping reconciliation poll`
+        );
         continue;
       }
       try {
         await this.refresh();
       } catch (e: unknown) {
-        this.log.warn(AppError.create({ name: 'PollingRefreshFailed', device: this.accessory.displayName, cause: e }));
+        this.log.warn(
+          AppError.create({
+            name: 'PollingRefreshFailed',
+            device: this.accessory.displayName,
+            cause: e,
+          })
+        );
       }
     }
   }
@@ -118,6 +137,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     accessory: PlatformAccessory;
     device: SoundTouchDevice;
     defaultCharacteristics: SoundTouchSpeakerCharacteristic[];
+    isNewAccessory: boolean;
   }): Promise<SoundTouchSpeakerPlatformAccessory> {
     const { platform, accessory, device } = props;
     const isLightbulb = device.configuration.accessoryType === 'lightbulb';
@@ -165,6 +185,7 @@ export class SoundTouchSpeakerPlatformAccessory extends SoundTouchSpeakerCharact
     platform: SoundTouchHomebridgePlatform;
     accessory: PlatformAccessory;
     device: SoundTouchDevice;
+    isNewAccessory: boolean;
   }): Promise<SoundTouchSpeakerPlatformAccessory> {
     const defaultCharacteristics: SoundTouchSpeakerCharacteristic[] = [
       await SoundTouchSpeakerInformationCharacteristic.create(props),

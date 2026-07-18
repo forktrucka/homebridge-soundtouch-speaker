@@ -100,8 +100,10 @@ export class SoundTouchZoneAccessory {
     config: ZoneConfiguration;
     primary: SoundTouchDevice;
     slaves: SoundTouchDevice[];
+    isNewAccessory: boolean;
   }): Promise<SoundTouchZoneAccessory> {
-    const { platform, accessory, config, primary, slaves } = props;
+    const { platform, accessory, config, primary, slaves, isNewAccessory } =
+      props;
     const isLightbulb = config.accessoryType === 'lightbulb';
 
     SoundTouchZoneAccessory._pruneOrphanService({
@@ -121,7 +123,12 @@ export class SoundTouchZoneAccessory {
       );
     }
 
-    SoundTouchZoneAccessory._setInformation({ accessory, platform, config });
+    SoundTouchZoneAccessory._setInformation({
+      accessory,
+      platform,
+      config,
+      isNewAccessory,
+    });
 
     const onCharacteristic = await SoundTouchZoneOnCharacteristic.create({
       accessory,
@@ -179,16 +186,28 @@ export class SoundTouchZoneAccessory {
     accessory: PlatformAccessory;
     platform: SoundTouchHomebridgePlatform;
     config: ZoneConfiguration;
+    isNewAccessory: boolean;
   }): void {
-    const { accessory, platform, config } = props;
+    const { accessory, platform, config, isNewAccessory } = props;
     const informationService = accessory.getService(
       platform.service.AccessoryInformation
     );
     if (!informationService) {
       return;
     }
+
+    // Only set Name on a genuinely new accessory. Re-pushing it on every
+    // restart (including cache-restores) is a known HomeKit anti-pattern:
+    // HomeKit treats the pushed value as authoritative and silently reverts
+    // any rename the user made in the Home app.
+    if (isNewAccessory) {
+      informationService.setCharacteristic(
+        platform.characteristic.Name,
+        config.name
+      );
+    }
+
     informationService
-      .setCharacteristic(platform.characteristic.Name, config.name)
       .setCharacteristic(
         platform.characteristic.Manufacturer,
         SOUNDTOUCH_MANUFACTURER
