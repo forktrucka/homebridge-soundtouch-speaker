@@ -135,8 +135,9 @@ describe('SoundTouchZoneOnCharacteristic', () => {
   });
 
   describe('#getOn', () => {
-    it('returns true when getZone reports all configured slaves as members', async () => {
+    it('returns true when getZone reports all configured slaves as members and the primary is on', async () => {
       const { subject } = await build({
+        primarySource: 'AUX',
         zoneResponse: {
           master: 'MASTER-1',
           members: [
@@ -151,8 +152,27 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       expect(result).toBe(true);
     });
 
+    it('returns false without calling getZone when the primary is in standby', async () => {
+      const { subject, getZone } = await build({
+        primarySource: 'STANDBY',
+        zoneResponse: {
+          master: 'MASTER-1',
+          members: [
+            { deviceId: 'SLAVE-1', ipAddress: '10.0.0.2' },
+            { deviceId: 'SLAVE-2', ipAddress: '10.0.0.3' },
+          ],
+        },
+      });
+
+      const result = await subject.getOn();
+
+      expect(result).toBe(false);
+      expect(getZone).not.toHaveBeenCalled();
+    });
+
     it('returns false when a configured slave is missing from the zone', async () => {
       const { subject } = await build({
+        primarySource: 'AUX',
         zoneResponse: {
           master: 'MASTER-1',
           members: [{ deviceId: 'SLAVE-1', ipAddress: '10.0.0.2' }],
@@ -165,7 +185,10 @@ describe('SoundTouchZoneOnCharacteristic', () => {
     });
 
     it('returns false when there is no active zone', async () => {
-      const { subject } = await build({ zoneResponse: undefined });
+      const { subject } = await build({
+        primarySource: 'AUX',
+        zoneResponse: undefined,
+      });
 
       const result = await subject.getOn();
 
@@ -173,7 +196,9 @@ describe('SoundTouchZoneOnCharacteristic', () => {
     });
 
     it('throws HapStatusError via HAP binding when the device is unreachable', async () => {
-      const { hapCharacteristic, getZone } = await build();
+      const { hapCharacteristic, getZone } = await build({
+        primarySource: 'AUX',
+      });
       getZone.mockRejectedValue(new Error('network error'));
 
       const handler = hapCharacteristic.onGet.mock
@@ -346,6 +371,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
   describe('#refresh', () => {
     it('updates the HAP value when the zone state has changed', async () => {
       const { subject, hapCharacteristic } = await build({
+        primarySource: 'AUX',
         zoneResponse: {
           master: 'MASTER-1',
           members: [
@@ -363,6 +389,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
 
     it('does not update the HAP value when the zone state is unchanged', async () => {
       const { subject, hapCharacteristic } = await build({
+        primarySource: 'AUX',
         zoneResponse: undefined,
       });
       hapCharacteristic.value = false;
@@ -371,11 +398,30 @@ describe('SoundTouchZoneOnCharacteristic', () => {
 
       expect(hapCharacteristic.updateValue).not.toHaveBeenCalled();
     });
+
+    it('corrects a stale-on tile to false when the primary has gone to standby', async () => {
+      const { subject, hapCharacteristic, getZone } = await build({
+        primarySource: 'STANDBY',
+        zoneResponse: {
+          master: 'MASTER-1',
+          members: [
+            { deviceId: 'SLAVE-1', ipAddress: '10.0.0.2' },
+            { deviceId: 'SLAVE-2', ipAddress: '10.0.0.3' },
+          ],
+        },
+      });
+      hapCharacteristic.value = true;
+
+      await subject.refresh();
+
+      expect(hapCharacteristic.updateValue).toHaveBeenCalledWith(false);
+      expect(getZone).not.toHaveBeenCalled();
+    });
   });
 
   describe('#init', () => {
     it('performs an initial refresh from getZone', async () => {
-      const { subject, getZone } = await build();
+      const { subject, getZone } = await build({ primarySource: 'AUX' });
 
       await subject.init();
 

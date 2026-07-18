@@ -1,6 +1,6 @@
 ---
 feature: Zone state reconciliation — primary-power-aware zone "on" + a background reconciliation poll for zone accessories
-status: planned # planned | in-progress | beta | done | cancelled
+status: in-progress # planned | in-progress | beta | done | cancelled
 date: 2026-07-18
 branch: fix/zone-state-reconciliation # branched off dev AFTER speaker-zones (#162) merges
 commit-type: fix
@@ -62,6 +62,7 @@ The durable record so we don't re-litigate decisions or re-investigate facts.
 | 2026-07-18 | **Failure handling mirrors the speaker loop exactly:** each tick's `await this.refresh()` is wrapped in try/catch and a failure is logged via `AppError.create({ name: 'PollingRefreshFailed', device: <zone name>, cause: e })` at `warn`, never rethrown — a slow/unreachable device must not crash Homebridge or spam errors. | Direct copy of `SoundTouchSpeakerPlatformAccessory._refreshDeviceServices()`; keeps the verified-plugin "catch and log own errors" requirement intact. | Letting the refresh reject bubble (would leave an unhandled rejection on the Homebridge thread). |
 | 2026-07-18 | **`SoundTouchZoneAccessory` must gain a `primary` device reference and a display name** (for the gabbo gate and the `PollingRefreshFailed` log/debug message) in its private constructor + `create()`. Today it only holds `onCharacteristic`, `volumeCharacteristic`, `log`. | The loop needs `primary.gabbo.isConnected` and a human-readable name; `create()` already receives `primary` and `config`, so both are in scope to thread through. | Reaching into the on-characteristic's private `device` (encapsulation break); re-deriving the name from the accessory (already have `config.name`). |
 | 2026-07-18 | **`fix:` commit type → patch release.** | Corrects the accuracy of an existing feature's reported state; adds no new config field or user-facing capability. | `feat:` (no new capability — the zone accessory already exists); `chore:` (user-visible behaviour change — a stale tile now self-corrects). |
+| 2026-07-18 | **Existing integration test `zone-lifecycle.integration.test.ts` ("initialises the zone On characteristic to true when getZone already reports the configured slave as a member") needed a `/nowPlaying` `AUX` stub added to the primary fake server.** Before this change the fake primary's default `/nowPlaying` (`STANDBY`) didn't matter to that test; after the primary-power gate landed, the test's zone read `false` (correctly — primary in standby) instead of the `true` it was asserting via membership alone. | This was the primary-power gate working as designed on a fixture that happened to leave the primary in standby; not a regression. Updated the test to set the primary's power state explicitly, matching the pattern already used by sibling `setOn` tests in the same file. | Reverting/weakening the gate to keep the old fixture passing unmodified (would reintroduce the accuracy bug this plan fixes). |
 | 2026-07-18 | **Blocked on Speaker zones (#162) merging to `dev`.** Edits `SoundTouchZoneOnCharacteristic.ts` (`_isZoneActive`) and `SoundTouchZoneAccessory.ts` (loop) — files that only exist on `feat/speaker-zones`. Soft-coupled with **Zone default source (1c)**: both extend the same two zone files (1c touches `setOn`/accessory threading; this touches `_isZoneActive`/accessory loop) — different methods, same files, so **serialise** the two (either order) rather than branch them in parallel to avoid a guaranteed merge conflict. | Branching before #162 lands would rebase-conflict on every touched line; running alongside 1c would churn the same files. | Building in parallel with #162 or 1c (guaranteed conflicts, no benefit). |
 
 ## If cancelled
@@ -151,27 +152,27 @@ Concrete files/dirs this touches. All build on the state PR #162 leaves in `dev`
 
 ## Implementation checklist
 
-- [ ] Add the primary-power gate to `_isZoneActive()` in
+- [x] Add the primary-power gate to `_isZoneActive()` in
       `SoundTouchZoneOnCharacteristic.ts`
-- [ ] Add unit tests: primary-standby → zone off (short-circuit), primary-on →
+- [x] Add unit tests: primary-standby → zone off (short-circuit), primary-on →
       unchanged membership behaviour, refresh corrects a stale-on tile
-- [ ] Add `ZONE_RECONCILIATION_INTERVAL_MS`, `_isPolling`, `_reconcile()` to
+- [x] Add `ZONE_RECONCILIATION_INTERVAL_MS`, `_isPolling`, `_reconcile()` to
       `SoundTouchZoneAccessory.ts`; thread `primary` + `name`; implement
       `stopPolling()`
-- [ ] Start the loop in `init()`; gate ticks on `primary.gabbo.isConnected`;
+- [x] Start the loop in `init()`; gate ticks on `primary.gabbo.isConnected`;
       wrap `refresh()` in try/catch + `AppError`
-- [ ] Add `src/zones/__tests__/SoundTouchZoneAccessory.test.ts` (fake-timer loop
+- [x] Add `src/zones/__tests__/SoundTouchZoneAccessory.test.ts` (fake-timer loop
       lifecycle + gate + failure handling)
-- [ ] Confirm `platform.ts` shutdown + prune loops drive the now-real
+- [x] Confirm `platform.ts` shutdown + prune loops drive the now-real
       `stopPolling()` (no code change expected)
-- [ ] `npm run typecheck && npm run lint && npm test`
-- [ ] `npm run knip` — confirm no unused exports
+- [x] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run knip` — confirm no unused exports
 
 ## Verification
 
-- [ ] `npm run lint`
-- [ ] `npm run build`
-- [ ] `npm test`
+- [x] `npm run lint`
+- [x] `npm run build`
+- [x] `npm test`
 - [ ] `npm run watch` — **real device recommended.** Activate a zone from the Home
       app (tile shows on). Then power the primary off from its **own** Home tile (or
       the physical Bose app); within ~60 s confirm the zone tile self-corrects to
