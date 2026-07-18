@@ -10,6 +10,16 @@ import { KeyValue } from '../../devices/SoundTouch/api/index.js';
 import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacteristic.js';
 import type { GabboUpdateType } from '../../devices/SoundTouch/api/GabboClient.js';
 
+/**
+ * Duration (ms) to hold the POWER key for when toggling power via HomeKit.
+ *
+ * Confirmed against real hardware: a bare press+release with ~0ms gap
+ * (what `pressKey` sends) silently fails to toggle POWER on a real
+ * SoundTouch speaker, while a ~300ms hold reliably toggles it. 300ms is
+ * the shortest duration confirmed reliable in that testing.
+ */
+export const POWER_KEY_HOLD_DURATION_MS = 300;
+
 export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacteristic {
   override readonly gabboEvents: readonly GabboUpdateType[] = [
     'connectionStateUpdated',
@@ -56,7 +66,7 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
     const desiredPowerStatus = value as boolean;
     const actualPowerStatus = await SoundTouchDevice.deviceIsOn(this.device);
     if (actualPowerStatus !== desiredPowerStatus) {
-      await this.device.api.pressKey(KeyValue.power);
+      await this.device.api.holdKey(KeyValue.power, POWER_KEY_HOLD_DURATION_MS);
       if (desiredPowerStatus) {
         await this.resumeLastPlayedSource();
       }
