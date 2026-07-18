@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { SoundTouchSpeakerOnCharacteristic } from '../SoundTouchSpeakerOnCharacteristic.js';
-import { SourceStatus, Recent } from '../../../devices/SoundTouch/api/index.js';
+import {
+  SoundTouchSpeakerOnCharacteristic,
+  POWER_KEY_HOLD_DURATION_MS,
+} from '../SoundTouchSpeakerOnCharacteristic.js';
+import {
+  SourceStatus,
+  Recent,
+  KeyValue,
+} from '../../../devices/SoundTouch/api/index.js';
 
 class FakeHapStatusError extends Error {
   constructor(public readonly hapStatus: number) {
@@ -26,6 +33,9 @@ async function build({
     .fn<() => Promise<string | undefined>>()
     .mockResolvedValue(source);
   const pressKey = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
+  const holdKey = jest
+    .fn<(value: KeyValue, duration?: number) => Promise<boolean>>()
+    .mockResolvedValue(true);
   const getRecents = jest
     .fn<() => Promise<Recent[] | undefined>>()
     .mockResolvedValue(undefined);
@@ -36,7 +46,7 @@ async function build({
   const device = {
     name: 'Test Speaker',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api: { getSource, pressKey, getRecents, selectSource } as any,
+    api: { getSource, pressKey, holdKey, getRecents, selectSource } as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     configuration: {} as any,
   };
@@ -68,6 +78,7 @@ async function build({
     hapCharacteristic,
     getSource,
     pressKey,
+    holdKey,
     getRecents,
     selectSource,
     updateValue,
@@ -108,40 +119,44 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
 
   describe('#setOn', () => {
     describe('when the cached value has drifted from the live device state', () => {
-      it('does not press the power key when the live state already matches the target', async () => {
+      it('does not hold the power key when the live state already matches the target', async () => {
         // Cache says off, but the device is actually on and the target is on.
-        const { subject, hapCharacteristic, pressKey } = await build({
+        const { subject, hapCharacteristic, holdKey } = await build({
           source: SourceStatus.ready,
         });
         hapCharacteristic.value = false;
 
         await subject.setOn(true);
 
-        expect(pressKey).not.toHaveBeenCalled();
+        expect(holdKey).not.toHaveBeenCalled();
       });
 
-      it('presses the power key when the live state differs from the target', async () => {
+      it('holds the power key when the live state differs from the target', async () => {
         // Cache says on, but the device is actually in standby and the target is on.
-        const { subject, hapCharacteristic, pressKey } = await build({
+        const { subject, hapCharacteristic, holdKey } = await build({
           source: SourceStatus.standBy,
         });
         hapCharacteristic.value = true;
 
         await subject.setOn(true);
 
-        expect(pressKey).toHaveBeenCalledTimes(1);
+        expect(holdKey).toHaveBeenCalledTimes(1);
+        expect(holdKey).toHaveBeenCalledWith(
+          KeyValue.power,
+          POWER_KEY_HOLD_DURATION_MS
+        );
       });
     });
 
     describe('when the live state matches the target', () => {
-      it('does not press the power key', async () => {
-        const { subject, pressKey } = await build({
+      it('does not hold the power key', async () => {
+        const { subject, holdKey } = await build({
           source: SourceStatus.ready,
         });
 
         await subject.setOn(true);
 
-        expect(pressKey).not.toHaveBeenCalled();
+        expect(holdKey).not.toHaveBeenCalled();
       });
 
       it('does not resume a source', async () => {
@@ -157,18 +172,23 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
     });
 
     describe('when the live state differs from the target', () => {
-      it('presses the power key', async () => {
-        const { subject, pressKey } = await build({
+      it('holds the power key for the deliberate hold duration instead of a bare press', async () => {
+        const { subject, pressKey, holdKey } = await build({
           source: SourceStatus.standBy,
         });
 
         await subject.setOn(true);
 
-        expect(pressKey).toHaveBeenCalledTimes(1);
+        expect(pressKey).not.toHaveBeenCalled();
+        expect(holdKey).toHaveBeenCalledTimes(1);
+        expect(holdKey).toHaveBeenCalledWith(
+          KeyValue.power,
+          POWER_KEY_HOLD_DURATION_MS
+        );
       });
 
       it('resumes the most recent source after powering on', async () => {
-        const { subject, getRecents, selectSource, pressKey } = await build({
+        const { subject, getRecents, selectSource, holdKey } = await build({
           source: SourceStatus.standBy,
         });
         const mostRecentContentItem = { source: 'SPOTIFY', sourceAccount: 'a' };
@@ -182,7 +202,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
 
         await subject.setOn(true);
 
-        expect(pressKey).toHaveBeenCalledTimes(1);
+        expect(holdKey).toHaveBeenCalledTimes(1);
         expect(getRecents).toHaveBeenCalledTimes(1);
         expect(selectSource).toHaveBeenCalledWith(mostRecentContentItem);
       });
