@@ -23,6 +23,13 @@ updates:
         dependency-type: "production"
       development-dependencies:
         dependency-type: "development"
+    ignore:
+      # eslint-plugin-jest@29.15.4's peer range is typescript >=4.8.4 <7.0.0.
+      # A v7 bump breaks `npm ci` with an ERESOLVE conflict (hit twice: #151,
+      # and again via the development-dependencies group). Held back until
+      # eslint-plugin-jest supports typescript 7.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   # Pinned GitHub Actions (actions/checkout, setup-node, amannn, ...)
   - package-ecosystem: "github-actions"
