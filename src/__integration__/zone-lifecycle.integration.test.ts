@@ -11,6 +11,7 @@ import { SoundTouchHomebridgePlatform } from '../platform.js';
 import {
   FakeSoundTouchServer,
   infoXml,
+  nowPlayingXml,
 } from './helpers/fake-soundtouch-server.js';
 import { HomebridgeApiStub } from './helpers/homebridge-stub.js';
 
@@ -52,6 +53,8 @@ describe('Zone lifecycle', () => {
     primaryServer.setResponse('/getZone', zoneXml());
     primaryServer.setResponse('/setZone', OK_STATUS_XML);
     primaryServer.setResponse('/removeZoneSlave', OK_STATUS_XML);
+    primaryServer.setResponse('/key', OK_STATUS_XML);
+    slaveServer.setResponse('/key', OK_STATUS_XML);
 
     // The accessory reconciliation loop polls on an interval; faking timers
     // keeps it parked so the suite leaves no open handles.
@@ -152,6 +155,53 @@ describe('Zone lifecycle', () => {
     expect(setZoneRequest?.body).toContain(`>${SLAVE_DEVICE_ID}<`);
   });
 
+  it('activating the zone powers on a primary and slave that start in standby', async () => {
+    // Default /nowPlaying response on both fakes reports STANDBY.
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const service = zoneAccessory?.services.find(
+      (s) => s.type.name === 'Switch'
+    );
+    const onCharacteristic = service?.characteristics.get('On');
+
+    await onCharacteristic?.invokeSet(true);
+
+    expect(
+      primaryServer.requests.filter((r) => r.path === '/key')
+    ).toHaveLength(2);
+    expect(slaveServer.requests.filter((r) => r.path === '/key')).toHaveLength(
+      2
+    );
+  });
+
+  it('activating the zone does not re-send a power command to a device that is already on', async () => {
+    primaryServer.setResponse('/nowPlaying', nowPlayingXml('AUX'));
+    slaveServer.setResponse('/nowPlaying', nowPlayingXml('AUX'));
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const service = zoneAccessory?.services.find(
+      (s) => s.type.name === 'Switch'
+    );
+    const onCharacteristic = service?.characteristics.get('On');
+
+    await onCharacteristic?.invokeSet(true);
+
+    expect(
+      primaryServer.requests.filter((r) => r.path === '/key')
+    ).toHaveLength(0);
+    expect(slaveServer.requests.filter((r) => r.path === '/key')).toHaveLength(
+      0
+    );
+  });
+
   it('deactivating the zone calls removeZoneSlave on the primary', async () => {
     primaryServer.setResponse(
       '/getZone',
@@ -176,6 +226,63 @@ describe('Zone lifecycle', () => {
     expect(removeZoneSlaveRequest).toBeDefined();
     expect(removeZoneSlaveRequest?.body).toContain(
       `master="${PRIMARY_DEVICE_ID}"`
+    );
+  });
+
+  it('deactivating the zone ungroups and powers off a primary and slave that are on', async () => {
+    primaryServer.setResponse(
+      '/getZone',
+      zoneXml([{ deviceId: SLAVE_DEVICE_ID, ipAddress: '127.0.0.1' }])
+    );
+    primaryServer.setResponse('/nowPlaying', nowPlayingXml('AUX'));
+    slaveServer.setResponse('/nowPlaying', nowPlayingXml('AUX'));
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const service = zoneAccessory?.services.find(
+      (s) => s.type.name === 'Switch'
+    );
+    const onCharacteristic = service?.characteristics.get('On');
+
+    await onCharacteristic?.invokeSet(false);
+
+    const removeZoneSlaveRequest = primaryServer.requests.find(
+      (r) => r.path === '/removeZoneSlave'
+    );
+    expect(removeZoneSlaveRequest).toBeDefined();
+    expect(
+      primaryServer.requests.filter((r) => r.path === '/key')
+    ).toHaveLength(2);
+    expect(slaveServer.requests.filter((r) => r.path === '/key')).toHaveLength(
+      2
+    );
+  });
+
+  it('deactivating the zone does not error when the primary and slave are already off', async () => {
+    primaryServer.setResponse(
+      '/getZone',
+      zoneXml([{ deviceId: SLAVE_DEVICE_ID, ipAddress: '127.0.0.1' }])
+    );
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const service = zoneAccessory?.services.find(
+      (s) => s.type.name === 'Switch'
+    );
+    const onCharacteristic = service?.characteristics.get('On');
+
+    await expect(onCharacteristic?.invokeSet(false)).resolves.not.toThrow();
+    expect(
+      primaryServer.requests.filter((r) => r.path === '/key')
+    ).toHaveLength(0);
+    expect(slaveServer.requests.filter((r) => r.path === '/key')).toHaveLength(
+      0
     );
   });
 

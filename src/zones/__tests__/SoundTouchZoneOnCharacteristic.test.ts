@@ -8,12 +8,24 @@ class FakeHapStatusError extends Error {
   }
 }
 
-function fakeDevice(props: { id: string; host: string }) {
+function fakeDevice(props: {
+  id: string;
+  host: string;
+  source?: string | undefined;
+}) {
+  const pressKey = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
+  const getSource = jest
+    .fn<() => Promise<string | undefined>>()
+    .mockResolvedValue(props.source ?? 'STANDBY');
   return {
     id: props.id,
     name: props.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api: { host: props.host } as any,
+    api: {
+      host: props.host,
+      pressKey,
+      getSource,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     configuration: {} as any,
   };
@@ -21,8 +33,14 @@ function fakeDevice(props: { id: string; host: string }) {
 
 async function build({
   zoneResponse,
+  primarySource,
+  slave1Source,
+  slave2Source,
 }: {
   zoneResponse?: Zone | undefined;
+  primarySource?: string | undefined;
+  slave1Source?: string | undefined;
+  slave2Source?: string | undefined;
 } = {}) {
   const updateValue = jest.fn();
   const hapCharacteristic = {
@@ -43,7 +61,11 @@ async function build({
     .fn<() => Promise<boolean>>()
     .mockResolvedValue(true);
 
-  const primary = fakeDevice({ id: 'MASTER-1', host: '10.0.0.1' });
+  const primary = fakeDevice({
+    id: 'MASTER-1',
+    host: '10.0.0.1',
+    source: primarySource,
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (primary.api as any).getZone = getZone;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,8 +73,16 @@ async function build({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (primary.api as any).removeZoneSlave = removeZoneSlave;
 
-  const slave1 = fakeDevice({ id: 'SLAVE-1', host: '10.0.0.2' });
-  const slave2 = fakeDevice({ id: 'SLAVE-2', host: '10.0.0.3' });
+  const slave1 = fakeDevice({
+    id: 'SLAVE-1',
+    host: '10.0.0.2',
+    source: slave1Source,
+  });
+  const slave2 = fakeDevice({
+    id: 'SLAVE-2',
+    host: '10.0.0.3',
+    source: slave2Source,
+  });
 
   const platform = {
     characteristic: { On: 'OnUUID' },
@@ -183,6 +213,65 @@ describe('SoundTouchZoneOnCharacteristic', () => {
         value: unknown
       ) => Promise<unknown>;
       await expect(handler(true)).rejects.toBeInstanceOf(FakeHapStatusError);
+    });
+
+    it('powers on the primary and every slave that is in standby before activating the zone', async () => {
+      const { subject, primary, slave1, slave2 } = await build({
+        primarySource: 'STANDBY',
+        slave1Source: 'STANDBY',
+        slave2Source: 'STANDBY',
+      });
+
+      await subject.setOn(true);
+
+      expect(primary.api.pressKey).toHaveBeenCalledWith('POWER');
+      expect(slave1.api.pressKey).toHaveBeenCalledWith('POWER');
+      expect(slave2.api.pressKey).toHaveBeenCalledWith('POWER');
+    });
+
+    it('does not re-send a power command to a device that is already on when activating', async () => {
+      const { subject, primary, slave1, slave2 } = await build({
+        primarySource: 'AUX',
+        slave1Source: 'AUX',
+        slave2Source: 'STANDBY',
+      });
+
+      await subject.setOn(true);
+
+      expect(primary.api.pressKey).not.toHaveBeenCalled();
+      expect(slave1.api.pressKey).not.toHaveBeenCalled();
+      expect(slave2.api.pressKey).toHaveBeenCalledWith('POWER');
+    });
+
+    it('powers off the primary and every slave that is on after ungrouping the zone', async () => {
+      const { subject, primary, slave1, slave2, removeZoneSlave } = await build(
+        {
+          primarySource: 'AUX',
+          slave1Source: 'AUX',
+          slave2Source: 'AUX',
+        }
+      );
+
+      await subject.setOn(false);
+
+      expect(removeZoneSlave).toHaveBeenCalled();
+      expect(primary.api.pressKey).toHaveBeenCalledWith('POWER');
+      expect(slave1.api.pressKey).toHaveBeenCalledWith('POWER');
+      expect(slave2.api.pressKey).toHaveBeenCalledWith('POWER');
+    });
+
+    it('does not send a power command to a device that is already off when deactivating', async () => {
+      const { subject, primary, slave1, slave2 } = await build({
+        primarySource: 'STANDBY',
+        slave1Source: 'STANDBY',
+        slave2Source: 'STANDBY',
+      });
+
+      await subject.setOn(false);
+
+      expect(primary.api.pressKey).not.toHaveBeenCalled();
+      expect(slave1.api.pressKey).not.toHaveBeenCalled();
+      expect(slave2.api.pressKey).not.toHaveBeenCalled();
     });
   });
 

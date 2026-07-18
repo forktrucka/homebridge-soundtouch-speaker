@@ -7,6 +7,7 @@ import {
 import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../platform.js';
 import { SoundTouchSpeakerCharacteristic } from '../accessories/services/SoundTouchSpeakerCharacteristic.js';
+import { KeyValue } from '../devices/SoundTouch/api/index.js';
 import type { Zone } from '../devices/SoundTouch/api/index.js';
 
 export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteristic {
@@ -60,12 +61,26 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
   async setOn(value: CharacteristicValue): Promise<void> {
     const desired = value as boolean;
     if (desired) {
+      await this._ensureDevicesPowered(true);
       await this.device.api.setZone(this._buildZone());
       this.log.debug('zone activated');
     } else {
       await this.device.api.removeZoneSlave(this._buildZone());
+      await this._ensureDevicesPowered(false);
       this.log.debug('zone deactivated');
     }
+  }
+
+  private async _ensureDevicesPowered(desired: boolean): Promise<void> {
+    const devices = [this.device, ...this.slaves];
+    await Promise.all(
+      devices.map(async (device) => {
+        const isOn = await SoundTouchDevice.deviceIsOn(device);
+        if (isOn !== desired) {
+          await device.api.pressKey(KeyValue.power);
+        }
+      })
+    );
   }
 
   private _buildZone(): Zone {
