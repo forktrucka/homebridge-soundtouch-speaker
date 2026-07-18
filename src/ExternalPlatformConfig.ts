@@ -42,11 +42,22 @@ export interface AccessoryConfig extends GlobalConfig {
   readonly disabled?: boolean;
 }
 
+interface ZonePresetDefaultSourceConfig {
+  readonly type: 'preset';
+  readonly slot: number;
+}
+
+// v1 ships the `preset` variant only; modeled as a union so an inline-
+// ContentItem variant (`type: 'source'`) can be added later without a
+// breaking schema change.
+export type ZoneDefaultSourceConfig = ZonePresetDefaultSourceConfig;
+
 export interface ZoneConfig {
   readonly name: string;
   readonly primary: string;
   readonly slaves: string[];
   readonly accessoryType?: 'switch' | 'lightbulb';
+  readonly defaultSource?: ZoneDefaultSourceConfig;
 }
 
 export interface ExternalPlatformConfig extends BasePlatformConfig {

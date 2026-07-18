@@ -4,6 +4,7 @@ import {
   ExternalPlatformConfig,
   PresetConfig,
   ZoneConfig,
+  ZoneDefaultSourceConfig,
 } from './ExternalPlatformConfig.js';
 import {
   AccessoryType,
@@ -26,17 +27,20 @@ export class ZoneConfiguration {
   readonly primary: string;
   readonly slaves: string[];
   readonly accessoryType: AccessoryType;
+  readonly defaultSource?: ZoneDefaultSourceConfig;
 
   private constructor(props: {
     name: string;
     primary: string;
     slaves: string[];
     accessoryType: AccessoryType;
+    defaultSource?: ZoneDefaultSourceConfig;
   }) {
     this.name = props.name;
     this.primary = props.primary;
     this.slaves = props.slaves;
     this.accessoryType = props.accessoryType;
+    this.defaultSource = props.defaultSource;
   }
 
   toJson() {
@@ -48,14 +52,52 @@ export class ZoneConfiguration {
     primary: string;
     slaves: string[];
     accessoryType?: AccessoryType;
+    defaultSource?: ZoneDefaultSourceConfig;
   }): ZoneConfiguration {
     return new ZoneConfiguration({
       name: props.name,
       primary: props.primary,
       slaves: props.slaves,
       accessoryType: props.accessoryType ?? DEFAULT_ZONE_ACCESSORY_TYPE,
+      defaultSource: props.defaultSource,
     });
   }
+}
+
+function validateZoneDefaultSource(
+  raw: unknown,
+  zoneName: string,
+  warn: (msg: string) => void
+): ZoneDefaultSourceConfig | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const entry = raw as Record<string, unknown>;
+
+  if (entry.type !== 'preset') {
+    warn(
+      `zone "${zoneName}" has a defaultSource with unknown type "${String(entry.type)}" — dropping defaultSource`
+    );
+    return undefined;
+  }
+
+  if (entry.slot === undefined || entry.slot === null) {
+    warn(
+      `zone "${zoneName}" defaultSource is missing required field "slot" — dropping defaultSource`
+    );
+    return undefined;
+  }
+
+  const slot = Number(entry.slot);
+  if (!Number.isInteger(slot) || slot < 1 || slot > 6) {
+    warn(
+      `zone "${zoneName}" defaultSource has invalid slot "${String(entry.slot)}" (must be 1–6) — dropping defaultSource`
+    );
+    return undefined;
+  }
+
+  return { type: 'preset', slot };
 }
 
 function validateZones(
@@ -101,12 +143,19 @@ function validateZones(
         ? entry.accessoryType
         : undefined;
 
+    const defaultSource = validateZoneDefaultSource(
+      entry.defaultSource,
+      entry.name,
+      warn
+    );
+
     valid.push(
       ZoneConfiguration.create({
         name: entry.name,
         primary: entry.primary,
         slaves,
         accessoryType,
+        defaultSource,
       })
     );
   }

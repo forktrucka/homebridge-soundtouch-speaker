@@ -12,6 +12,7 @@ import {
   FakeSoundTouchServer,
   infoXml,
   nowPlayingXml,
+  presetsXml,
 } from './helpers/fake-soundtouch-server.js';
 import { HomebridgeApiStub } from './helpers/homebridge-stub.js';
 
@@ -409,6 +410,83 @@ describe('Zone lifecycle', () => {
     ).length;
     expect(primaryNowPlayingCountAfter).toBe(primaryNowPlayingCountBefore + 2);
     expect(slaveNowPlayingCountAfter).toBe(slaveNowPlayingCountBefore + 2);
+  });
+
+  it('selects the configured default source preset on the primary before setZone when activating an idle zone', async () => {
+    primaryServer.setResponse(
+      '/presets',
+      presetsXml([{ slot: 2, source: 'TUNEIN', location: 'station-2' }])
+    );
+    primaryServer.setResponse('/select', OK_STATUS_XML);
+    createPlatform({
+      zones: [
+        {
+          name: 'Downstairs',
+          primary: 'Kitchen',
+          slaves: ['Lounge'],
+          defaultSource: { type: 'preset', slot: 2 },
+        },
+      ],
+    });
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const service = zoneAccessory?.services.find(
+      (s) => s.type.name === 'Switch'
+    );
+    const onCharacteristic = service?.characteristics.get('On');
+
+    await invokeSetAndSettle(onCharacteristic, true);
+
+    const selectIndex = primaryServer.requests.findIndex(
+      (r) => r.path === '/select'
+    );
+    const setZoneIndex = primaryServer.requests.findIndex(
+      (r) => r.path === '/setZone'
+    );
+    expect(selectIndex).toBeGreaterThanOrEqual(0);
+    expect(setZoneIndex).toBeGreaterThan(selectIndex);
+    const selectRequest = primaryServer.requests[selectIndex];
+    expect(selectRequest?.body).toContain('source="TUNEIN"');
+  });
+
+  it('does not select a default source when the primary is already playing', async () => {
+    primaryServer.setResponse(
+      '/nowPlaying',
+      nowPlayingXml('AUX', PRIMARY_DEVICE_ID, 'aux-in')
+    );
+    primaryServer.setResponse(
+      '/presets',
+      presetsXml([{ slot: 2, source: 'TUNEIN', location: 'station-2' }])
+    );
+    primaryServer.setResponse('/select', OK_STATUS_XML);
+    createPlatform({
+      zones: [
+        {
+          name: 'Downstairs',
+          primary: 'Kitchen',
+          slaves: ['Lounge'],
+          defaultSource: { type: 'preset', slot: 2 },
+        },
+      ],
+    });
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    const service = zoneAccessory?.services.find(
+      (s) => s.type.name === 'Switch'
+    );
+    const onCharacteristic = service?.characteristics.get('On');
+
+    await invokeSetAndSettle(onCharacteristic, true);
+
+    expect(primaryServer.requests.some((r) => r.path === '/select')).toBe(
+      false
+    );
   });
 
   it('skips the zone and does not register it when the primary cannot be resolved', async () => {

@@ -1,6 +1,6 @@
 ---
 feature: Zone default source — play a configured source when a zone is activated idle
-status: planned # planned | in-progress | beta | done | cancelled
+status: in-progress # PR opened against dev, awaiting review/merge; real-device verification still pending
 date: 2026-07-18
 branch: feat/zone-default-source # branched off dev AFTER speaker-zones (#162) merges
 commit-type: feat
@@ -143,20 +143,20 @@ Concrete files/dirs this touches. All build on the state PR #162 leaves in `dev`
 
 ## Implementation checklist
 
-- [ ] Add `ZoneDefaultSourceConfig` union + `defaultSource?` to `ZoneConfig`
+- [x] Add `ZoneDefaultSourceConfig` union + `defaultSource?` to `ZoneConfig`
       (`src/ExternalPlatformConfig.ts`)
-- [ ] Add `defaultSource?` to `ZoneConfiguration` and validate it in
+- [x] Add `defaultSource?` to `ZoneConfiguration` and validate it in
       `validateZones()` (`src/PlatformConfiguration.ts`)
-- [ ] Update `config.schema.json` `zones[]` with the `defaultSource` object
-- [ ] Update `ExternalPlatformConfig` + `PlatformConfiguration` tests
-- [ ] Thread `defaultSource` through `SoundTouchZoneAccessory` →
+- [x] Update `config.schema.json` `zones[]` with the `defaultSource` object
+- [x] Update `ExternalPlatformConfig` + `PlatformConfiguration` tests
+- [x] Thread `defaultSource` through `SoundTouchZoneAccessory` →
       `SoundTouchZoneOnCharacteristic.create`
-- [ ] Implement `_applyDefaultSourceIfIdle()` in the zone characteristic and
+- [x] Implement `_applyDefaultSourceIfIdle()` in the zone characteristic and
       call it in `setOn(true)` before `setZone` (fill-if-empty, select-then-group)
-- [ ] Add/extend `SoundTouchZoneOnCharacteristic.test.ts`
-- [ ] Extend `zone-lifecycle.integration.test.ts`
-- [ ] `npm run typecheck && npm run lint && npm test`
-- [ ] `npm run knip` — confirm no unused exports
+- [x] Add/extend `SoundTouchZoneOnCharacteristic.test.ts`
+- [x] Extend `zone-lifecycle.integration.test.ts`
+- [x] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run knip` — confirm no unused exports
 
 ## Verification
 

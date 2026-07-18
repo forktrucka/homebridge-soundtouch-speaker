@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { SoundTouchZoneOnCharacteristic } from '../SoundTouchZoneOnCharacteristic.js';
-import type { Zone } from '../../devices/SoundTouch/api/index.js';
+import type {
+  NowPlaying,
+  Preset,
+  Zone,
+} from '../../devices/SoundTouch/api/index.js';
 
 class FakeHapStatusError extends Error {
   constructor(public readonly hapStatus: number) {
@@ -8,16 +12,46 @@ class FakeHapStatusError extends Error {
   }
 }
 
+function fakeNowPlaying(
+  props: Partial<NowPlaying> & { source: string }
+): NowPlaying {
+  return {
+    deviceId: 'MASTER-1',
+    sourceAccount: '',
+    contentItem: { source: props.source, sourceAccount: '' },
+    canGoForward: false,
+    canGoBackward: false,
+    isFavoriteEnabled: false,
+    isFavorite: false,
+    isRateEnabled: false,
+    rating: 'NONE' as NowPlaying['rating'],
+    ...props,
+  };
+}
+
 function fakeDevice(props: {
   id: string;
   host: string;
   source?: string | undefined;
+  nowPlaying?: NowPlaying | undefined;
+  presets?: Preset[] | undefined;
 }) {
   const pressKey = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
   const holdKey = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
   const getSource = jest
     .fn<() => Promise<string | undefined>>()
     .mockResolvedValue(props.source ?? 'STANDBY');
+  const getNowPlaying = jest
+    .fn<() => Promise<NowPlaying | undefined>>()
+    .mockResolvedValue(
+      props.nowPlaying ?? fakeNowPlaying({ source: props.source ?? 'STANDBY' })
+    );
+  const getPresets = jest
+    .fn<() => Promise<Preset[] | undefined>>()
+    .mockResolvedValue(props.presets ?? []);
+  const selectSource = jest
+    .fn<() => Promise<boolean>>()
+    .mockResolvedValue(true);
   return {
     id: props.id,
     name: props.id,
@@ -26,6 +60,9 @@ function fakeDevice(props: {
       pressKey,
       holdKey,
       getSource,
+      getNowPlaying,
+      getPresets,
+      selectSource,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,11 +75,17 @@ async function build({
   primarySource,
   slave1Source,
   slave2Source,
+  primaryNowPlaying,
+  primaryPresets,
+  defaultSource,
 }: {
   zoneResponse?: Zone | undefined;
   primarySource?: string | undefined;
   slave1Source?: string | undefined;
   slave2Source?: string | undefined;
+  primaryNowPlaying?: NowPlaying | undefined;
+  primaryPresets?: Preset[] | undefined;
+  defaultSource?: { type: 'preset'; slot: number } | undefined;
 } = {}) {
   const updateValue = jest.fn();
   const hapCharacteristic = {
@@ -67,6 +110,8 @@ async function build({
     id: 'MASTER-1',
     host: '10.0.0.1',
     source: primarySource,
+    nowPlaying: primaryNowPlaying,
+    presets: primaryPresets,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (primary.api as any).getZone = getZone;
@@ -113,6 +158,7 @@ async function build({
     platform: platform as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     accessory: {} as any,
+    defaultSource,
   });
 
   return {
@@ -350,6 +396,88 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       expect(refreshAccessoryForDevice).toHaveBeenCalledWith('MASTER-1');
       expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-1');
       expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-2');
+    });
+
+    describe('default source', () => {
+      it('selects the configured preset on the primary before setZone when the primary is idle', async () => {
+        const preset: Preset = {
+          id: 2,
+          createdDate: new Date(0),
+          updatedDate: new Date(0),
+          contentItem: { source: 'TUNEIN', sourceAccount: '', location: 'x' },
+        };
+        const { subject, primary, setZone } = await build({
+          primaryNowPlaying: fakeNowPlaying({ source: 'STANDBY' }),
+          primaryPresets: [preset],
+          defaultSource: { type: 'preset', slot: 2 },
+        });
+        const callOrder: string[] = [];
+        primary.api.selectSource.mockImplementation(async () => {
+          callOrder.push('selectSource');
+          return true;
+        });
+        setZone.mockImplementation(async () => {
+          callOrder.push('setZone');
+          return true;
+        });
+
+        await subject.setOn(true);
+
+        expect(primary.api.selectSource).toHaveBeenCalledWith(
+          preset.contentItem
+        );
+        expect(callOrder).toEqual(['selectSource', 'setZone']);
+      });
+
+      it('does not select a default source when the primary is already playing', async () => {
+        const preset: Preset = {
+          id: 2,
+          createdDate: new Date(0),
+          updatedDate: new Date(0),
+          contentItem: { source: 'TUNEIN', sourceAccount: '', location: 'x' },
+        };
+        const { subject, primary, setZone } = await build({
+          primaryNowPlaying: fakeNowPlaying({
+            source: 'TUNEIN',
+            contentItem: {
+              source: 'TUNEIN',
+              sourceAccount: '',
+              location: 'y',
+            },
+          }),
+          primaryPresets: [preset],
+          defaultSource: { type: 'preset', slot: 2 },
+        });
+
+        await subject.setOn(true);
+
+        expect(primary.api.selectSource).not.toHaveBeenCalled();
+        expect(setZone).toHaveBeenCalled();
+      });
+
+      it('does not call selectSource when no defaultSource is configured', async () => {
+        const { subject, primary } = await build({
+          primaryNowPlaying: fakeNowPlaying({ source: 'STANDBY' }),
+        });
+
+        await subject.setOn(true);
+
+        expect(primary.api.selectSource).not.toHaveBeenCalled();
+        expect(primary.api.getPresets).not.toHaveBeenCalled();
+      });
+
+      it('warns and still activates the zone when the configured slot is empty on the device', async () => {
+        const { subject, primary, setZone } = await build({
+          primaryNowPlaying: fakeNowPlaying({ source: 'STANDBY' }),
+          primaryPresets: [],
+          defaultSource: { type: 'preset', slot: 4 },
+        });
+
+        await subject.setOn(true);
+
+        expect(primary.api.selectSource).not.toHaveBeenCalled();
+        expect(setZone).toHaveBeenCalled();
+      });
     });
 
     it('does not throw when refreshing a slave with no registered accessory wrapper fails', async () => {

@@ -127,4 +127,38 @@ describe('ZoneConfig shape', () => {
 
     expect(config.zones?.[0].accessoryType).toBe('lightbulb');
   });
+
+  it('accepts an optional per-zone defaultSource preset reference', () => {
+    const config: ExternalPlatformConfig = {
+      platform: 'SoundTouchHomebridgePlugin',
+      zones: [
+        {
+          name: 'Downstairs',
+          primary: 'Kitchen',
+          slaves: ['Lounge'],
+          defaultSource: { type: 'preset', slot: 2 },
+        },
+      ],
+    };
+
+    expect(config.zones?.[0].defaultSource).toEqual({
+      type: 'preset',
+      slot: 2,
+    });
+  });
+
+  it('omits defaultSource when not configured', () => {
+    const config: ExternalPlatformConfig = {
+      platform: 'SoundTouchHomebridgePlugin',
+      zones: [
+        {
+          name: 'Downstairs',
+          primary: 'Kitchen',
+          slaves: ['Lounge'],
+        },
+      ],
+    };
+
+    expect(config.zones?.[0].defaultSource).toBeUndefined();
+  });
 });

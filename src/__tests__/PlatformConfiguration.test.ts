@@ -531,5 +531,91 @@ describe('PlatformConfiguration', () => {
       expect(config.zones).toHaveLength(1);
       expect(config.zones[0].name).toBe('Downstairs');
     });
+
+    describe('defaultSource', () => {
+      it('returns undefined when defaultSource is absent', () => {
+        const config = PlatformConfiguration.fromExternalConfiguration({
+          platform: PLATFORM_NAME,
+          zones: [
+            { name: 'Downstairs', primary: 'Kitchen', slaves: ['Lounge'] },
+          ],
+        });
+
+        expect(config.zones[0].defaultSource).toBeUndefined();
+      });
+
+      it('parses a valid preset defaultSource', () => {
+        const config = PlatformConfiguration.fromExternalConfiguration({
+          platform: PLATFORM_NAME,
+          zones: [
+            {
+              name: 'Downstairs',
+              primary: 'Kitchen',
+              slaves: ['Lounge'],
+              defaultSource: { type: 'preset', slot: 3 },
+            },
+          ],
+        });
+
+        expect(config.zones[0].defaultSource).toEqual({
+          type: 'preset',
+          slot: 3,
+        });
+      });
+
+      it('drops an invalid defaultSource slot but keeps the zone', () => {
+        const zones = [
+          {
+            name: 'Downstairs',
+            primary: 'Kitchen',
+            slaves: ['Lounge'],
+            defaultSource: { type: 'preset', slot: 7 },
+          },
+        ] as unknown as ExternalPlatformConfig['zones'];
+        const config = PlatformConfiguration.fromExternalConfiguration({
+          platform: PLATFORM_NAME,
+          zones,
+        });
+
+        expect(config.zones).toHaveLength(1);
+        expect(config.zones[0].defaultSource).toBeUndefined();
+      });
+
+      it('drops a defaultSource with an unknown type but keeps the zone', () => {
+        const zones = [
+          {
+            name: 'Downstairs',
+            primary: 'Kitchen',
+            slaves: ['Lounge'],
+            defaultSource: { type: 'source', slot: 1 },
+          },
+        ] as unknown as ExternalPlatformConfig['zones'];
+        const config = PlatformConfiguration.fromExternalConfiguration({
+          platform: PLATFORM_NAME,
+          zones,
+        });
+
+        expect(config.zones).toHaveLength(1);
+        expect(config.zones[0].defaultSource).toBeUndefined();
+      });
+
+      it('drops a defaultSource missing a slot but keeps the zone', () => {
+        const zones = [
+          {
+            name: 'Downstairs',
+            primary: 'Kitchen',
+            slaves: ['Lounge'],
+            defaultSource: { type: 'preset' },
+          },
+        ] as unknown as ExternalPlatformConfig['zones'];
+        const config = PlatformConfiguration.fromExternalConfiguration({
+          platform: PLATFORM_NAME,
+          zones,
+        });
+
+        expect(config.zones).toHaveLength(1);
+        expect(config.zones[0].defaultSource).toBeUndefined();
+      });
+    });
   });
 });
