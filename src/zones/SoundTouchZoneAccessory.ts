@@ -3,6 +3,7 @@ import { SoundTouchDevice } from '../devices/SoundTouch/SoundTouchDevice.js';
 import { SoundTouchHomebridgePlatform } from '../platform.js';
 import { ZoneConfiguration } from '../PlatformConfiguration.js';
 import { SoundTouchZoneOnCharacteristic } from './SoundTouchZoneOnCharacteristic.js';
+import { SoundTouchZoneVolumeCharacteristic } from './SoundTouchZoneVolumeCharacteristic.js';
 import { Logger } from '../utils/FormattedLogger.js';
 
 const SOUNDTOUCH_MANUFACTURER = 'Bose';
@@ -17,22 +18,27 @@ function zoneServiceName(props: {
 
 export class SoundTouchZoneAccessory {
   private readonly onCharacteristic: SoundTouchZoneOnCharacteristic;
+  private readonly volumeCharacteristic?: SoundTouchZoneVolumeCharacteristic;
   private readonly log: Logger;
 
   private constructor(props: {
     onCharacteristic: SoundTouchZoneOnCharacteristic;
+    volumeCharacteristic?: SoundTouchZoneVolumeCharacteristic;
     log: Logger;
   }) {
     this.onCharacteristic = props.onCharacteristic;
+    this.volumeCharacteristic = props.volumeCharacteristic;
     this.log = props.log;
   }
 
   async init(): Promise<void> {
     await this.onCharacteristic.init();
+    await this.volumeCharacteristic?.init();
   }
 
   async refresh(): Promise<void> {
     await this.onCharacteristic.refresh();
+    await this.volumeCharacteristic?.refresh();
   }
 
   // No independent polling loop today — zone state is refreshed at startup and
@@ -79,8 +85,19 @@ export class SoundTouchZoneAccessory {
       service,
     });
 
+    const volumeCharacteristic = isLightbulb
+      ? await SoundTouchZoneVolumeCharacteristic.create({
+          accessory,
+          primary,
+          slaves,
+          platform,
+          service,
+        })
+      : undefined;
+
     const zoneAccessory = new SoundTouchZoneAccessory({
       onCharacteristic,
+      volumeCharacteristic,
       log: platform.logger,
     });
 

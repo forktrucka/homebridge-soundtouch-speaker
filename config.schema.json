@@ -237,7 +237,7 @@
               "enum": ["switch", "lightbulb"],
               "required": false,
               "default": "switch",
-              "description": "HomeKit accessory type for this zone's on/off control."
+              "description": "HomeKit accessory type for this zone. 'lightbulb' also exposes zone volume via Brightness, shifting every member speaker's volume by the same relative amount."
             }
           }
         }
