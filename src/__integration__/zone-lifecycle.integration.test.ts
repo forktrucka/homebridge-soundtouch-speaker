@@ -29,6 +29,36 @@ function zoneXml(
 
 const OK_STATUS_XML = '<status>OK</status>';
 
+/**
+ * Zone power-on/off now holds the POWER key for a deliberate 300ms (see
+ * SoundTouchZoneOnCharacteristic) rather than pressing and releasing
+ * instantly. That hold uses a real setTimeout while this suite fakes
+ * timers (to keep the accessory reconciliation interval parked), and the
+ * key press/release themselves round-trip over a real socket to the fake
+ * server — so a single fixed-size `advanceTimersByTimeAsync` call can race
+ * ahead of the timer actually being scheduled. Poll in small increments,
+ * yielding to the real event loop between them via `setImmediate` (not
+ * faked), until the characteristic's own promise settles.
+ */
+async function invokeSetAndSettle(
+  characteristic: { invokeSet(value: boolean): Promise<void> } | undefined,
+  value: boolean
+): Promise<void> {
+  const promise = characteristic?.invokeSet(value);
+  if (!promise) {
+    return;
+  }
+  let settled = false;
+  promise.finally(() => {
+    settled = true;
+  });
+  for (let i = 0; i < 50 && !settled; i++) {
+    await jest.advanceTimersByTimeAsync(50);
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  await promise;
+}
+
 describe('Zone lifecycle', () => {
   let primaryServer: FakeSoundTouchServer;
   let slaveServer: FakeSoundTouchServer;
@@ -145,7 +175,7 @@ describe('Zone lifecycle', () => {
     );
     const onCharacteristic = service?.characteristics.get('On');
 
-    await onCharacteristic?.invokeSet(true);
+    await invokeSetAndSettle(onCharacteristic, true);
 
     const setZoneRequest = primaryServer.requests.find(
       (r) => r.path === '/setZone'
@@ -168,7 +198,7 @@ describe('Zone lifecycle', () => {
     );
     const onCharacteristic = service?.characteristics.get('On');
 
-    await onCharacteristic?.invokeSet(true);
+    await invokeSetAndSettle(onCharacteristic, true);
 
     expect(
       primaryServer.requests.filter((r) => r.path === '/key')
@@ -247,7 +277,7 @@ describe('Zone lifecycle', () => {
     );
     const onCharacteristic = service?.characteristics.get('On');
 
-    await onCharacteristic?.invokeSet(false);
+    await invokeSetAndSettle(onCharacteristic, false);
 
     const removeZoneSlaveRequest = primaryServer.requests.find(
       (r) => r.path === '/removeZoneSlave'
@@ -326,7 +356,7 @@ describe('Zone lifecycle', () => {
       .find((s) => s.type.name === 'Switch')
       ?.characteristics.get('On');
 
-    await zoneOn?.invokeSet(true);
+    await invokeSetAndSettle(zoneOn, true);
 
     // Each device gets one /nowPlaying GET from the zone's own `deviceIsOn`
     // power check, plus one more from the standalone accessory's own On
@@ -366,7 +396,7 @@ describe('Zone lifecycle', () => {
       .find((s) => s.type.name === 'Switch')
       ?.characteristics.get('On');
 
-    await zoneOn?.invokeSet(false);
+    await invokeSetAndSettle(zoneOn, false);
 
     const primaryNowPlayingCountAfter = primaryServer.requests.filter(
       (r) => r.path === '/nowPlaying'

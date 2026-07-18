@@ -71,13 +71,25 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
     }
   }
 
+  /**
+   * A press+release with no deliberate gap between them (i.e. `pressKey`,
+   * which holds for 0ms) has been confirmed on real hardware to silently
+   * fail to toggle the POWER key — the device stays in whatever state it
+   * was in. A short deliberate hold reliably toggles power. 300ms is the
+   * duration confirmed reliable in that testing.
+   */
+  private static readonly POWER_HOLD_DURATION_MS = 300;
+
   private async _ensureDevicesPowered(desired: boolean): Promise<void> {
     const devices = [this.device, ...this.slaves];
     await Promise.all(
       devices.map(async (device) => {
         const isOn = await SoundTouchDevice.deviceIsOn(device);
         if (isOn !== desired) {
-          await device.api.pressKey(KeyValue.power);
+          await device.api.holdKey(
+            KeyValue.power,
+            SoundTouchZoneOnCharacteristic.POWER_HOLD_DURATION_MS
+          );
           await this._refreshOwnAccessory(device);
         }
       })
@@ -85,7 +97,7 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
   }
 
   /**
-   * Powering a device via a raw pressKey call (above) bypasses that device's
+   * Powering a device via a raw holdKey call (above) bypasses that device's
    * own SoundTouchSpeakerOnCharacteristic entirely, so its standalone speaker
    * accessory's On tile in the Home app never learns the state changed —
    * neither the gabbo push event nor the 5-minute reconciliation poll fires

@@ -14,6 +14,7 @@ function fakeDevice(props: {
   source?: string | undefined;
 }) {
   const pressKey = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
+  const holdKey = jest.fn<() => Promise<boolean>>().mockResolvedValue(true);
   const getSource = jest
     .fn<() => Promise<string | undefined>>()
     .mockResolvedValue(props.source ?? 'STANDBY');
@@ -23,6 +24,7 @@ function fakeDevice(props: {
     api: {
       host: props.host,
       pressKey,
+      holdKey,
       getSource,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
@@ -230,9 +232,12 @@ describe('SoundTouchZoneOnCharacteristic', () => {
 
       await subject.setOn(true);
 
-      expect(primary.api.pressKey).toHaveBeenCalledWith('POWER');
-      expect(slave1.api.pressKey).toHaveBeenCalledWith('POWER');
-      expect(slave2.api.pressKey).toHaveBeenCalledWith('POWER');
+      expect(primary.api.holdKey).toHaveBeenCalledWith('POWER', 300);
+      expect(slave1.api.holdKey).toHaveBeenCalledWith('POWER', 300);
+      expect(slave2.api.holdKey).toHaveBeenCalledWith('POWER', 300);
+      expect(primary.api.pressKey).not.toHaveBeenCalled();
+      expect(slave1.api.pressKey).not.toHaveBeenCalled();
+      expect(slave2.api.pressKey).not.toHaveBeenCalled();
     });
 
     it('does not re-send a power command to a device that is already on when activating', async () => {
@@ -244,9 +249,9 @@ describe('SoundTouchZoneOnCharacteristic', () => {
 
       await subject.setOn(true);
 
-      expect(primary.api.pressKey).not.toHaveBeenCalled();
-      expect(slave1.api.pressKey).not.toHaveBeenCalled();
-      expect(slave2.api.pressKey).toHaveBeenCalledWith('POWER');
+      expect(primary.api.holdKey).not.toHaveBeenCalled();
+      expect(slave1.api.holdKey).not.toHaveBeenCalled();
+      expect(slave2.api.holdKey).toHaveBeenCalledWith('POWER', 300);
     });
 
     it('powers off the primary and every slave that is on after ungrouping the zone', async () => {
@@ -261,9 +266,9 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       await subject.setOn(false);
 
       expect(removeZoneSlave).toHaveBeenCalled();
-      expect(primary.api.pressKey).toHaveBeenCalledWith('POWER');
-      expect(slave1.api.pressKey).toHaveBeenCalledWith('POWER');
-      expect(slave2.api.pressKey).toHaveBeenCalledWith('POWER');
+      expect(primary.api.holdKey).toHaveBeenCalledWith('POWER', 300);
+      expect(slave1.api.holdKey).toHaveBeenCalledWith('POWER', 300);
+      expect(slave2.api.holdKey).toHaveBeenCalledWith('POWER', 300);
     });
 
     it('does not send a power command to a device that is already off when deactivating', async () => {
@@ -275,9 +280,9 @@ describe('SoundTouchZoneOnCharacteristic', () => {
 
       await subject.setOn(false);
 
-      expect(primary.api.pressKey).not.toHaveBeenCalled();
-      expect(slave1.api.pressKey).not.toHaveBeenCalled();
-      expect(slave2.api.pressKey).not.toHaveBeenCalled();
+      expect(primary.api.holdKey).not.toHaveBeenCalled();
+      expect(slave1.api.holdKey).not.toHaveBeenCalled();
+      expect(slave2.api.holdKey).not.toHaveBeenCalled();
     });
 
     it('refreshes the primary and every slave own accessory after powering them on', async () => {
