@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
@@ -12,7 +12,7 @@ when the first plan is cancelled; none has been yet).
 
 ```mermaid
 flowchart TD
-    SpikeTV{"Spike: TV vs\nper-Switch fallback"}
+    SpikeTV{"Spike: TV vs\nper-Switch fallback\n(RESOLVED 2026-07-18)"}
     SourceNode["[03] Source selection"]
     SpikeB{"Spike B: Homebridge\nconfig write path"}
     PWA1Node["[04] PWA – Phase 1\nWiFi provisioning"]
@@ -31,7 +31,7 @@ flowchart TD
 | ----- | ---- | ------ | ------ | ----------------- |
 | 1 | **Speaker zones** | `feat/speaker-zones` | 🟢 Unblocked | `zones` config array; `SoundTouchZoneAccessory`; zone API activation at startup sync. `feat:` → minor. Zone API already implemented in `api/zone.ts`. The 2026-07-10 remediation batch (BoseCloudServer hardening #147, gabbo resilience #146, power state accuracy #144, plan hygiene #145) merged to `dev` ahead of this — awaiting the next beta cut. |
 | 1b | **Power-on resume last-played source** | `fix/power-on-resume-last-source` | 🟢 Unblocked (parallel-safe with #1) | HomeKit "On" should resume the last-played source the way the physical power button does. Uses the device's `GET /recents` (currently parsed but dropped — `GabboClient.ts` maps `recentsUpdated` to `undefined`). Depends on `power-state-accuracy`'s `setOn` live-read fix, which is already merged (#144). No file overlap with speaker zones (`src/devices/SoundTouch/api/*`, `GabboClient.ts`, `SoundTouchSpeakerOnCharacteristic.ts` vs. zones' `src/zones/`, `platform.ts`, `PlatformConfiguration.ts`) — can run as a concurrent engineer dispatch alongside #1. `fix:` → patch. |
-| 2 | **[03] Source selection** | `feat/source-selection` | 🔴 Blocked (spike) | Blocked on TV-vs-Switch spike (verify Television+InputSource on a real device). |
+| 2 | **[03] Source selection** | `feat/source-selection` | 🟢 Unblocked | TV-vs-Switch spike RESOLVED 2026-07-18: Television+InputSource confirmed on a real device, Plan B retired. Scope now firm — opt-in `sourceSelectionEnabled` external TV accessory; power tiles kept in lock-step via the gabbo refresh path; SPOTIFY sources excluded; presets-as-inputs deferred to Phase 2. Ready to brief/implement. |
 | 3 | **[04] PWA — Phase 1** | `feat/pwa` | 🟢 Unblocked | Spike A resolved 2026-07-17 — exact `performWirelessSiteSurvey`/`addWirelessProfile` wire format recovered from the device's own setup UI. Ready to plan/implement. |
 | 4 | **[04] PWA — Phase 2** | `feat/pwa` | 🔴 Blocked (needs P1) | Group management via zone API. Needs phase 1 scaffold. |
 | 5 | **[04] PWA — Phase 3** | `feat/pwa` | 🔴 Blocked (spike B) | Homebridge config sync. Blocked on spike B + phase 1. |
@@ -47,7 +47,7 @@ count. Bands: **Small** (room to spare), **Medium** (one fits comfortably),
 | ---- | ---- | ------------------------- |
 | **Speaker zones** | Heavy | New `ZoneConfig` type + config schema; `zones` threaded through `PlatformConfiguration`; `SoundTouchZoneAccessory` + `SoundTouchZoneOnCharacteristic`; startup `getZone()` sync; zone set/dissolve via `setZone`/`removeZoneSlave`. |
 | **Power-on resume last-played source** | Medium | Modifies existing `setOn` (must read + understand, plus rebase context from the already-merged power-state-accuracy fix); new `/recents` endpoint + client method is additive/low-risk; wiring `recentsUpdated` through `GabboClient` touches an existing notification map; moderate new test surface (API parsing, gabbo wiring, `setOn` behavior). |
-| **[03] Source selection** | TBD (blocked) | Estimate after TV-vs-Switch spike resolves the architecture. |
+| **[03] Source selection** | Heavy | Spike settled the architecture. New opt-in config field threaded through schema + `ExternalPlatformConfig` + `PlatformConfiguration` + tests; a new external-accessory publishing path in `discoverDevices` (kept out of the bridged cache/prune loops, with its own teardown); a new `SoundTouchTVAccessory` wrapper plus `Active` + `ActiveIdentifier` characteristics wired into the gabbo refresh path for power lock-step; SPOTIFY/status filtering + `ContentItem` mapping tests. On-device verification is mandatory (external pairing + power-tile lock-step). |
 | **[04] PWA — Phase 1** | Heavy | Unblocked but not yet estimated in detail — new `web/` workspace (Vite + Svelte 5) + embedded hapi server scaffolding from scratch, plus the join flow (`performWirelessSiteSurvey`/`addWirelessProfile`) and offline-first PWA install/service-worker concerns. Likely needs its own architect pass to split into sub-sessions before briefing. |
 | **[04] PWA — Phase 2–3** | TBD (blocked) | Each phase its own session minimum once Phase 1 scaffold exists. |
 
@@ -99,7 +99,7 @@ What must be resolved:
 ## Key coupling notes
 
 - **WebSocket push (plan 07) augments polling — it does not replace it.** Phase 1/2 is in beta. Polling stays as a fallback until Phase 3 resolves standby/reconnect behaviour.
-- **Source selection is the highest-risk HomeKit feature.** The Television+InputSource pattern has real caveats (external publishing, `Active`/`On` power model clash, buried UX). The per-source Switch fallback is Plan B if the TV path is too rough.
+- **Source selection: architecture settled (spike RESOLVED 2026-07-18).** Television+InputSource confirmed on a real device; Plan B (per-source Switches) retired. Remaining build risk is the `Active`/`On` power lock-step — solved by wiring the external TV accessory into the same gabbo `gabboEvents` refresh path the bridged `On` already uses (do not replace the existing `On` surface). Opt-in per device; SPOTIFY excluded; presets-as-inputs deferred. Detail in `plans/2026-06-19-source-selection.md`.
 - **The PWA is architecturally independent** from the HomeKit features. It introduces a new `web/` workspace and `src/server/` embedded HTTP server — no overlap with the HAP characteristic layer.
 - **Typed preset management (plan 08) is in beta.** A future plan can wire up HomeKit controls (preset select, station status) or PWA management once the current Bose cloud emulator/manual setup path is settled.
 
