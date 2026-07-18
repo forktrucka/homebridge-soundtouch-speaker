@@ -1,6 +1,6 @@
 ---
 feature: Key zone primary/slave assignment by stable device id, not a mutable name
-status: planned # planned | in-progress | beta | done | cancelled
+status: in-progress # planned | in-progress | beta | done | cancelled
 date: 2026-07-18
 branch: fix/zone-stable-device-id # branched off dev
 commit-type: fix
@@ -76,6 +76,8 @@ The durable record so we don't re-litigate decisions or re-investigate facts.
 | 2026-07-18 | **Known migration limitation (documented, not fixed here):** an install whose zone name reference is *already broken* before upgrading (rename happened pre-upgrade, no context persisted yet) still can't self-heal on the first post-upgrade run — there is no persisted id to fall back to. The user fixes the name once; it is durable thereafter. | The fallback needs at least one successful name-resolution to seed the persisted id. Cannot recover history that was never recorded. | Attempting fuzzy/heuristic name matching (unreliable, could mis-bind to the wrong speaker). |
 | 2026-07-18 | **Unresolvable-member handling (the "why did my zone disappear" signal).** (1) Primary unresolvable by *both* name and persisted id → the zone cannot function (no master) → keep the existing `warn` and skip; a zone with no master has nothing to drive. (2) Some slaves unresolvable but primary + ≥1 slave resolve → register the zone with the resolvable members and `warn` per missing slave (matches today's partial behavior). The `warn` message is upgraded to name the zone, the missing reference, and state that a previously-grouped device is no longer discoverable (device replaced/reset/offline). | Mirrors the `homebridge-developer` "catch and log own errors" convention. A `warn` is judged sufficient: there is no clean HAP "misconfigured/faulted" state for a Switch, and throwing `HapStatusError` from the characteristic get would make the tile show "No Response" without explaining why. Escalation is explicitly considered and deferred. | (a) Throwing `HapStatusError` to force a visible "No Response" tile — no room to convey the cause, and scope creep. (b) Keeping a fully-unresolvable (no primary) zone registered as a dead tile — misleading; a master-less zone can do nothing. Both recorded as considered-and-deferred so a future session can revisit if warns prove too quiet in practice. |
 | 2026-07-18 | **`fix:` commit type → patch.** Corrects fragile behavior in an already-shipped feature (zones silently orphan on speaker rename); no new user-facing config field (schema field *types* unchanged — only description text clarifies rename tolerance). | Same class and reasoning as the preserve-homekit-rename fix (`fix:`, PR #167). | `feat:` (no new capability or config field); `chore:`/`refactor:` (user-visible correctness fix, not internal-only). |
+| 2026-07-18 | **Persist-on-change write site chosen: inside `_registerZoneAccessory()`, immediately after the accessory (new or restored) is resolved**, comparing the merged `memberDeviceIds` against whatever is already on `accessory.context.memberDeviceIds` via a small `memberDeviceIdsEqual()` helper (order-independent shallow compare). `_resolveZones()` now also does its own uuid/`existingAccessory` lookup up front (needed to read `persistedIds` before resolving), so `_registerZoneAccessory()` takes `uuid` + `existingAccessory` as params instead of re-deriving them — avoids a duplicate cache lookup as the plan allowed. | Mirrors the existing speaker-accessory `contextChanged` pattern at the site that already owns the accessory object for both the new- and restored-accessory branches. | Persisting inside `_resolveZones()` before the accessory object exists (new-accessory case) would require passing the not-yet-created accessory back out, or a second lookup — more plumbing for no benefit. |
+| 2026-07-18 | **Test-harness finding (not a design decision, but worth recording so a future session doesn't re-discover it): `Logger.warn(string)` forwards to `homebridgeLogger.log(LogLevel.WARN, message, ...)`, not `homebridgeLogger.warn(...)`.** Unit tests asserting on zone warn messages must inspect the `homebridgeLogger.log` mock's calls filtered to `LogLevel.WARN` (`'warn'` in the manual mock), not `homebridgeLogger.warn` directly — the latter is present on the stub but never invoked by the formatted logger for plain-string warnings. | Discovered when the resolution-tier unit tests initially asserted `homebridgeLogger.warn` and got 0 calls; confirmed via `src/utils/FormattedLogger.ts` `warn()`/`log()`. | — |
 
 ## If cancelled
 
@@ -181,18 +183,18 @@ Concrete files/dirs this touches.
 
 ## Implementation checklist
 
-- [ ] Add `_findDeviceById()` to `src/platform.ts`
-- [ ] Rework `_resolveZones()` to resolve name-first / persisted-id-fallback and
+- [x] Add `_findDeviceById()` to `src/platform.ts`
+- [x] Rework `_resolveZones()` to resolve name-first / persisted-id-fallback and
       read `existingAccessory.context.memberDeviceIds`
-- [ ] Persist merged `memberDeviceIds` to accessory context +
+- [x] Persist merged `memberDeviceIds` to accessory context +
       `updatePlatformAccessories` on change (single write site)
-- [ ] Upgrade the unresolved-member `warn` messages
-- [ ] Confirm no config-shape change needed; update `config.schema.json`
+- [x] Upgrade the unresolved-member `warn` messages
+- [x] Confirm no config-shape change needed; update `config.schema.json`
       descriptions only
-- [ ] Add `_resolveZones()` resolution-tier unit tests
-- [ ] Add the zone-rename integration scenario (persisted id survives a rename)
-- [ ] `npm run typecheck && npm run lint && npm test`
-- [ ] `npm run knip` — confirm no unused exports introduced
+- [x] Add `_resolveZones()` resolution-tier unit tests
+- [x] Add the zone-rename integration scenario (persisted id survives a rename)
+- [x] `npm run typecheck && npm run lint && npm test`
+- [x] `npm run knip` — confirm no unused exports introduced
 
 ## Verification
 

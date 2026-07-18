@@ -532,4 +532,52 @@ describe('Zone lifecycle', () => {
       api.registeredAccessories.some((a) => a.displayName === 'Downstairs')
     ).toBe(false);
   });
+
+  it('keeps a zone registered and functional across a restart when a member speaker is renamed via config', async () => {
+    createPlatform();
+    await api.emitDidFinishLaunching();
+
+    const zoneAccessory = api.registeredAccessories.find(
+      (a) => a.displayName === 'Downstairs'
+    );
+    expect(zoneAccessory?.context.memberDeviceIds).toEqual({
+      Kitchen: PRIMARY_DEVICE_ID,
+      Lounge: SLAVE_DEVICE_ID,
+    });
+
+    // Simulate a Homebridge restart where the primary speaker's config `name`
+    // override has been renamed but the zone's `primary` reference was not
+    // updated to match — the exact scenario that used to silently orphan the
+    // zone.
+    const restartedPlatform = createPlatform({
+      accessories: [
+        { name: 'Kitchen Renamed', ip: '127.0.0.1', port: primaryPort },
+        { name: 'Lounge', ip: '127.0.0.1', port: slavePort },
+      ],
+    });
+    restartedPlatform.configureAccessory(
+      zoneAccessory as unknown as PlatformAccessory
+    );
+
+    await api.emitDidFinishLaunching();
+
+    // The zone accessory is not pruned as stale...
+    expect(api.unregisteredAccessories).not.toContain(zoneAccessory);
+
+    // ...and it still functions: activating it drives setZone with the
+    // resolved primary's device id, proving resolution fell back to the
+    // persisted id rather than the (now-mismatched) config name.
+    const service = zoneAccessory?.services.find(
+      (s) => s.type.name === 'Switch'
+    );
+    const onCharacteristic = service?.characteristics.get('On');
+
+    await invokeSetAndSettle(onCharacteristic, true);
+
+    const setZoneRequest = primaryServer.requests.find(
+      (r) => r.path === '/setZone'
+    );
+    expect(setZoneRequest).toBeDefined();
+    expect(setZoneRequest?.body).toContain(`master="${PRIMARY_DEVICE_ID}"`);
+  });
 });

@@ -221,7 +221,7 @@
             "primary": {
               "type": "string",
               "required": true,
-              "description": "Name of the master speaker for this zone, matching its name under accessories (or its device-reported name)."
+              "description": "Name of the master speaker for this zone, matching its name under accessories (or its device-reported name). Once resolved, the assignment is remembered by the speaker's stable identity, so renaming the speaker later (in this config or from the Bose app) won't break the zone."
             },
             "slaves": {
               "type": "array",
@@ -230,7 +230,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "Names of the speakers to group with the primary when this zone is turned on."
+              "description": "Names of the speakers to group with the primary when this zone is turned on. Once resolved, each assignment is remembered by the speaker's stable identity, so renaming a speaker later (in this config or from the Bose app) won't break the zone."
             },
             "accessoryType": {
               "type": "string",

@@ -141,6 +141,7 @@ class HapStatusError extends Error {
 export class HomebridgeApiStub {
   readonly registeredAccessories: StubPlatformAccessory[] = [];
   readonly unregisteredAccessories: StubPlatformAccessory[] = [];
+  readonly updatedAccessories: StubPlatformAccessory[] = [];
 
   readonly platformAccessory = StubPlatformAccessory;
 
@@ -191,6 +192,10 @@ export class HomebridgeApiStub {
     accessories: StubPlatformAccessory[]
   ): void {
     this.unregisteredAccessories.push(...accessories);
+  }
+
+  updatePlatformAccessories(accessories: StubPlatformAccessory[]): void {
+    this.updatedAccessories.push(...accessories);
   }
 
   async emitDidFinishLaunching(): Promise<void> {
