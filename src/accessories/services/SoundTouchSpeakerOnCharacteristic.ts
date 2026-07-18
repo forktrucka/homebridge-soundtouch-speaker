@@ -11,7 +11,9 @@ import { SoundTouchSpeakerCharacteristic } from './SoundTouchSpeakerCharacterist
 import type { GabboUpdateType } from '../../devices/SoundTouch/api/GabboClient.js';
 
 export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacteristic {
-  override readonly gabboEvents: readonly GabboUpdateType[] = ['connectionStateUpdated'];
+  override readonly gabboEvents: readonly GabboUpdateType[] = [
+    'connectionStateUpdated',
+  ];
   private readonly service: Service;
 
   private characteristic: Characteristic;
@@ -55,8 +57,27 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
     const actualPowerStatus = await SoundTouchDevice.deviceIsOn(this.device);
     if (actualPowerStatus !== desiredPowerStatus) {
       await this.device.api.pressKey(KeyValue.power);
+      if (desiredPowerStatus) {
+        await this.resumeLastPlayedSource();
+      }
     }
     this.log.debug('set status - %s', desiredPowerStatus ? 'on' : 'off');
+  }
+
+  /**
+   * Mimics the on-device behavior of resuming whatever was last playing
+   * (preset, streaming source, AUX input) when powering on, rather than
+   * leaving the speaker idle. Uses the device's own `/recents` list — the
+   * same firmware-maintained state the physical power button relies on —
+   * so this stays in sync with the device's own notion of "most recent"
+   * rather than reconstructing it from `nowPlaying` polling.
+   */
+  private async resumeLastPlayedSource(): Promise<void> {
+    const recents = await this.device.api.getRecents();
+    const mostRecent = recents?.[0];
+    if (mostRecent) {
+      await this.device.api.selectSource(mostRecent.contentItem);
+    }
   }
 
   async getOn(): Promise<CharacteristicValue> {

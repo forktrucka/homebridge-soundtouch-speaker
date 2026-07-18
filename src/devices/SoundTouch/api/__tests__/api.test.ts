@@ -300,6 +300,36 @@ describe('API', () => {
     });
   });
 
+  describe('recents', () => {
+    it('parses recents when present, in device order', async () => {
+      mock
+        .onGet(`${BASE}/recents`)
+        .reply(
+          200,
+          '<recents>' +
+            '<recent utcTime="1600000500">' +
+            '<ContentItem source="SPOTIFY" sourceAccount="a"><itemName>Latest</itemName></ContentItem>' +
+            '</recent>' +
+            '<recent utcTime="1600000000">' +
+            '<ContentItem source="AUX" sourceAccount="AUX"><itemName>Older</itemName></ContentItem>' +
+            '</recent>' +
+            '</recents>'
+        );
+
+      const recents = await api.getRecents();
+
+      expect(recents).toHaveLength(2);
+      expect(recents?.[0].contentItem.itemName).toBe('Latest');
+      expect(recents?.[1].contentItem.itemName).toBe('Older');
+    });
+
+    it('returns undefined when there are no recents', async () => {
+      mock.onGet(`${BASE}/recents`).reply(200, '<recents></recents>');
+
+      await expect(api.getRecents()).resolves.toBeUndefined();
+    });
+  });
+
   describe('storePreset', () => {
     it('posts a preset with the correct slot id and ContentItem', async () => {
       mock
@@ -321,14 +351,19 @@ describe('API', () => {
       expect(body).toContain('source="LOCAL_INTERNET_RADIO"');
       expect(body).toContain('type="stationurl"');
       expect(body).toContain('isPresetable="true"');
-      expect(body).toContain('location="http://192.168.1.1:18090/preset/2.json"');
+      expect(body).toContain(
+        'location="http://192.168.1.1:18090/preset/2.json"'
+      );
     });
 
     it('returns false when the response contains no status element', async () => {
       mock.onPost(`${BASE}/storePreset`).reply(200, '<nope/>');
 
       await expect(
-        api.storePreset(1, { source: 'LOCAL_INTERNET_RADIO', sourceAccount: '' })
+        api.storePreset(1, {
+          source: 'LOCAL_INTERNET_RADIO',
+          sourceAccount: '',
+        })
       ).resolves.toBe(false);
     });
   });

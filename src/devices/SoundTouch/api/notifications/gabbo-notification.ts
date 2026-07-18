@@ -55,7 +55,7 @@ const UPDATE_MAP: Readonly<Record<string, Mapping>> = {
   sourcesUpdated: { type: 'sources', refetch: Endpoints.sources },
   infoUpdated: { type: 'info', refetch: Endpoints.info },
   nowSelectionUpdated: { type: 'nowSelection' },
-  recentsUpdated: { type: 'recents' },
+  recentsUpdated: { type: 'recents', refetch: Endpoints.recents },
   connectionStateUpdated: { type: 'connectionState' },
   swUpdateStatusUpdated: { type: 'swUpdateStatus' },
   siteSurveyResultsUpdated: { type: 'siteSurveyResults' },

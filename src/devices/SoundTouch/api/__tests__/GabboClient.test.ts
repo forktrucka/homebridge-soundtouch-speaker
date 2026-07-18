@@ -10,10 +10,7 @@ import { FakeGabboServer } from '../../../../__integration__/helpers/fake-gabbo-
 import { GabboClient } from '../GabboClient.js';
 
 /** Wait for an event to fire on an EventEmitter, resolving with its first argument. */
-function nextEvent(
-  emitter: GabboClient,
-  event: string
-): Promise<unknown> {
+function nextEvent(emitter: GabboClient, event: string): Promise<unknown> {
   return new Promise((resolve) => {
     emitter.once(event, (payload) => resolve(payload));
   });
@@ -28,7 +25,10 @@ function nextEventWithTimeout(
   return Promise.race([
     nextEvent(emitter, event),
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timed out waiting for '${event}'`)), timeoutMs)
+      setTimeout(
+        () => reject(new Error(`Timed out waiting for '${event}'`)),
+        timeoutMs
+      )
     ),
   ]);
 }
@@ -119,14 +119,24 @@ describe('GabboClient', () => {
       await expect(update).resolves.not.toThrow();
     });
 
+    it('emits recentsUpdated when a recentsUpdated frame arrives', async () => {
+      client.connect();
+      await nextEventWithTimeout(client, 'connected');
+
+      const update = nextEventWithTimeout(client, 'recentsUpdated');
+      server.push(
+        '<updates deviceID="DEV1"><recentsUpdated><recents/></recentsUpdated></updates>'
+      );
+
+      await expect(update).resolves.not.toThrow();
+    });
+
     it('emits bassUpdated when a bassUpdated frame arrives', async () => {
       client.connect();
       await nextEventWithTimeout(client, 'connected');
 
       const update = nextEventWithTimeout(client, 'bassUpdated');
-      server.push(
-        '<updates deviceID="DEV1"><bassUpdated/></updates>'
-      );
+      server.push('<updates deviceID="DEV1"><bassUpdated/></updates>');
 
       await expect(update).resolves.not.toThrow();
     });
@@ -319,7 +329,9 @@ describe('GabboClient', () => {
         await nextEventWithTimeout(client, 'connected');
 
         const disconnectedEvents: unknown[] = [];
-        client.on('disconnected', (payload) => disconnectedEvents.push(payload));
+        client.on('disconnected', (payload) =>
+          disconnectedEvents.push(payload)
+        );
 
         // Advance through two ping ticks, pushing a frame right before each
         // one so lastActivityAt never goes stale.

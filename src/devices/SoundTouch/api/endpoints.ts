@@ -14,6 +14,7 @@ export enum Endpoints {
   bass = 'bass',
   presets = 'presets',
   storePreset = 'storePreset',
+  recents = 'recents',
   name = 'name',
   getGroup = 'getGroup',
 }
