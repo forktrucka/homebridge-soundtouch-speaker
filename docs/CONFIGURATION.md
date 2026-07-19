@@ -116,7 +116,7 @@ effect. Full setup is documented in
 Field reference:
 
 - `enabled`: Enable the local callback server. __default__: **false**
-- `host`: Hostname or IP that Bose's cloud (as redirected by uncorking) uses to reach this server. __default__: **homebridge.local**
+- `host`: Hostname or IP that Bose's cloud (as redirected by uncorking) uses to reach this server. __default__: **homebridge.local** — SoundTouch speakers cannot resolve `.local` mDNS hostnames themselves, so if uncorking fails to reach the emulator, set this to your Homebridge host's IP address (or another hostname the speaker's own DNS can resolve) and use that same value when uncorking.
 - `port`: Port the callback server listens on. __default__: **8000**
 
 ## Examples
