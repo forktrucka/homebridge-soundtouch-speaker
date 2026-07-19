@@ -5,7 +5,7 @@ import { XMLElement } from '../utils/xml-element.js';
 describe('presetFromElement', () => {
   it('parses id, dates and content item', () => {
     const el = new XMLElement({
-      $: { id: '3', createdOn: '1600000000', updateOn: '1600000500' },
+      $: { id: '3', createdOn: '1600000000', updatedOn: '1600000500' },
       ContentItem: [
         { $: { source: 'SPOTIFY', sourceAccount: 'acct' }, itemName: ['Mix'] },
       ],
@@ -39,5 +39,34 @@ describe('presetFromElement', () => {
       ContentItem: [{ $: {} }],
     });
     expect(presetFromElement(el)).toBeUndefined();
+  });
+
+  it('parses a real-device /presets preset (attribute is updatedOn, not updateOn)', () => {
+    // Regression test for a dormant typo (introduced in #52, made
+    // load-bearing by #166): the real Bose device's /presets XML uses
+    // `updatedOn`, not `updateOn`. A curl against a real speaker returned:
+    // <preset id="1" createdOn="1784432310" updatedOn="1784432310">...
+    const el = new XMLElement({
+      $: { id: '1', createdOn: '1784432310', updatedOn: '1784432310' },
+      ContentItem: [
+        {
+          $: { source: 'PRODUCT', sourceAccount: 'TUNEIN', location: 's1234' },
+          itemName: ['Kitchen Station'],
+        },
+      ],
+    });
+
+    const result = presetFromElement(el);
+
+    expect(result).toEqual({
+      id: 1,
+      createdDate: new Date(1784432310 * 1000),
+      updatedDate: new Date(1784432310 * 1000),
+      contentItem: expect.objectContaining({
+        source: 'PRODUCT',
+        sourceAccount: 'TUNEIN',
+        itemName: 'Kitchen Station',
+      }),
+    });
   });
 });

@@ -286,7 +286,7 @@ describe('API', () => {
         .onGet(`${BASE}/presets`)
         .reply(
           200,
-          '<presets><preset id="1" createdOn="1600000000" updateOn="1600000000">' +
+          '<presets><preset id="1" createdOn="1600000000" updatedOn="1600000000">' +
             '<ContentItem source="SPOTIFY" sourceAccount="a"><itemName>Mix</itemName></ContentItem></preset></presets>'
         );
       const presets = await api.getPresets();
@@ -297,6 +297,32 @@ describe('API', () => {
     it('returns undefined when there are no presets', async () => {
       mock.onGet(`${BASE}/presets`).reply(200, '<presets></presets>');
       await expect(api.getPresets()).resolves.toBeUndefined();
+    });
+
+    it('returns a non-empty array for a realistic multi-preset /presets document', async () => {
+      // Regression test: a real device's /presets response uses `updatedOn`
+      // (not `updateOn`) on every <preset>. Confirmed via curl against a real
+      // speaker with 5 configured presets; getPresets() previously returned
+      // an empty array because presetFromElement() always returned undefined.
+      mock
+        .onGet(`${BASE}/presets`)
+        .reply(
+          200,
+          '<presets deviceID="D">' +
+            '<preset id="1" createdOn="1784432310" updatedOn="1784432310">' +
+            '<ContentItem source="PRODUCT" sourceAccount="TUNEIN" location="s1"><itemName>Station One</itemName></ContentItem>' +
+            '</preset>' +
+            '<preset id="2" createdOn="1784432311" updatedOn="1784432311">' +
+            '<ContentItem source="SPOTIFY" sourceAccount="acct"><itemName>Mix</itemName></ContentItem>' +
+            '</preset>' +
+            '</presets>'
+        );
+
+      const presets = await api.getPresets();
+
+      expect(presets).toHaveLength(2);
+      expect(presets?.[0]).toMatchObject({ id: 1 });
+      expect(presets?.[1]).toMatchObject({ id: 2 });
     });
   });
 

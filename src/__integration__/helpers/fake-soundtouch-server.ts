@@ -53,7 +53,7 @@ export function presetsXml(
   const presetXml = presets
     .map(
       (p) =>
-        `<preset id="${p.slot}" createdOn="1000" updateOn="1000">` +
+        `<preset id="${p.slot}" createdOn="1000" updatedOn="1000">` +
         `<ContentItem source="${p.source}"${p.location ? ` location="${p.location}"` : ''} isPresetable="true"/>` +
         '</preset>'
     )
