@@ -51,32 +51,32 @@ normal restarts but a firmware update may revert it.
 
 ## Configuring the plugin
 
-These fields are not yet in the Homebridge UI — edit `config.json` directly:
+These fields are all available in the Homebridge Config UI X settings form,
+or edit `config.json` directly:
 
 ```json
 {
-  "platform": "SoundTouchSpeaker",
+  "platform": "SoundTouchHomebridgePlugin",
   "global": {
     "server": {
       "enabled": true
     },
+    "presetSyncEnabled": true,
+    "presetSyncSchedule": "0 0 * * *",
     "presets": [
       { "type": "station", "slot": 1, "name": "More FM Auckland", "tuneInId": "s7162" },
       { "type": "station", "slot": 2, "name": "RNZ National",     "tuneInId": "s15720" }
-    ],
-    "presetSyncSchedule": "0 0 * * *"
+    ]
   }
 }
 ```
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `server.enabled` | `false` | Start the built-in emulator and enable preset sync |
-| `server.host` | `homebridge.local` | Address the speaker uses to reach the emulator |
-| `server.port` | `8000` | Port the emulator listens on |
-| `presets[].slot` | — | Preset button 1–6 |
-| `presets[].tuneInId` | — | TuneIn station ID, e.g. `s7162` |
-| `presetSyncSchedule` | `0 0 * * *` | Cron schedule to re-write presets (midnight daily) |
+`presetSyncEnabled` must be `true` for the schedule below to actually run —
+`server.enabled` alone only starts the emulator (needed for on-demand TuneIn
+lookups), it doesn't push presets on its own. See the full field reference
+in [docs/CONFIGURATION.md](CONFIGURATION.md#bose-cloud-server-globalserver)
+for every option, including per-accessory `presetSyncEnabled` overrides and
+the full cron syntax `presetSyncSchedule` supports.
 
 ## Finding TuneIn IDs
 
