@@ -11,6 +11,13 @@ Each speaker must be redirected away from Bose's dead servers to your
 Homebridge host. This is called **uncorking**. The plugin expects the emulator
 at `http://homebridge.local:8000` by default (configurable — see below).
 
+**Use an IP address, not `homebridge.local`, when uncorking.** SoundTouch
+speakers cannot resolve `.local` mDNS hostnames themselves — only your
+Homebridge instance and other mDNS-aware clients on the network can. Uncork
+with your Homebridge host's actual IP address (or another hostname the
+speaker's own DNS can resolve), and set `global.server.host` to that same
+value in your config.
+
 **Recommended: use SoundCork**
 
 [SoundCork](https://github.com/deborahgu/soundcork) (© 2025 Deborah Kaplan
@@ -51,32 +58,34 @@ normal restarts but a firmware update may revert it.
 
 ## Configuring the plugin
 
-These fields are not yet in the Homebridge UI — edit `config.json` directly:
+These fields are all available in the Homebridge Config UI X settings form,
+or edit `config.json` directly:
 
 ```json
 {
-  "platform": "SoundTouchSpeaker",
+  "platform": "SoundTouchHomebridgePlugin",
   "global": {
     "server": {
       "enabled": true
     },
+    "presetSyncEnabled": true,
     "presets": [
       { "type": "station", "slot": 1, "name": "More FM Auckland", "tuneInId": "s7162" },
       { "type": "station", "slot": 2, "name": "RNZ National",     "tuneInId": "s15720" }
-    ],
-    "presetSyncSchedule": "0 0 * * *"
+    ]
   }
 }
 ```
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `server.enabled` | `false` | Start the built-in emulator and enable preset sync |
-| `server.host` | `homebridge.local` | Address the speaker uses to reach the emulator |
-| `server.port` | `8000` | Port the emulator listens on |
-| `presets[].slot` | — | Preset button 1–6 |
-| `presets[].tuneInId` | — | TuneIn station ID, e.g. `s7162` |
-| `presetSyncSchedule` | `0 0 * * *` | Cron schedule to re-write presets (midnight daily) |
+`presetSyncEnabled` must be `true` for presets to sync — `server.enabled`
+alone only starts the emulator (needed for on-demand TuneIn lookups), it
+doesn't push presets on its own. `presetSyncSchedule` is optional and
+defaults to midnight daily (`0 0 * * *`); set it only if you want a different
+cron schedule, e.g. `"presetSyncSchedule": "0 3 * * 1"` for weekly at 3am
+Monday. See the full field reference in
+[docs/CONFIGURATION.md](CONFIGURATION.md#bose-cloud-server-globalserver) for
+every option, including per-accessory `presetSyncEnabled` overrides and the
+full cron syntax `presetSyncSchedule` supports.
 
 ## Finding TuneIn IDs
 

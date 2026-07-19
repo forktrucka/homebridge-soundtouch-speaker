@@ -79,31 +79,40 @@ node -e "const p = require('./package.json'); console.log(p.version)"
 Must print `0.0.0-development`. If it's anything else the version was bumped by
 hand — that's a mistake (semantic-release owns versions).
 
-### 5. Config schema ↔ README alignment
+### 5. Config schema ↔ docs alignment
 
-Read both files:
+Read all three:
 - `config.schema.json` — the source of truth for every config property
-- `README.md` — the user-facing docs
+- `docs/CONFIGURATION.md` — the full field-by-field reference (this is where
+  every property lives now, not `README.md` — the README only keeps a couple
+  of quick-start examples and links out to this file)
+- `README.md` — quick-start only; check it still links to
+  `docs/CONFIGURATION.md` and hasn't grown a stale duplicate field list
 
-For every property in the schema, check it appears in the README with an
-accurate description. Pay particular attention to:
-- `global` properties (under **Global element**)
+For every property in the schema, check it appears in `docs/CONFIGURATION.md`
+with an accurate description. Pay particular attention to:
+- `global` properties (under **Global element**), including `presets`,
+  `presetSyncEnabled`, `presetSyncSchedule`, and `server`
 - per-`accessories` properties (under **Accessory element**)
+- `zones` properties (under **Zone element**), including `defaultSource`
 - new enum values (e.g. `accessoryType` choices)
 
-Flag any property that is in the schema but missing from the README, described
-inaccurately, or still referred to as a "future" or "planned" feature when it
-is already implemented.
+Flag any property that is in the schema but missing from
+`docs/CONFIGURATION.md`, described inaccurately, or still referred to as a
+"future" or "planned" feature when it is already implemented.
 
-Also check the reverse: if the README documents an option that doesn't exist in
-the schema, flag it.
+Also check the reverse: if `docs/CONFIGURATION.md` documents an option that
+doesn't exist in the schema, flag it.
 
-### 6. README — no stale "future feature" language
+### 6. README / docs — no stale "future feature" language
 
-Scan README.md for phrases like "future versions", "if there is demand",
-"planned", "coming soon", or "not yet supported". Cross-reference against the
-actual source code. Flag any feature described as future that is already
-implemented.
+Scan `README.md`, `docs/CONFIGURATION.md`, and `docs/bose-cloud-setup.md` for
+phrases like "future versions", "if there is demand", "planned", "coming
+soon", "not yet in the Homebridge UI", or "not yet supported". Cross-reference
+against the actual source code. Flag any feature described as future that is
+already implemented — this class of bug has bitten this repo before (e.g.
+`docs/bose-cloud-setup.md` claiming preset/server fields weren't in the
+Homebridge UI well after they'd been added to `config.schema.json`).
 
 To find what's implemented, check:
 - `src/ExternalPlatformConfig.ts` — the canonical type for config fields
