@@ -1,5 +1,15 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { SoundTouchZoneOnCharacteristic } from '../SoundTouchZoneOnCharacteristic.js';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
+import {
+  SoundTouchZoneOnCharacteristic,
+  SET_ZONE_ON_DEBOUNCE_MS,
+} from '../SoundTouchZoneOnCharacteristic.js';
 import type {
   NowPlaying,
   Preset,
@@ -175,9 +185,21 @@ async function build({
   };
 }
 
+// Advances past the debounce window and flushes the microtasks it triggers
+// (the device action, and the live re-read/updateValue), so the debounced
+// action has fully settled before assertions run.
+async function settle(extraMs = 0): Promise<void> {
+  await jest.advanceTimersByTimeAsync(SET_ZONE_ON_DEBOUNCE_MS + extraMs);
+}
+
 describe('SoundTouchZoneOnCharacteristic', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('#getOn', () => {
@@ -258,6 +280,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       const { subject, setZone } = await build();
 
       await subject.setOn(true);
+      await settle();
 
       expect(setZone).toHaveBeenCalledWith({
         master: 'MASTER-1',
@@ -273,6 +296,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       const { subject, removeZoneSlave } = await build();
 
       await subject.setOn(false);
+      await settle();
 
       expect(removeZoneSlave).toHaveBeenCalledWith({
         master: 'MASTER-1',
@@ -284,14 +308,29 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       });
     });
 
-    it('throws HapStatusError via HAP binding when the device is unreachable', async () => {
+    it('resolves the HAP set handler promptly, without waiting on the debounced action', async () => {
+      const { hapCharacteristic, setZone } = await build();
+      setZone.mockImplementation(() => new Promise(() => undefined));
+
+      const handler = hapCharacteristic.onSet.mock.calls[0]?.[0] as (
+        value: unknown
+      ) => Promise<unknown>;
+
+      await expect(handler(true)).resolves.toBeUndefined();
+      // The debounce timer hasn't fired yet, so the device action - which
+      // would hang - has not started.
+      expect(setZone).not.toHaveBeenCalled();
+    });
+
+    it('does not propagate a debounced device failure to the HAP set handler (it settles, then updates via reconciliation instead)', async () => {
       const { hapCharacteristic, setZone } = await build();
       setZone.mockRejectedValue(new Error('network error'));
 
       const handler = hapCharacteristic.onSet.mock.calls[0]?.[0] as (
         value: unknown
       ) => Promise<unknown>;
-      await expect(handler(true)).rejects.toBeInstanceOf(FakeHapStatusError);
+
+      await expect(handler(true)).resolves.toBeUndefined();
     });
 
     it('powers on the primary and every slave that is in standby before activating the zone', async () => {
@@ -302,6 +341,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       });
 
       await subject.setOn(true);
+      await settle();
 
       expect(primary.api.holdKey).toHaveBeenCalledWith('POWER', 300);
       expect(slave1.api.holdKey).toHaveBeenCalledWith('POWER', 300);
@@ -319,6 +359,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       });
 
       await subject.setOn(true);
+      await settle();
 
       expect(primary.api.holdKey).not.toHaveBeenCalled();
       expect(slave1.api.holdKey).not.toHaveBeenCalled();
@@ -335,6 +376,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       );
 
       await subject.setOn(false);
+      await settle();
 
       expect(removeZoneSlave).toHaveBeenCalled();
       expect(primary.api.holdKey).toHaveBeenCalledWith('POWER', 300);
@@ -350,6 +392,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       });
 
       await subject.setOn(false);
+      await settle();
 
       expect(primary.api.holdKey).not.toHaveBeenCalled();
       expect(slave1.api.holdKey).not.toHaveBeenCalled();
@@ -364,6 +407,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       });
 
       await subject.setOn(true);
+      await settle();
 
       expect(refreshAccessoryForDevice).toHaveBeenCalledWith('MASTER-1');
       expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-1');
@@ -378,6 +422,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       });
 
       await subject.setOn(true);
+      await settle();
 
       expect(refreshAccessoryForDevice).not.toHaveBeenCalledWith('MASTER-1');
       expect(refreshAccessoryForDevice).not.toHaveBeenCalledWith('SLAVE-1');
@@ -392,6 +437,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       });
 
       await subject.setOn(false);
+      await settle();
 
       expect(refreshAccessoryForDevice).toHaveBeenCalledWith('MASTER-1');
       expect(refreshAccessoryForDevice).toHaveBeenCalledWith('SLAVE-1');
@@ -422,6 +468,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
         });
 
         await subject.setOn(true);
+        await settle();
 
         expect(primary.api.selectSource).toHaveBeenCalledWith(
           preset.contentItem
@@ -450,6 +497,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
         });
 
         await subject.setOn(true);
+        await settle();
 
         expect(primary.api.selectSource).not.toHaveBeenCalled();
         expect(setZone).toHaveBeenCalled();
@@ -461,6 +509,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
         });
 
         await subject.setOn(true);
+        await settle();
 
         expect(primary.api.selectSource).not.toHaveBeenCalled();
         expect(primary.api.getPresets).not.toHaveBeenCalled();
@@ -474,6 +523,7 @@ describe('SoundTouchZoneOnCharacteristic', () => {
         });
 
         await subject.setOn(true);
+        await settle();
 
         expect(primary.api.selectSource).not.toHaveBeenCalled();
         expect(setZone).toHaveBeenCalled();
@@ -493,6 +543,122 @@ describe('SoundTouchZoneOnCharacteristic', () => {
       refreshAccessoryForDevice.mockRejectedValueOnce(new Error('no wrapper'));
 
       await expect(subject.setOn(true)).resolves.toBeUndefined();
+      await expect(settle()).resolves.toBeUndefined();
+    });
+
+    describe('when a single call is made (no burst)', () => {
+      it('still activates the zone after the debounce window elapses', async () => {
+        const { subject, setZone } = await build();
+
+        await subject.setOn(true);
+
+        // Not yet applied - still within the debounce window.
+        expect(setZone).not.toHaveBeenCalled();
+
+        await settle();
+
+        expect(setZone).toHaveBeenCalledTimes(1);
+      });
+
+      it('still deactivates the zone after the debounce window elapses', async () => {
+        const { subject, removeZoneSlave } = await build();
+
+        await subject.setOn(false);
+
+        expect(removeZoneSlave).not.toHaveBeenCalled();
+
+        await settle();
+
+        expect(removeZoneSlave).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('when calls overlap (rapid slider-drag-driven taps without awaiting between them)', () => {
+      it('coalesces N rapid calls into exactly ONE physical action, targeting the LAST requested value', async () => {
+        const { subject, setZone, removeZoneSlave } = await build();
+
+        // Fire a burst of taps in quick succession, each well inside the
+        // debounce window, mirroring a Lightbulb Brightness-slider drag near
+        // zero rapidly toggling the coupled On characteristic.
+        const p1 = subject.setOn(true);
+        await jest.advanceTimersByTimeAsync(SET_ZONE_ON_DEBOUNCE_MS / 4);
+        const p2 = subject.setOn(false);
+        await jest.advanceTimersByTimeAsync(SET_ZONE_ON_DEBOUNCE_MS / 4);
+        const p3 = subject.setOn(true);
+
+        await Promise.all([p1, p2, p3]);
+        await settle();
+
+        // Only one physical action runs for the whole burst - not one per
+        // setOn call - and it targets the LAST requested value (true), not
+        // an intermediate one (false).
+        expect(setZone).toHaveBeenCalledTimes(1);
+        expect(removeZoneSlave).not.toHaveBeenCalled();
+      });
+
+      it('does not block each individual setOn call on the debounced device action completing', async () => {
+        const { subject, setZone } = await build();
+        let setZoneResolved = false;
+        setZone.mockImplementation(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(() => {
+                setZoneResolved = true;
+                resolve(true);
+              }, 5_000)
+            )
+        );
+
+        const p1 = subject.setOn(false);
+        const p2 = subject.setOn(true);
+        const p3 = subject.setOn(false);
+
+        // All three acks resolve immediately - well before the debounce
+        // window even elapses, let alone the (delayed) setZone call.
+        await Promise.all([p1, p2, p3]);
+
+        expect(setZoneResolved).toBe(false);
+        expect(setZone).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('closing the loop with a live re-read after the debounced action settles', () => {
+      it('pushes updateValue with a live re-read mirroring _isZoneActive on the success path', async () => {
+        const { subject, updateValue } = await build({
+          primarySource: 'AUX',
+          zoneResponse: {
+            master: 'MASTER-1',
+            members: [
+              { deviceId: 'SLAVE-1', ipAddress: '10.0.0.2' },
+              { deviceId: 'SLAVE-2', ipAddress: '10.0.0.3' },
+            ],
+          },
+        });
+
+        await subject.setOn(true);
+        await settle();
+
+        expect(updateValue).toHaveBeenCalledWith(true);
+      });
+
+      it('pushes updateValue with the live zone state and logs rather than throws when the device action fails', async () => {
+        const { subject, updateValue, setZone } = await build({
+          primarySource: 'STANDBY',
+          zoneResponse: undefined,
+        });
+        setZone.mockRejectedValue(new Error('device unreachable'));
+
+        await subject.setOn(true);
+
+        // The debounced action's rejection must not become an unhandled
+        // rejection or bubble out of the timer callback.
+        await expect(settle()).resolves.toBeUndefined();
+
+        // Live re-read still ran despite the setZone failure, and reports the
+        // actual (still inactive) zone state - not the optimistic requested
+        // value.
+        expect(updateValue).toHaveBeenCalledWith(false);
+      });
     });
   });
 

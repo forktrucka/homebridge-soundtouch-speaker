@@ -16,6 +16,7 @@ import {
   presetsXml,
 } from './helpers/fake-soundtouch-server.js';
 import { HomebridgeApiStub } from './helpers/homebridge-stub.js';
+import { SET_ZONE_ON_DEBOUNCE_MS } from '../zones/SoundTouchZoneOnCharacteristic.js';
 
 const PRIMARY_DEVICE_ID = 'MASTER-MAC';
 const SLAVE_DEVICE_ID = 'SLAVE-MAC';
@@ -32,15 +33,18 @@ function zoneXml(
 const OK_STATUS_XML = '<status>OK</status>';
 
 /**
- * Zone power-on/off now holds the POWER key for a deliberate 300ms (see
- * SoundTouchZoneOnCharacteristic) rather than pressing and releasing
- * instantly. That hold uses a real setTimeout while this suite fakes
- * timers (to keep the accessory reconciliation interval parked), and the
- * key press/release themselves round-trip over a real socket to the fake
- * server — so a single fixed-size `advanceTimersByTimeAsync` call can race
- * ahead of the timer actually being scheduled. Poll in small increments,
- * yielding to the real event loop between them via `setImmediate` (not
- * faked), until the characteristic's own promise settles.
+ * `setOn` is debounced (see SoundTouchZoneOnCharacteristic /
+ * SET_ZONE_ON_DEBOUNCE_MS): `invokeSet` itself now acks promptly, and the
+ * real activate/deactivate sequence only runs once the debounce window
+ * elapses with no newer call. That sequence also holds the POWER key for a
+ * deliberate 300ms per device, and both the debounce timer and the hold use
+ * real setTimeouts while this suite fakes timers (to keep the accessory
+ * reconciliation interval parked); the key press/release themselves
+ * round-trip over a real socket to the fake server too — so a single
+ * fixed-size `advanceTimersByTimeAsync` call can race ahead of a timer that
+ * hasn't been scheduled yet. Poll in small increments, yielding to the real
+ * event loop between them via `setImmediate` (not faked), well past the
+ * debounce window plus enough headroom for the physical action to settle.
  */
 async function invokeSetAndSettle(
   characteristic: { invokeSet(value: boolean): Promise<void> } | undefined,
@@ -50,15 +54,11 @@ async function invokeSetAndSettle(
   if (!promise) {
     return;
   }
-  let settled = false;
-  promise.finally(() => {
-    settled = true;
-  });
-  for (let i = 0; i < 50 && !settled; i++) {
-    await jest.advanceTimersByTimeAsync(50);
+  await promise;
+  for (let i = 0; i < 60; i++) {
+    await jest.advanceTimersByTimeAsync(SET_ZONE_ON_DEBOUNCE_MS / 4);
     await new Promise((resolve) => setImmediate(resolve));
   }
-  await promise;
 }
 
 describe('Zone lifecycle', () => {
@@ -227,7 +227,7 @@ describe('Zone lifecycle', () => {
     );
     const onCharacteristic = service?.characteristics.get('On');
 
-    await onCharacteristic?.invokeSet(true);
+    await invokeSetAndSettle(onCharacteristic, true);
 
     expect(
       primaryServer.requests.filter((r) => r.path === '/key')
@@ -253,7 +253,7 @@ describe('Zone lifecycle', () => {
     );
     const onCharacteristic = service?.characteristics.get('On');
 
-    await onCharacteristic?.invokeSet(false);
+    await invokeSetAndSettle(onCharacteristic, false);
 
     const removeZoneSlaveRequest = primaryServer.requests.find(
       (r) => r.path === '/removeZoneSlave'
@@ -312,7 +312,9 @@ describe('Zone lifecycle', () => {
     );
     const onCharacteristic = service?.characteristics.get('On');
 
-    await expect(onCharacteristic?.invokeSet(false)).resolves.not.toThrow();
+    await expect(
+      invokeSetAndSettle(onCharacteristic, false)
+    ).resolves.not.toThrow();
     expect(
       primaryServer.requests.filter((r) => r.path === '/key')
     ).toHaveLength(0);
@@ -366,14 +368,16 @@ describe('Zone lifecycle', () => {
     // Each device gets one /nowPlaying GET from the zone's own `deviceIsOn`
     // power check, plus one more from the standalone accessory's own On
     // characteristic refresh triggered after the power-on — two beyond the
-    // baseline, not just one.
+    // baseline, not just one. The primary gets a third: the debounced
+    // setOn's own post-settle live re-read (mirroring `_isZoneActive`, which
+    // gates on the primary's power) also calls `deviceIsOn` on the primary.
     const primaryNowPlayingCountAfter = primaryServer.requests.filter(
       (r) => r.path === '/nowPlaying'
     ).length;
     const slaveNowPlayingCountAfter = slaveServer.requests.filter(
       (r) => r.path === '/nowPlaying'
     ).length;
-    expect(primaryNowPlayingCountAfter).toBe(primaryNowPlayingCountBefore + 2);
+    expect(primaryNowPlayingCountAfter).toBe(primaryNowPlayingCountBefore + 3);
     expect(slaveNowPlayingCountAfter).toBe(slaveNowPlayingCountBefore + 2);
   });
 
@@ -403,13 +407,16 @@ describe('Zone lifecycle', () => {
 
     await invokeSetAndSettle(zoneOn, false);
 
+    // See the "activating" test above for why the primary gets a third
+    // /nowPlaying GET beyond the baseline (the debounced setOn's own
+    // post-settle live re-read) while the slave only gets two.
     const primaryNowPlayingCountAfter = primaryServer.requests.filter(
       (r) => r.path === '/nowPlaying'
     ).length;
     const slaveNowPlayingCountAfter = slaveServer.requests.filter(
       (r) => r.path === '/nowPlaying'
     ).length;
-    expect(primaryNowPlayingCountAfter).toBe(primaryNowPlayingCountBefore + 2);
+    expect(primaryNowPlayingCountAfter).toBe(primaryNowPlayingCountBefore + 3);
     expect(slaveNowPlayingCountAfter).toBe(slaveNowPlayingCountBefore + 2);
   });
 
