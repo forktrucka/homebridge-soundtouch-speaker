@@ -1,8 +1,8 @@
 ---
 date: 2026-07-18
 target: dev → beta
-prs: [170, 167, 166, 165, 163, 162, 161, 147, 146, 145, 144, 134]
-status: blocked # in-progress | complete | blocked
+prs: [189, 185, 178, 179, 181, 170, 167, 166, 165, 163, 162, 161, 147, 146, 145, 144, 134]
+status: in-progress # in-progress | complete | blocked (F2 fixed via #185, F3 fixed via #189, both re-verified 2026-07-19)
 ---
 
 # Pre-release test plan — 2026-07-18
@@ -108,7 +108,7 @@ was added. Reverting the fix was confirmed to fail 4 tests.
   **PASS.**
 - Process health clean throughout (0% CPU, no warnings).
 
-### 🔴 BLOCKING — #144: `setOn` race condition on rapid power toggles
+### ✅ RESOLVED — #144: `setOn` race condition on rapid power toggles
 
 Confirmed on real hardware during A7 (rapid off→on→off from the Home app —
 user report: "off on off stays on"). `src/accessories/services/SoundTouchSpeakerOnCharacteristic.ts`'s
@@ -176,7 +176,93 @@ ack now precedes the real action, a debounced action's failure can't
 propagate back to the originating call's error path anymore — needs a
 catch-and-log (matching this repo's existing pattern elsewhere) and rely on
 `refresh()`/reconciliation to surface the true state on the next poll.
-Second fix dispatched; still blocking dev→beta until re-verified.
+Second fix (#179) merged and **re-verified on real hardware** — user repeated
+rapid off→on→off from the Home app, confirmed clean each time ("a7 looking
+good"). No longer blocking dev→beta.
+
+### ✅ RESOLVED — F2: `SoundTouchZoneOnCharacteristic._ensureDevicesPowered` has the same race #144/setOn had, across zone members
+
+**F1 (zone volume debounce, #181) verified working correctly first** —
+rapid brightness-slider drag on the new "Downstairs" Lightbulb zone (Kitchen
++ Changing Room, swapped in from Lounge mid-session — see Wave 3 note)
+produced a burst of 5 `set zone brightness` calls in ~7s, settling cleanly to
+the *last* requested value (6), matching direct device reads on both
+members. No runaway CPU, no warnings. #181 is solid.
+
+**But the same drag surfaced an unrelated, real bug**: the Lightbulb's
+`Brightness` slider dragging near zero also toggles its coupled `On`
+characteristic (standard HomeKit Lightbulb UX), which fired the zone's own
+`setOn` rapidly too. Log evidence: three zone on/off toggles in a 5-second
+window (`zone deactivated` → `zone activated` → `zone deactivated`,
+5:10:24–29). After the drag settled, direct device reads showed **Kitchen
+in STANDBY (off) but Changing Room still playing TUNEIN (on)** — the zone
+tile presumably read "off," but a real member speaker was left running.
+
+**Root cause**: `SoundTouchZoneOnCharacteristic._ensureDevicesPowered`
+(`src/zones/SoundTouchZoneOnCharacteristic.ts`) loops over `[primary,
+...slaves]` and, for each device independently, reads live power state then
+holds POWER if it differs from desired — the exact same unserialized
+read-then-act pattern #144 had, just fanned out across multiple devices via
+`Promise.all` instead of one. Overlapping `setOn(false)`/`setOn(true)` calls
+during a rapid drag can race per-device: each device's live read/hold
+timing is independent, so which devices actually toggle on any given call is
+down to network-latency luck — different members can land in different
+states after the same "burst" settles.
+
+**This directly contradicts the code review's assessment** (2026-07-19,
+earlier tonight) that flagged `_ensureDevicesPowered` as "milder... zone
+power is tile-tap cadence, not slider-drag cadence, so the concurrency risk
+doesn't apply the same way" and recommended leaving it as backlog. Real
+hardware just proved that's wrong: a Lightbulb zone's coupled
+Brightness/On characteristics mean a volume drag **is** a realistic trigger
+for rapid zone `setOn` calls, not just deliberate tile-tapping.
+
+**Fix:** PR #185 ported the same debounce pattern already proven twice this
+session (#179 speaker `setOn`, #181 zone volume) to
+`SoundTouchZoneOnCharacteristic.setOn` — debounces rapid on/off calls, acks
+HAP promptly, runs `_ensureDevicesPowered` once per settled burst targeting
+the last desired state, re-reads live state and calls `updateValue` after
+settling. Merged to `dev` 2026-07-19.
+
+**Re-verified on real hardware, 2026-07-19** — repeated rapid Lightbulb-zone
+brightness-slider drags near zero on a two-member zone ("Office Zone":
+Office primary, Remote slave). Direct device-level reads (`curl
+.../now_playing`) after the drag settled: **both** Office and Remote showed
+`source="SPOTIFY"` — same state, matching the HomeKit tile, no member left
+stranded in a different power state than the rest. F2 is fixed; no longer
+blocking `dev` → `beta`.
+
+### ✅ RESOLVED — F3: zone volume slider could show a lower % than a member speaker's actual volume
+
+**Found live during F2 re-verification**, on the same "Office Zone" (Office
+primary, Remote slave). After a zone volume interaction, Office (the zone's
+displayed value) read 17% while Remote read 21% — correct per the
+then-current design (zone volume applies a relative delta and preserves
+whatever balance already existed between members; the zone's `Brightness`
+characteristic always reflects the primary specifically, never an
+average/sync across members), but confusing: the zone tile can display a
+lower percentage than a member is audibly playing at.
+
+**User's proposed fix, confirmed and briefed as-is**: clamp each slave's
+computed relative-shift target to never exceed the new zone volume —
+`min(relativeShiftTarget, desiredZoneVolume)`. One-directional: only pulls a
+member down when the shift would leave it louder than the zone; never pushes
+a member up. The primary is unaffected (it IS the zone's displayed value).
+
+**Fix:** PR #189, `runDebouncedZoneVolumeAction` in
+`SoundTouchZoneVolumeCharacteristic.ts`. 496 tests green. Merged to `dev`
+2026-07-19.
+
+**Re-verified on real hardware, 2026-07-19**, both directions, via direct
+device reads (`curl .../volume`):
+- **Clamp case** — Office 10%, Remote 14% (member louder than zone) before a
+  zone slider move. After: Office 28%, Remote 28% — Remote pulled down to
+  exactly match the zone rather than staying above it.
+- **Control case** — Office 28%, Remote artificially set to 15% (member
+  quieter than zone) before a small zone slider move. After: Office 34%
+  (delta +6), Remote 21% (15+6, unclamped, still below the new zone value) —
+  confirms the clamp doesn't fire when it shouldn't and the normal
+  relative-shift math is untouched.
 
 ### 🟡 Non-blocking, pre-existing (not part of this release batch) — config-driven speaker rename never worked
 
@@ -370,12 +456,12 @@ of this wave.
 - [x] A6. Immediately after A5's power-on, confirm the last-played source
       resumes automatically — verifies #161 — **PASS**, user-confirmed via
       Home app (toggled Office off/on, last-played source resumed)
-- [ ] A7. Toggle that same speaker's power from the Home app twice in rapid
+- [x] A7. Toggle that same speaker's power from the Home app twice in rapid
       succession; confirm no double-press / no double-toggle artifact —
-      verifies #144 — **FAIL**, user-confirmed: off→on→off left the device
-      on. Root-caused and reproduced 4/5 times via script — see "🔴 BLOCKING
-      — #144" in "Real-device findings" above. Fix dispatched; re-verify
-      once it lands.
+      verifies #144 — **PASS** (re-verified after #179), user-confirmed:
+      repeated rapid off→on→off from the Home app, clean each time
+      ("a7 looking good"). See "✅ RESOLVED — #144" in "Real-device findings"
+      above.
 - [ ] (confirm B13 now, ~60s should have passed)
 - [x] A8. Remote unplugged at the wall — verifies #144 — **PASS**:
       device-level unreachability script-confirmed (🤖 `poll-power-state.mjs
@@ -385,23 +471,44 @@ of this wave.
       bug
 
 ### Wave 3 — config prep #2 (needs the zone currently ON) → restart 2
+
+**Note on scope change:** the zone's slave was switched from Lounge to
+**Changing Room** mid-session — the user had guests in the Lounge room and
+asked to stop testing on that speaker. First attempt at this wave (with
+Lounge as slave, before the swap) saw B2 fail (`get zone on false` after
+restart, despite the zone being confirmed active immediately beforehand) —
+inconclusive, not chased down further since it didn't reproduce on the
+clean redo below with a different device. Worth a note if it's ever seen
+again.
+
 Batch before restarting:
-- [ ] Leave the zone **ON** going into the restart — setup for B2
-- [ ] Change the zone's `accessoryType` in config (switch ↔ lightbulb) —
-      setup for B4 (do this **after** `test/zone-accessorytype-prune-coverage`
-      has landed, so a real regression is caught by both the new automated
-      test and this manual pass)
-- [ ] Rename zone member **S** via its config `name` override (a *different*
-      device than speaker **X** from Wave 1, to keep signal clean) — setup
-      for B5
+- [x] Leave the zone **ON** going into the restart — setup for B2
+- [x] Change the zone's `accessoryType` in config (switch ↔ lightbulb) —
+      setup for B4 (landed after `test/zone-accessorytype-prune-coverage`)
+- [ ] ~~Rename zone member S via its config `name` override~~ — **skipped**,
+      see B5 note below
 
 **Restart Homebridge once.** Then verify:
-- [ ] B2. The zone tile initializes as **on** via the startup `getZone()`
-      sync (not stale/off) — verifies #162
-- [ ] B4. The Home app shows **only** the new accessory type for the zone —
-      no orphaned duplicate tile — verifies #162
+- [x] B2. The zone tile initializes as **on** via the startup `getZone()`
+      sync (not stale/off) — verifies #162 — **PASS**, script-confirmed via
+      log (`[Kitchen] - get zone on true` immediately after restart)
+- [x] B4. The Home app shows **only** the new accessory type for the zone —
+      no orphaned duplicate tile — verifies #162 — **PASS**, script-confirmed:
+      log shows `Removing stale zone service after accessory type change`,
+      and the cached accessory's services are exactly
+      `['AccessoryInformation', 'Lightbulb']` — no orphaned Switch service
 - [ ] B5. The zone still works and did not disappear after **S**'s
-      config-name rename — verifies #170
+      config-name rename — verifies #170 — **NOT INDEPENDENTLY VERIFIABLE
+      right now**: this specifically needs a member's *effective* `device.name`
+      to actually change via a config rename, so zone resolution falls back
+      to the persisted `device.id` (#170's mechanism). But the separate
+      non-blocking backlog bug (config-driven rename never applies, see
+      above) means a config rename wouldn't actually change `device.name` —
+      so this step can't meaningfully exercise the id-fallback path until
+      that bug is fixed. B6 (Wave 4, Bose-app rename) does **not** have this
+      problem — a Bose-app rename changes `info.name` directly, bypassing
+      the broken config path — so it validly covers the same #170
+      resolution mechanism this step was meant to test.
 
 ### Wave 4 — config/physical prep #3 → restart 3
 These setups mutate zone membership by three different mechanisms — keep
