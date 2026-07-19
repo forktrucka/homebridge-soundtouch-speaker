@@ -105,9 +105,12 @@ commands, the "typecheck + lint + test before done" gate) is in the
 - `npm run watch` → `build && npm link && nodemon`. Nodemon (`nodemon.json`)
   rebuilds on `src/**/*.ts` changes and runs
   `homebridge -U ./test/hbConfig -D` (`-D` = debug logging).
-- The sandbox Homebridge instance reads `test/hbConfig/config.json`. Edit the
-  plugin's platform block there to exercise different configs (e.g.
-  `discoverAllAccessories`, per-accessory `ip`/`room`, `global.verbose`).
+- The sandbox Homebridge instance reads `test/hbConfig/config.json` — this
+  file is gitignored (personal: real device names/IPs, drifts constantly
+  during testing). **First-time setup:** `cp test/hbConfig/config.example.json
+  test/hbConfig/config.json`. Edit the plugin's platform block there to
+  exercise different configs (e.g. `discoverAllAccessories`, per-accessory
+  `ip`/`room`, `global.verbose`) — your local edits never get committed.
 - Cached accessories persist in `test/hbConfig/accessories/cachedAccessories`
   and `test/hbConfig/persist/`. Delete these to simulate a fresh install when
   debugging cache-restore behavior.
