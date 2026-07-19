@@ -11,11 +11,41 @@ import { KeyValue, SourceStatus } from '../devices/SoundTouch/api/index.js';
 import type { NowPlaying, Zone } from '../devices/SoundTouch/api/index.js';
 import type { ZoneDefaultSourceConfig } from '../ExternalPlatformConfig.js';
 
+/**
+ * Debounce window (ms) for `setOn`.
+ *
+ * HomeKit couples a Lightbulb's Brightness and On characteristics, so
+ * dragging a zone's brightness slider near zero fires the zone's own `setOn`
+ * rapidly — a realistic rapid-burst trigger, not just deliberate tile-tapping.
+ * `setOn` calls `_ensureDevicesPowered`, which loops the primary and every
+ * slave and, per device, does a live read (`SoundTouchDevice.deviceIsOn`)
+ * then holds POWER if it differs. Each device's read-then-act is unserialized
+ * against the others AND uncoordinated against any overlapping `setOn` call
+ * on this same instance — real-device QA confirmed a rapid burst can leave
+ * zone members in DIFFERENT power states after settling.
+ *
+ * Debouncing decouples the HAP ack from the physical action, mirroring the
+ * `setOn` fix in `SoundTouchSpeakerOnCharacteristic` (#179) and the
+ * `setBrightness` fix in `SoundTouchZoneVolumeCharacteristic` (#181): each
+ * `setOn` call just records the latest desired value and (re)starts this
+ * timer, resolving immediately. Only when the window elapses with no newer
+ * call does the real activate/deactivate sequence run, once, against the
+ * last requested value - collapsing an entire burst into a single physical
+ * action. 400ms matches the other two debounces.
+ */
+export const SET_ZONE_ON_DEBOUNCE_MS = 400;
+
 export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteristic {
   private readonly service: Service;
   private readonly slaves: SoundTouchDevice[];
   private readonly defaultSource?: ZoneDefaultSourceConfig;
   private characteristic: Characteristic;
+
+  /** Most recently requested zone power value, applied when the debounce timer fires. */
+  private desiredZoneOn: boolean | undefined;
+
+  /** Handle for the pending debounce timer, if a `setOn` call is awaiting coalescing. */
+  private debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   private constructor({
     service,
@@ -64,16 +94,61 @@ export class SoundTouchZoneOnCharacteristic extends SoundTouchSpeakerCharacteris
   }
 
   async setOn(value: CharacteristicValue): Promise<void> {
-    const desired = value as boolean;
-    if (desired) {
-      await this._ensureDevicesPowered(true);
-      await this._applyDefaultSourceIfIdle();
-      await this.device.api.setZone(this._buildZone());
-      this.log.debug('zone activated');
-    } else {
-      await this.device.api.removeZoneSlave(this._buildZone());
-      await this._ensureDevicesPowered(false);
-      this.log.debug('zone deactivated');
+    this.desiredZoneOn = value as boolean;
+
+    if (this.debounceTimer !== undefined) {
+      clearTimeout(this.debounceTimer);
+    }
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = undefined;
+      this.runDebouncedZoneOnAction().catch((e: unknown) => {
+        this.log.error('debounced zone on action failed unexpectedly', e);
+      });
+    }, SET_ZONE_ON_DEBOUNCE_MS);
+
+    // Resolve promptly - do NOT wait on the debounced device action. This
+    // decouples the HAP ack from the physical action, mirroring
+    // SoundTouchSpeakerOnCharacteristic#setOn (#179).
+    return Promise.resolve();
+  }
+
+  // Runs the coalesced physical action for the last-requested value once the
+  // debounce window has elapsed with no newer `setOn` call. The HAP ack has
+  // already happened by this point, so a failure here can't propagate to the
+  // originating caller - catch and log it rather than letting it become an
+  // unhandled rejection in the timer callback. Either way, once the action
+  // settles (success or caught failure), push a live re-read of the actual
+  // zone state (mirroring `_isZoneActive`) so the HAP value reflects reality
+  // immediately rather than waiting on the next reconciliation poll.
+  private async runDebouncedZoneOnAction(): Promise<void> {
+    const desired = this.desiredZoneOn;
+    if (desired === undefined) {
+      return;
+    }
+
+    try {
+      if (desired) {
+        await this._ensureDevicesPowered(true);
+        await this._applyDefaultSourceIfIdle();
+        await this.device.api.setZone(this._buildZone());
+        this.log.debug('zone activated');
+      } else {
+        await this.device.api.removeZoneSlave(this._buildZone());
+        await this._ensureDevicesPowered(false);
+        this.log.debug('zone deactivated');
+      }
+    } catch (e: unknown) {
+      this.log.error('failed to apply debounced zone on state', e);
+    }
+
+    try {
+      const actualZoneOn = await this._isZoneActive();
+      this.characteristic.updateValue(actualZoneOn);
+    } catch (e: unknown) {
+      this.log.error(
+        'failed to read live zone state after debounced action',
+        e
+      );
     }
   }
 
