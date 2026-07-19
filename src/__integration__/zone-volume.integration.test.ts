@@ -96,7 +96,7 @@ describe('Zone volume', () => {
     );
   }
 
-  it('setting Brightness on a lightbulb zone shifts the primary and slave volume by the same delta', async () => {
+  it('setting Brightness on a lightbulb zone shifts the primary and slave volume by the same delta, clamped so the slave never exceeds the new zone volume', async () => {
     createPlatform();
     await api.emitDidFinishLaunching();
 
@@ -110,12 +110,16 @@ describe('Zone volume', () => {
     expect(brightnessCharacteristic).toBeDefined();
 
     // primary starts at 20; moving to 30 is a delta of +10. setBrightness is
-    // now debounced (mirrors the zone on characteristic's setOn fix) - the
+    // debounced (mirrors the zone on characteristic's setOn fix) - the
     // HAP set handler acks immediately, and the real read-then-act only
     // runs once the debounce window elapses. The request/response round
     // trip to the fake server happens over a real socket, so advance the
     // fake timer in small increments while yielding to the real event loop
     // between them, rather than a single fixed-size jump.
+    //
+    // The slave starts at 30, so its naive relative-shift target (30 + 10 =
+    // 40) would leave it louder than the new zone volume (30) - the
+    // slave-only clamp pulls it down to match the zone instead.
     await brightnessCharacteristic?.invokeSet(30);
     for (let i = 0; i < 20; i++) {
       await jest.advanceTimersByTimeAsync(SET_ZONE_VOLUME_DEBOUNCE_MS / 4);
@@ -130,6 +134,6 @@ describe('Zone volume', () => {
     );
 
     expect(primaryVolumeRequest?.body).toContain('<volume>30</volume>');
-    expect(slaveVolumeRequest?.body).toContain('<volume>40</volume>');
+    expect(slaveVolumeRequest?.body).toContain('<volume>30</volume>');
   });
 });

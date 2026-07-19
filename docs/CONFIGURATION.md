@@ -49,7 +49,7 @@ config below.
 
 *Optional fields*
 
-- `accessoryType`: HomeKit accessory type for this zone — `switch` or `lightbulb`. The `lightbulb` type also exposes zone volume via Brightness, shifting every member speaker's volume by the same relative amount. __default__: **switch**
+- `accessoryType`: HomeKit accessory type for this zone — `switch` or `lightbulb`. The `lightbulb` type also exposes zone volume via Brightness, shifting every member speaker's volume by the same relative amount — except that no member is ever left louder than the zone's own displayed volume; a member the shift would leave above it is pulled down to match instead. __default__: **switch**
 - `defaultSource`: Play a configured source on the primary when the zone activates idle (see **Zone default source** below). Never overrides an already-playing primary.
 
 **Renaming is safe.** Once a zone's `primary`/`slaves` references resolve to real devices, the assignment is remembered by each speaker's stable identity (its hardware id) — renaming a speaker later, either in this config or from the Bose app, does not break the zone. You do not need to update `primary`/`slaves` after a rename.

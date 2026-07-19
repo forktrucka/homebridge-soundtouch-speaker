@@ -100,7 +100,12 @@ export class SoundTouchZoneVolumeCharacteristic extends SoundTouchSpeakerCharact
    * Zone volume moves every member speaker by the same relative offset,
    * mirroring the real Bose app's zone volume behaviour — it preserves
    * whatever balance already existed between the primary and its slaves
-   * rather than forcing them all to the same level.
+   * rather than forcing them all to the same level. The one exception: a
+   * slave is never left louder than the zone's own displayed volume (the
+   * primary's). If the relative shift would push a slave above the new
+   * primary volume, that slave is pulled down to match it instead - the
+   * clamp only ever pulls a slave down, never pushes it up past its
+   * relative-shift target. See `runDebouncedZoneVolumeAction`.
    */
   async setBrightness(value: CharacteristicValue): Promise<void> {
     const brightness = value as number;
@@ -148,14 +153,23 @@ export class SoundTouchZoneVolumeCharacteristic extends SoundTouchSpeakerCharact
       const currentPrimaryVolume = primaryVolume?.actual ?? 0;
       const delta = desiredBrightness - currentPrimaryVolume;
 
-      const devices = [this.device, ...this.slaves];
-      await Promise.all(
-        devices.map(async (device) => {
-          const volume = await device.api.getVolume();
-          const currentVolume = volume?.actual ?? 0;
-          await device.api.setVolume(clampVolume(currentVolume + delta));
-        })
-      );
+      const primaryWrite = (async () => {
+        const volume = await this.device.api.getVolume();
+        const currentVolume = volume?.actual ?? 0;
+        await this.device.api.setVolume(clampVolume(currentVolume + delta));
+      })();
+
+      // A slave's relative-shift target is further clamped down (never up)
+      // so it never ends up louder than the zone's own displayed volume
+      // (the primary's, i.e. `desiredBrightness`).
+      const slaveWrites = this.slaves.map(async (device) => {
+        const volume = await device.api.getVolume();
+        const currentVolume = volume?.actual ?? 0;
+        const shiftTarget = clampVolume(currentVolume + delta);
+        await device.api.setVolume(Math.min(shiftTarget, desiredBrightness));
+      });
+
+      await Promise.all([primaryWrite, ...slaveWrites]);
 
       this.log.debug('set zone brightness - %s', desiredBrightness);
     } catch (e: unknown) {
