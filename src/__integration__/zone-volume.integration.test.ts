@@ -13,6 +13,7 @@ import {
   infoXml,
 } from './helpers/fake-soundtouch-server.js';
 import { HomebridgeApiStub } from './helpers/homebridge-stub.js';
+import { SET_ZONE_VOLUME_DEBOUNCE_MS } from '../zones/SoundTouchZoneVolumeCharacteristic.js';
 
 const PRIMARY_DEVICE_ID = 'MASTER-MAC';
 const SLAVE_DEVICE_ID = 'SLAVE-MAC';
@@ -108,8 +109,18 @@ describe('Zone volume', () => {
     const brightnessCharacteristic = service?.characteristics.get('Brightness');
     expect(brightnessCharacteristic).toBeDefined();
 
-    // primary starts at 20; moving to 30 is a delta of +10
+    // primary starts at 20; moving to 30 is a delta of +10. setBrightness is
+    // now debounced (mirrors the zone on characteristic's setOn fix) - the
+    // HAP set handler acks immediately, and the real read-then-act only
+    // runs once the debounce window elapses. The request/response round
+    // trip to the fake server happens over a real socket, so advance the
+    // fake timer in small increments while yielding to the real event loop
+    // between them, rather than a single fixed-size jump.
     await brightnessCharacteristic?.invokeSet(30);
+    for (let i = 0; i < 20; i++) {
+      await jest.advanceTimersByTimeAsync(SET_ZONE_VOLUME_DEBOUNCE_MS / 4);
+      await new Promise((resolve) => setImmediate(resolve));
+    }
 
     const primaryVolumeRequest = primaryServer.requests.find(
       (r) => r.path === '/volume' && r.method === 'POST'
