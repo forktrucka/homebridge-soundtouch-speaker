@@ -132,6 +132,16 @@ commands, the "typecheck + lint + test before done" gate) is in the
 - Cached accessories persist in `test/hbConfig/accessories/cachedAccessories`
   and `test/hbConfig/persist/`. Delete these to simulate a fresh install when
   debugging cache-restore behavior.
+- **Stop the running Homebridge process first, always, before editing or
+  deleting `config.json`, `persist/`, or `cachedAccessories`.** A live process
+  holds this state in memory and periodically writes it back to disk (on
+  accessory changes, HAP events, shutdown) — an edit or delete made while it's
+  still running can look like it worked and then get silently overwritten by
+  the process's next write, undoing the fix. Confirm nothing is bound to the
+  bridge port first: `lsof -i :<bridge.port>` (default `51826`) should return
+  nothing before you touch these files, and again after — if a stray process
+  from an earlier session is still holding the port, kill it before
+  continuing.
 - Set `verbose: true` (or `global.verbose`) to raise the formatted logger to
   `DEBUG`; the platform already logs discovery and accessory lifecycle at debug.
 - **Discovery not finding devices:** bonjour/multicast-dns mDNS often fails
@@ -200,7 +210,12 @@ Homebridge thread) · AccessoryInformation populated with a unique SerialNumber 
 - HomeKit cloud retains a pairing record for a bridge's MAC (`username`) even after the bridge's local persist files are wiped. The bridge looks unpaired to Homebridge but HomeKit refuses to re-pair.
 - **First try:** restart the phone. HomeKit's pairing cache is sometimes stale in memory and a reboot clears it.
 - **If that doesn't work:** change the bridge `username` in `test/hbConfig/config.json` to a new locally-administered MAC (first octet with bit 1 set, e.g. `0E:4A:B2:7C:D3:91`), delete the stale persist files (`test/hbConfig/persist/AccessoryInfo.<OLD>.json`, `IdentifierCache.<OLD>.json`, and `test/hbConfig/accessories/cachedAccessories`), then restart Homebridge. The new MAC is invisible to HomeKit's cloud so it pairs as a fresh bridge.
-- The bridge's `username` `AA:BB:CC:DD:EE:FF` is the Ethernet broadcast address — avoid it; some HAP implementations behave oddly with it.
+- The bridge's `username` `AA:BB:CC:DD:EE:FF` is the Ethernet broadcast address — avoid it; some HAP implementations behave oddly with it, and it's exactly the kind of default that ends up genuinely paired at some point and then triggers this error later. Prefer a proper locally-administered MAC from the start.
+- This can recur — it isn't a one-time fix. If it comes back, repeat the same steps with another fresh MAC.
+
+**Home app "finding device..." hangs indefinitely when adding the bridge:**
+- The dev machine has multiple active network interfaces (VPN, Thunderbolt bridges, virtual adapters), and by default Homebridge's HAP/mDNS advertiser binds and broadcasts on all of them. If any of those interfaces are unreachable from the phone (a VPN subnet, a virtual bridge), HomeKit can receive ambiguous or dead-end mDNS records for the same bridge and stall on "finding device" instead of connecting.
+- Fix: add `"bind": ["<interface>"]` to the `bridge` block in `test/hbConfig/config.json`, restricting advertisement to the real Wi-Fi/LAN interface only — the one on the same subnet as the SoundTouch speakers. Find it with `ifconfig | grep "inet "` (matching the speakers' subnet) cross-referenced against `networksetup -listallhardwareports` to confirm which device is actually the Wi-Fi port (Wi-Fi is not always the lowest-numbered `en*` interface on a machine with many virtual adapters).
 
 ## Related skills
 
