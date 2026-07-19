@@ -114,6 +114,16 @@ commands, the "typecheck + lint + test before done" gate) is in the
 - Cached accessories persist in `test/hbConfig/accessories/cachedAccessories`
   and `test/hbConfig/persist/`. Delete these to simulate a fresh install when
   debugging cache-restore behavior.
+- **Stop the running Homebridge process first, always, before editing or
+  deleting `config.json`, `persist/`, or `cachedAccessories`.** A live process
+  holds this state in memory and periodically writes it back to disk (on
+  accessory changes, HAP events, shutdown) — an edit or delete made while it's
+  still running can look like it worked and then get silently overwritten by
+  the process's next write, undoing the fix. Confirm nothing is bound to the
+  bridge port first: `lsof -i :<bridge.port>` (default `51826`) should return
+  nothing before you touch these files, and again after — if a stray process
+  from an earlier session is still holding the port, kill it before
+  continuing.
 - Set `verbose: true` (or `global.verbose`) to raise the formatted logger to
   `DEBUG`; the platform already logs discovery and accessory lifecycle at debug.
 - **Discovery not finding devices:** bonjour/multicast-dns mDNS often fails
