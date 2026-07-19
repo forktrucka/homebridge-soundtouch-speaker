@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-07-19 (zone volume debounce fix)
+Last updated: 2026-07-19 (zone `On` debounce fix — third instance of the read-then-act race, confirmed on hardware)
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
@@ -31,6 +31,7 @@ flowchart TD
 
 | Order | Plan | Branch | Status | Why this position |
 | ----- | ---- | ------ | ------ | ----------------- |
+| 1a | **[fix] Zone `On` debounce — coalesce rapid zone setOn calls (`_ensureDevicesPowered` race)** | `fix/zone-on-debounce` → **PR #185 (green, `needs-qa`)** | 🔴 **BLOCKING dev → beta** — PR open on `dev`, CI green (493 tests), awaiting real-device slider-drag re-verification | **Third confirmed instance of the read-then-act race in the zone subsystem** (after #144→#178/#179 for the standalone speaker, and #181 for the zone volume path). Real-device QA on 2026-07-19 (`.claude/qa/2026-07-18-pre-release-test-plan.md`, "BLOCKING — F2") reproduced it: rapid slider-drag-driven zone on/off toggling (3 activate/deactivate calls in a 5s window) left the two zone members in **different** power states after settling — Kitchen in STANDBY, Changing Room still playing TUNEIN — confirmed by direct device reads, not a stale tile. `SoundTouchZoneOnCharacteristic.setOn` → `_ensureDevicesPowered` does an unserialized per-device live-read-then-hold via `Promise.all`, uncoordinated against overlapping `setOn` calls on the same instance. **This overturns the earlier "backlog, lower priority" assessment** (see reversal note below): that assessment assumed zone power is tile-tap cadence (occasional, non-compounding); hardware showed a HomeKit Lightbulb's Brightness and On characteristics are coupled, so a brightness-slider drag near zero fires the zone's own `setOn` rapidly — slider cadence, not tap cadence. Fix ports the debounce pattern proven twice (#179 `SoundTouchSpeakerOnCharacteristic.setOn`, #181 `SoundTouchZoneVolumeCharacteristic.setBrightness`): record desired value, restart a 400ms timer, ack HAP promptly, run the real action (`_ensureDevicesPowered` + `_applyDefaultSourceIfIdle`/`setZone`/`removeZoneSlave`) once against the last value, catch-and-log, live-re-read `updateValue` (mirroring `_isZoneActive`) after settle. `fix:` → patch. Edits only `SoundTouchZoneOnCharacteristic.ts` (+ its test). Mandatory real-device re-verification before promotion. |
 | 1b | **[fix] Zone volume debounce — coalesce rapid slider drags** | `fix/zone-volume-debounce` → **PR #181 (green, `needs-qa`)** | 🟡 **PR open on `dev` — awaiting real-device slider-drag re-verification** | Found during a 2026-07-19 standards audit of `src/zones/` and `src/devices/SoundTouch/api/`, prompted by the same QA session that surfaced #144/#166/#145. `SoundTouchZoneVolumeCharacteristic.setBrightness` (`src/zones/SoundTouchZoneVolumeCharacteristic.ts:75-96`) is an unserialized read-then-act computing a **relative** delta (read primary's current volume → `delta = target - current` → apply `current + delta` to every member). HAP does not serialize rapid `onSet` calls, and a Home-app brightness-slider drag fires many; because the write is relative, overlapping calls compound drift rather than converging (unlike the standalone speaker brightness path, which writes an absolute value and is self-correcting — see the amended backlog note below). Same race class as #144's `setOn` bug, different file. Fix ports the debounce pattern PR #179 settled for `SoundTouchSpeakerOnCharacteristic.setOn` (record desired value, restart a 400ms timer, ack HAP promptly without blocking on the device action, run the read-then-act once when the window elapses against the LAST value, catch-and-log, live-re-read `updateValue` after settle). `fix:` → patch. Edits only `SoundTouchZoneVolumeCharacteristic.ts` (+ its test, + the zone-volume integration test's timer expectations). Deliberately does **not** touch `SoundTouchZoneOnCharacteristic.setOn`'s milder `_ensureDevicesPowered` read-then-act — see the new backlog note below for why that was scoped out. |
 | 1d | **Preserve HomeKit accessory renames** | `fix/preserve-homekit-rename` | 🟢 Unblocked | Confirmed user bug: Home-app renames of a speaker (or zone) accessory revert on the next Homebridge restart, because `SoundTouchSpeakerInformationCharacteristic`/`SoundTouchZoneAccessory` re-push the HAP `Name` characteristic on every `init()`, including cache-restore — HomeKit treats that as an authoritative rename. Fix: only set `Name` on true first-creation (an `isNewAccessory` signal threaded down from `discoverDevices()`); keep unconditionally refreshing Manufacturer/Model/SerialNumber/FirmwareRevision. `fix:` → patch. Speaker and zone halves can ship together now that both `SoundTouchSpeakerInformationCharacteristic` and `SoundTouchZoneAccessory` are on `dev`. Manual real-device/Home-app verification required (HomeKit's rename storage is outside this plugin, unit-testable only via a simulated restart cycle). Plan: `plans/2026-07-18-preserve-homekit-rename.md`. |
 | 1f | **Zone identifier stability** | `fix/zone-stable-device-id` | 🟢 Unblocked | Follow-up to Speaker zones (merged #162): `_resolveZones()` currently keys `primary`/`slaves` to devices by mutable name string (`device.name === name`), so renaming a speaker (config `name` override **or** the device's Bose-app-reported name) silently orphans the zone — it warns, skips, and is then pruned from the Home app. Fix mirrors the preserve-homekit-rename precedent (1d): keep config name-authored, but resolve names → stable `device.id` once at startup and persist the mapping in the zone accessory's `context.memberDeviceIds`; resolution becomes name-match-first, persisted-id-fallback-second, so a later rename keeps working without a config edit. `fix:` → patch. Orthogonal to the merged 1c/1e (#166/#165) — edits only `platform.ts` resolution, not `SoundTouchZoneOnCharacteristic.ts`/`SoundTouchZoneVolumeCharacteristic.ts`. **Sequenced ahead of PWA Phase 2** so the group-management UI builds on the id-keyed model. Plan: `plans/2026-07-18-zone-stable-device-id.md`. |
@@ -48,6 +49,7 @@ count. Bands: **Small** (room to spare), **Medium** (one fits comfortably),
 
 | Plan | Band | Drivers that set the band |
 | ---- | ---- | ------------------------- |
+| **[fix] Zone `On` debounce** | Small–Medium | Single-file behavioral change (`SoundTouchZoneOnCharacteristic.setOn`) mirroring the twice-proven #179/#181 debounce, so no new primitive to design. Cost driver is the regression test: fake timers, coalescing N rapid setOn calls → exactly one full `_ensureDevicesPowered`/`setZone`-or-`removeZoneSlave` action targeting the LAST value, prompt-ack-without-blocking (each `setOn` promise resolves fast — the assertion that would have caught tonight's bug, per #178's insufficient first attempt), single-non-bursted-call still correct, and live-re-read `updateValue` (mirroring `_isZoneActive`) after settle. Slight extra vs #181: the debounced action wraps three existing helpers (`_ensureDevicesPowered` + `_applyDefaultSourceIfIdle`/`setZone`/`removeZoneSlave`), and there are two branches (on/off) to move inside the timer. |
 | **[fix] Zone volume debounce** | Small–Medium | Single-file behavioral change mirroring a just-merged pattern (#179), so no new primitive to design — but the regression test is the cost driver: fake timers, coalescing (N rapid calls → one settled action targeting the last value, delta computed from a single fire-time read), prompt-ack-without-blocking, newer-supersedes-older, live-re-read-after-settle, and failure-is-caught, plus adapting the existing synchronous `setBrightness` tests and one integration test to the debounced flow. |
 | **Speaker zones** | Heavy | New `ZoneConfig` type + config schema; `zones` threaded through `PlatformConfiguration`; `SoundTouchZoneAccessory` + `SoundTouchZoneOnCharacteristic`; startup `getZone()` sync; zone set/dissolve via `setZone`/`removeZoneSlave`. |
 | **Zone default source** | Small–Medium | Small config addition (`defaultSource` union threaded through the three config layers + validation, mirroring the existing preset-slot validation) plus one focused change to `SoundTouchZoneOnCharacteristic.setOn` (`_applyDefaultSourceIfIdle`: `getNowPlaying` idle-check → `getPresets` resolve → `selectSource` before `setZone`). Bounded new test surface (unit call-order/fill-if-empty + one integration extension). Mandatory real-device verification of the compose with the #162 power-on and #161 resume paths pushes it toward Medium. |
@@ -112,8 +114,16 @@ What must be resolved:
   debounced action, live-re-read `updateValue` after settle) — 1b reuses that
   design rather than inventing a new one, so review can compare the two
   characteristics directly. It is orthogonal to `setOn`/#179 itself (different
-  file) and to the zone `On`/`_ensureDevicesPowered` path (see the backlog
-  note below), so it required no serialization with either.
+  file) and to the zone `On`/`_ensureDevicesPowered` path (now fixed under
+  delivery order 1a), so it required no serialization with either.
+- **Zone `On` debounce (1a) ports the same #179/#181 pattern to a THIRD file.**
+  `SoundTouchZoneOnCharacteristic.setOn` had the same unserialized
+  read-then-act race as #144/#181; 1a coalesces it identically. It edits only
+  `SoundTouchZoneOnCharacteristic.ts` (+ its test), so it does not overlap
+  1b/1f or the zone volume path and needs no serialization — but it **blocks
+  the dev → beta promotion of the current batch** until fixed and re-verified
+  on hardware, since the bug leaves zone members in genuinely inconsistent
+  power states.
 - **WebSocket push (plan 07) augments polling — it does not replace it.** Phase 1/2 is in beta. Polling stays as a fallback until Phase 3 resolves standby/reconnect behaviour.
 - **Zone identifier stability (1f) is orthogonal to the merged 1c/1e (#166/#165) but gates PWA Phase 2.**
   It edits only the resolution step in `platform.ts` (`_resolveZones()` /
@@ -166,17 +176,21 @@ What must be resolved:
   2026-07-19 via PR #181 (see delivery order 1b) rather than left deferred.)*
   Revisit the standalone path alongside source selection, which adds more
   characteristic traffic.
-- **Zone `On` characteristic's `_ensureDevicesPowered` read-then-act — lower
-  priority than the volume fix, not bundled into it.** Found in the same
-  2026-07-19 audit that surfaced the zone volume race (PR #181): like the
-  volume path, `_ensureDevicesPowered` (`SoundTouchZoneOnCharacteristic.ts`)
-  reads each device's live power state before deciding whether to press
-  POWER, with no serialization against overlapping calls. Judged lower risk
-  and deliberately scoped out of #181: zone power is a tile tap (occasional,
-  user-paced), not a slider drag (rapid, HAP-unserialized bursts by design),
-  so the concurrency window that makes the volume path urgent is much less
-  likely to open in practice, and the action isn't relative/compounding —
-  each device is independently pressed at most once toward a target boolean.
-  Not urgent, not blocking; if it's prioritised, either port the same
-  debounce pattern (#179, #181) or confirm via a targeted race test that the
-  tap-cadence assumption holds and downgrade this to a non-issue.
+- **~~Zone `On` characteristic's `_ensureDevicesPowered` read-then-act — lower
+  priority than the volume fix.~~ REVERSED 2026-07-19 — promoted to delivery
+  order 1a (blocking dev → beta).** The original assessment (from the
+  2026-07-19 audit / F1 review, PR #182) scoped this out of #181 on the
+  reasoning that "zone power is a tile tap (occasional, non-compounding), not
+  a slider drag (rapid, HAP-unserialized), so the concurrency window that
+  makes the volume path urgent is much less likely to open." **Real hardware
+  directly contradicted that reasoning** (QA 2026-07-19, F2): a HomeKit
+  Lightbulb's Brightness and On characteristics are *coupled* — dragging a
+  zone's brightness slider near zero also fires the zone's own `On`
+  characteristic (`setOn`) rapidly, so a volume drag IS a realistic trigger
+  for rapid zone `setOn` bursts, not just deliberate tile-tapping. The race
+  reproduced: 3 activate/deactivate calls in a 5s window left the two zone
+  members in genuinely inconsistent power states (one STANDBY, one still
+  playing), confirmed by direct device reads. It is now a confirmed,
+  hardware-reproduced bug being fixed under delivery order 1a — not a backlog
+  item. This bullet is retained (struck through) so the record shows the
+  assessment was overturned by evidence rather than silently deleted.
