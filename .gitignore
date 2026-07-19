@@ -128,8 +128,11 @@ dist
 # Webstorm
 .idea
 
-/test/hbConfig
-test/hbConfig/config.office.json
+/test/hbConfig/*
+# Local dev/test Homebridge config is personal (real device names/IPs) and
+# gets clobbered by branch switches if tracked — see config.example.json for
+# the checked-in starting template.
+!test/hbConfig/config.example.json
 
 # Claude Code agent worktrees
 .claude/worktrees/
