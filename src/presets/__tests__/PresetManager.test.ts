@@ -112,7 +112,10 @@ describe('PresetManager', () => {
 
   describe('#_msUntilNextCron', () => {
     it('honors the day-of-month field instead of firing daily', () => {
-      const manager = PresetManager.create({ devices: [], stations: new Map() });
+      const manager = PresetManager.create({
+        devices: [],
+        stations: new Map(),
+      });
       const now = new Date(2026, 6, 10, 0, 0, 0, 0);
       jest.useFakeTimers().setSystemTime(now);
 
@@ -126,7 +129,10 @@ describe('PresetManager', () => {
     });
 
     it('falls back to a 24h retry when the schedule is invalid', () => {
-      const manager = PresetManager.create({ devices: [], stations: new Map() });
+      const manager = PresetManager.create({
+        devices: [],
+        stations: new Map(),
+      });
 
       const ms = manager._msUntilNextCron('not a cron expression');
 
@@ -195,6 +201,29 @@ describe('PresetManager', () => {
       });
 
       expect(() => manager.stop()).not.toThrow();
+    });
+
+    it('does not tight-loop when the delay exceeds the 32-bit setTimeout max', async () => {
+      const device = makeDevice();
+      const stations = new Map([[1, makeStation(1)]]);
+      const manager = PresetManager.create({ devices: [device], stations });
+      // 30 days — comfortably over Node's ~24.8 day (2147483647ms) setTimeout
+      // clamp threshold. A naive setTimeout(bigDelayMs) would silently clamp
+      // this down to ~1ms and fire (almost) immediately.
+      const bigDelayMs = 30 * 24 * 60 * 60 * 1000;
+      jest.spyOn(manager, '_msUntilNextCron').mockReturnValue(bigDelayMs);
+
+      manager.start('0 3 1 1 *');
+      await Promise.resolve();
+      expect(device.api.storePreset).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+      expect(device.api.storePreset).toHaveBeenCalledTimes(1);
+
+      jest.advanceTimersByTime(bigDelayMs - 1);
+      await Promise.resolve();
+      expect(device.api.storePreset).toHaveBeenCalledTimes(2);
     });
   });
 });

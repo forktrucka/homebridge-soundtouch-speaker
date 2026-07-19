@@ -4,6 +4,13 @@ import { Logger } from '../utils/FormattedLogger.js';
 import { PresetStation } from './PresetStation.js';
 
 export class PresetManager {
+  // Node's setTimeout silently clamps any delay above the 32-bit signed int
+  // max (~24.8 days) down to ~1ms instead of throwing. Since _scheduleNext
+  // re-schedules itself as soon as its callback fires, an unclamped delay
+  // above this threshold would tight-loop. Chain shorter timeouts instead —
+  // see _scheduleChunk.
+  private static readonly MAX_TIMEOUT_MS = 2_147_483_647;
+
   private timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   private constructor(
@@ -79,10 +86,27 @@ export class PresetManager {
 
   private _scheduleNext(schedule: string): void {
     const ms = this._msUntilNextCron(schedule);
+    const targetTime = Date.now() + ms;
+    this._scheduleChunk(schedule, targetTime);
+  }
+
+  // Schedules a single setTimeout hop toward targetTime, clamped to the
+  // maximum safe delay. If the hop lands before targetTime is actually
+  // reached (i.e. it was clamped), it re-schedules another hop for the
+  // remaining time instead of syncing. Only the final hop — the one that
+  // actually reaches targetTime — runs sync() and schedules the next cron
+  // occurrence.
+  private _scheduleChunk(schedule: string, targetTime: number): void {
+    const remaining = targetTime - Date.now();
+    const delay = Math.min(remaining, PresetManager.MAX_TIMEOUT_MS);
     this.timeoutId = setTimeout(() => {
-      this.sync().catch(() => undefined);
-      this._scheduleNext(schedule);
-    }, ms);
+      if (Date.now() >= targetTime) {
+        this.sync().catch(() => undefined);
+        this._scheduleNext(schedule);
+      } else {
+        this._scheduleChunk(schedule, targetTime);
+      }
+    }, delay);
   }
 
   _msUntilNextCron(schedule: string): number {
