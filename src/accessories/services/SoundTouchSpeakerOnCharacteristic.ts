@@ -20,6 +20,34 @@ import type { GabboUpdateType } from '../../devices/SoundTouch/api/GabboClient.j
  */
 export const POWER_KEY_HOLD_DURATION_MS = 300;
 
+/**
+ * Debounce window (ms) for `setOn`.
+ *
+ * HAP does not serialize rapid `onSet` invocations from the Home app — a
+ * burst of quick taps on a tile fires several overlapping `setOn` calls.
+ * An earlier fix (#178) chained each call's full read-then-act sequence
+ * (live read, 300ms POWER hold, optional resume) behind the previous one so
+ * every call saw fresh post-settle state. That was REJECTED after
+ * real-hardware re-verification: `wrapHapSet` awaits whatever `setOn`
+ * returns, so chaining made a queued call's HAP ack wait for the entire
+ * backlog ahead of it to drain (each hop is 300ms, plus ~1-2s more when
+ * powering on for `resumeLastPlayedSource`'s two round-trips). Under a
+ * realistic rapid-tap burst this blew well past HomeKit's set-response
+ * window, producing a visible tile/device desync — arguably worse than the
+ * drift bug it replaced.
+ *
+ * Debouncing instead decouples the HAP ack from the physical action: each
+ * `setOn` call just records the latest desired value and (re)starts this
+ * timer, resolving immediately so `wrapHapSet` never blocks on the device.
+ * Only when the window elapses with no newer call does the real
+ * live-read + hold + resume sequence run, once, against the last requested
+ * value — collapsing an entire burst into a single physical action. 400ms
+ * comfortably coalesces a realistic rapid-tap cadence (taps land well
+ * under 400ms apart) while staying short enough that a single, deliberate
+ * tap doesn't feel laggy before the speaker responds.
+ */
+export const SET_ON_DEBOUNCE_MS = 400;
+
 export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacteristic {
   override readonly gabboEvents: readonly GabboUpdateType[] = [
     'connectionStateUpdated',
@@ -28,24 +56,11 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
 
   private characteristic: Characteristic;
 
-  /**
-   * Serializes `setOn` against overlapping calls on this device.
-   *
-   * HAP does not serialize rapid `onSet` invocations from the Home app —
-   * a few quick taps on a tile can produce overlapping `setOn` calls. Each
-   * call does a live read (`SoundTouchDevice.deviceIsOn`) before deciding
-   * whether to press the POWER toggle key; without serialization, a later
-   * call's read can land while an earlier call's 300ms hold is still
-   * in-flight and see stale state, wrongly concluding no press is needed.
-   *
-   * Chaining every `setOn` off this promise ensures each call's full
-   * read-then-act sequence (read, hold, optional resume) completes before
-   * the next one starts its own read, so every call sees fresh
-   * post-settle state and the device ends in the state requested by the
-   * last call. Kept as an instance field (one characteristic instance per
-   * device) so different devices are never serialized against each other.
-   */
-  private pendingSetOn: Promise<void> = Promise.resolve();
+  /** Most recently requested power value, applied when the debounce timer fires. */
+  private desiredPowerStatus: boolean | undefined;
+
+  /** Handle for the pending debounce timer, if a `setOn` call is awaiting coalescing. */
+  private debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   private constructor({
     service,
@@ -83,19 +98,56 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
 
   async setOn(value: CharacteristicValue): Promise<void> {
     const desiredPowerStatus = value as boolean;
+    this.desiredPowerStatus = desiredPowerStatus;
 
-    // Chain this call after any in-flight setOn for this device settles
-    // (successfully or not), then run this call's read-then-act sequence.
-    // Swallowing the predecessor's rejection here only unblocks the chain
-    // for the *next* call - this call's own errors still propagate via
-    // `run`, which is what's returned/thrown to the caller (and on to
-    // `wrapHapSet`).
-    const run = this.pendingSetOn
-      .catch(() => undefined)
-      .then(() => this.applyPowerState(desiredPowerStatus));
-    this.pendingSetOn = run.catch(() => undefined);
+    if (this.debounceTimer !== undefined) {
+      clearTimeout(this.debounceTimer);
+    }
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = undefined;
+      this.runDebouncedPowerAction().catch((e: unknown) => {
+        this.log.error('debounced power action failed unexpectedly', e);
+      });
+    }, SET_ON_DEBOUNCE_MS);
 
-    return run;
+    // Resolve promptly - do NOT wait on the debounced device action. This
+    // is what lets wrapHapSet ack the HAP request immediately instead of
+    // blocking on the (possibly several-second) physical action, which is
+    // the specific regression the rejected chaining approach (#178) caused.
+    return Promise.resolve();
+  }
+
+  // Runs the coalesced physical action for the last-requested value once
+  // the debounce window has elapsed with no newer `setOn` call. Because the
+  // HAP ack has already happened by this point, a failure here can't
+  // propagate to the originating caller - catch and log it (this repo's
+  // "catch and log own errors" pattern, e.g. PresetManager.sync()) rather
+  // than letting it become an unhandled rejection in the timer callback.
+  // Either way, once the action settles (success or caught failure), push
+  // a live re-read of the actual device state so the HAP value reflects
+  // reality immediately rather than waiting on the next reconciliation
+  // poll (up to 5 minutes away) to correct a mismatch.
+  private async runDebouncedPowerAction(): Promise<void> {
+    const desiredPowerStatus = this.desiredPowerStatus;
+    if (desiredPowerStatus === undefined) {
+      return;
+    }
+
+    try {
+      await this.applyPowerState(desiredPowerStatus);
+    } catch (e: unknown) {
+      this.log.error('failed to apply debounced power state', e);
+    }
+
+    try {
+      const actualPowerStatus = await SoundTouchDevice.deviceIsOn(this.device);
+      this.characteristic.updateValue(actualPowerStatus);
+    } catch (e: unknown) {
+      this.log.error(
+        'failed to read live power state after debounced action',
+        e
+      );
+    }
   }
 
   private async applyPowerState(desiredPowerStatus: boolean): Promise<void> {
