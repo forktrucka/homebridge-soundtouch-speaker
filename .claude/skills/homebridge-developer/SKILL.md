@@ -107,10 +107,28 @@ commands, the "typecheck + lint + test before done" gate) is in the
   `homebridge -U ./test/hbConfig -D` (`-D` = debug logging).
 - The sandbox Homebridge instance reads `test/hbConfig/config.json` — this
   file is gitignored (personal: real device names/IPs, drifts constantly
-  during testing). **First-time setup:** `cp test/hbConfig/config.example.json
-  test/hbConfig/config.json`. Edit the plugin's platform block there to
-  exercise different configs (e.g. `discoverAllAccessories`, per-accessory
-  `ip`/`room`, `global.verbose`) — your local edits never get committed.
+  during testing) and **will not exist on a fresh checkout or a fresh git
+  worktree**. **Always check it exists before debugging anything else** —
+  `ls test/hbConfig/config.json`. If missing: `cp
+  test/hbConfig/config.example.json test/hbConfig/config.json`. Edit the
+  plugin's platform block there to exercise different configs (e.g.
+  `discoverAllAccessories`, per-accessory `ip`/`room`, `global.verbose`) —
+  your local edits never get committed.
+- **This file also carries the HAP bridge identity** (`bridge.username`,
+  `bridge.port`, `bridge.pin`), which must match whatever the real, paired
+  `test/hbConfig/persist/AccessoryInfo.<MAC>.json` file expects — check
+  `persist/` for which MAC actually has a non-empty `pairedClients` before
+  writing a fresh `bridge` block, or you'll create a *new*, unpaired identity
+  instead of recovering the real one. Getting this wrong (e.g. losing/wiping
+  `config.json` without restoring the matching `bridge` block) makes every
+  accessory show **"No Response"** in the Home app — it looks like a device
+  or network outage but isn't; the giveaway is that the plugin's own device
+  polling in the log keeps succeeding while HomeKit shows nothing reachable.
+  When recreating, prefer `discoverAllAccessories: false` and an empty
+  `accessories: []` first (temporarily disables speaker registration) so
+  re-pairing the bridge doesn't also force every already-set-up speaker
+  accessory to be re-added and re-assigned to rooms in the Home app — turn
+  discovery back on once the bridge itself is confirmed paired.
 - Cached accessories persist in `test/hbConfig/accessories/cachedAccessories`
   and `test/hbConfig/persist/`. Delete these to simulate a fresh install when
   debugging cache-restore behavior.
