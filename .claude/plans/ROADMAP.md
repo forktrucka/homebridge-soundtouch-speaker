@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-07-18
+Last updated: 2026-07-19 (setOn debounce rework)
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers
@@ -31,6 +31,7 @@ flowchart TD
 
 | Order | Plan | Branch | Status | Why this position |
 | ----- | ---- | ------ | ------ | ----------------- |
+| 1a | **[fix] `setOn` rapid-toggle desync — debounce rework** | `fix/seton-debounce` → **PR #179 (green, `needs-qa`)** | 🟡 **PR open on `dev` — awaiting real-device A7 re-verification** | Follow-up to #144 and its first fix attempt #178 (plan `2026-07-10-power-state-accuracy.md`). #178 serialized `setOn` via a `pendingSetOn` chain (unit-green in isolation) but **real-hardware re-verification (2026-07-19) found a NEW regression**: because `wrapHapSet` does `await fn(value)`, chaining makes queued calls resolve only after the whole backlog drains (each `applyPowerState` = 300ms hold + ~1-2s resume when powering on), so a burst of taps exceeds HomeKit's set-response window — 24 `set status` entries logged, device genuinely ON (`getSource()` → SPOTIFY) while the tile showed OFF (visible desync). Fix **supersedes #178, does not stack on it**: debounce `setOn` — record desired value + (re)start a ~300-500ms timer, ack HAP promptly (don't block on the device action), run the real live-read + `holdKey` + `resumeLastPlayedSource` once when the window elapses targeting the LAST value; catch-and-log failures; after the action settles (success or failure) explicitly `updateValue` to a live re-read of device state to close the loop. `fix:` → patch. Edits only `SoundTouchSpeakerOnCharacteristic.ts` (+ its test) — orthogonal to the zone work. **Batch stays blocked from dev→beta until A7 re-verifies on real hardware** (repeated rapid Home-app taps, checking both device state AND that the tile tracks promptly). Remove this row once A7 passes post-fix. |
 | 1d | **Preserve HomeKit accessory renames** | `fix/preserve-homekit-rename` | 🟢 Unblocked | Confirmed user bug: Home-app renames of a speaker (or zone) accessory revert on the next Homebridge restart, because `SoundTouchSpeakerInformationCharacteristic`/`SoundTouchZoneAccessory` re-push the HAP `Name` characteristic on every `init()`, including cache-restore — HomeKit treats that as an authoritative rename. Fix: only set `Name` on true first-creation (an `isNewAccessory` signal threaded down from `discoverDevices()`); keep unconditionally refreshing Manufacturer/Model/SerialNumber/FirmwareRevision. `fix:` → patch. Speaker and zone halves can ship together now that both `SoundTouchSpeakerInformationCharacteristic` and `SoundTouchZoneAccessory` are on `dev`. Manual real-device/Home-app verification required (HomeKit's rename storage is outside this plugin, unit-testable only via a simulated restart cycle). Plan: `plans/2026-07-18-preserve-homekit-rename.md`. |
 | 1f | **Zone identifier stability** | `fix/zone-stable-device-id` | 🟢 Unblocked | Follow-up to Speaker zones (merged #162): `_resolveZones()` currently keys `primary`/`slaves` to devices by mutable name string (`device.name === name`), so renaming a speaker (config `name` override **or** the device's Bose-app-reported name) silently orphans the zone — it warns, skips, and is then pruned from the Home app. Fix mirrors the preserve-homekit-rename precedent (1d): keep config name-authored, but resolve names → stable `device.id` once at startup and persist the mapping in the zone accessory's `context.memberDeviceIds`; resolution becomes name-match-first, persisted-id-fallback-second, so a later rename keeps working without a config edit. `fix:` → patch. Orthogonal to the merged 1c/1e (#166/#165) — edits only `platform.ts` resolution, not `SoundTouchZoneOnCharacteristic.ts`/`SoundTouchZoneVolumeCharacteristic.ts`. **Sequenced ahead of PWA Phase 2** so the group-management UI builds on the id-keyed model. Plan: `plans/2026-07-18-zone-stable-device-id.md`. |
 | 2 | **[03] Source selection** | `feat/source-selection` | 🟢 Unblocked | TV-vs-Switch spike RESOLVED 2026-07-18: Television+InputSource confirmed on a real device, Plan B retired. Scope now firm — opt-in `sourceSelectionEnabled` external TV accessory; power tiles kept in lock-step via the gabbo refresh path; SPOTIFY sources excluded; presets-as-inputs included in v1 per direct user instruction (overrides earlier Phase-2 deferral), with mandatory on-device verification since this wasn't live-tested in the spike. Ready to brief/implement. |
@@ -47,6 +48,7 @@ count. Bands: **Small** (room to spare), **Medium** (one fits comfortably),
 
 | Plan | Band | Drivers that set the band |
 | ---- | ---- | ------------------------- |
+| **[fix] `setOn` race serialization** | Medium | Single-file behavioral change to an existing `setOn` (must read + understand #144's read-then-act pattern), but the hazard is pure async timing — the fix introduces a per-device serialization primitive from scratch (no existing mutex/queue helper in the repo) and the regression test is the real cost driver: it must simulate overlapping/rapid `setOn` invocations with a mocked API whose `deviceIsOn`/`holdKey` have controllable delays to open the race window, and prove the final state matches the LAST call — a naive "holdKey called once per drift" assertion will not catch it. Test file already exists (`SoundTouchSpeakerOnCharacteristic.test.ts`), so it's an extension, not new infra. One Medium unit; fits a session with room. |
 | **Speaker zones** | Heavy | New `ZoneConfig` type + config schema; `zones` threaded through `PlatformConfiguration`; `SoundTouchZoneAccessory` + `SoundTouchZoneOnCharacteristic`; startup `getZone()` sync; zone set/dissolve via `setZone`/`removeZoneSlave`. |
 | **Zone default source** | Small–Medium | Small config addition (`defaultSource` union threaded through the three config layers + validation, mirroring the existing preset-slot validation) plus one focused change to `SoundTouchZoneOnCharacteristic.setOn` (`_applyDefaultSourceIfIdle`: `getNowPlaying` idle-check → `getPresets` resolve → `selectSource` before `setZone`). Bounded new test surface (unit call-order/fill-if-empty + one integration extension). Mandatory real-device verification of the compose with the #162 power-on and #161 resume paths pushes it toward Medium. |
 | **Preserve HomeKit accessory renames** | Small | An `isNewAccessory` signal threaded through two existing static-factory chains (speaker + zone) from `discoverDevices()`, gating one `setCharacteristic(Name, ...)` call each. Bounded test surface (unit gate matrix + one restart-cycle integration scenario). Mandatory manual Home-app verification since HomeKit's rename storage is outside the plugin. |
@@ -104,6 +106,15 @@ What must be resolved:
 
 ## Key coupling notes
 
+- **[fix] `setOn` race serialization (1a) is the sole open blocker on the pending dev→beta cut.**
+  It is a strict follow-on to #144 and edits only
+  `SoundTouchSpeakerOnCharacteristic.ts` (+ its existing test). It does **not**
+  touch the zone `On` characteristic (`SoundTouchZoneOnCharacteristic.setOn`
+  has a different activation model and was not implicated in the QA finding), so
+  it is orthogonal to the zone work and could run in parallel with any of it —
+  but it is priority-1 and small enough to just land first. The QA pass
+  (`.claude/qa/2026-07-18-pre-release-test-plan.md`) resumes at step A7 once it
+  merges and is re-verified on real hardware.
 - **WebSocket push (plan 07) augments polling — it does not replace it.** Phase 1/2 is in beta. Polling stays as a fallback until Phase 3 resolves standby/reconnect behaviour.
 - **Zone identifier stability (1f) is orthogonal to the merged 1c/1e (#166/#165) but gates PWA Phase 2.**
   It edits only the resolution step in `platform.ts` (`_resolveZones()` /
@@ -149,3 +160,33 @@ What must be resolved:
 - **Volume-slider debounce + refresh coalescing.** Deliberately deferred from
   the power-state-accuracy plan (last-write-wins today, harmless). Revisit
   alongside source selection, which adds more characteristic traffic.
+- **Config-driven speaker rename (`accessories[].name`) never takes effect.**
+  Found during 2026-07-19 real-device QA (`.claude/qa/2026-07-18-pre-release-test-plan.md`):
+  `SoundTouchDeviceConfiguration.ts:90` — `name: props?.name || props.accessoryConfig.name || ''`
+  — checks the raw discovered device name before the user's config override,
+  so `accessoryConfig.name` never wins. Confirmed via `git log -L` this line
+  is unchanged since at least PR #72 — long-standing, not a regression from
+  any currently-unreleased PR. Not urgent, not blocking; needs an architect
+  plan when prioritised (fix is likely a one-line operand swap plus a
+  round-trip test proving the config name wins over the discovered name for
+  an already-cached accessory).
+- **Standalone speaker accessories don't refresh promptly after a gabbo
+  reconnect.** Found during 2026-07-19 real-device QA
+  (`.claude/qa/2026-07-18-pre-release-test-plan.md`, A8 follow-up): a
+  speaker unplugged and replugged correctly recovers, but the Home app tile
+  took the full 5-minute `RECONCILIATION_INTERVAL_MS` reconciliation poll
+  (`SoundTouchSpeakerPlatformAccessory.ts`) to catch up, rather than
+  reacting quickly once connectivity actually returned.
+  `SoundTouchSpeakerOnCharacteristic.gabboEvents` already subscribes to
+  `connectionStateUpdated`, but that's the *device* reporting its own
+  AUX/AirPlay connection state — not our plugin's own `GabboClient`
+  reconnecting after a prior disconnect. `GabboClient` emits `'connected'`
+  internally (`src/devices/SoundTouch/api/GabboClient.ts`) but nothing
+  currently wires that to an accessory refresh. Not a regression — long-
+  standing gap, orthogonal to #146 (which only concerns whether/how gabbo
+  reconnects, not what happens afterward). Not urgent, not blocking; needs
+  an architect plan when prioritised (likely: have the platform/accessory
+  layer listen for `GabboClient`'s own `'connected'` event, when it follows
+  a prior `'disconnected'`, and trigger an immediate
+  `_refreshDeviceServices()` rather than waiting for the next reconciliation
+  tick).

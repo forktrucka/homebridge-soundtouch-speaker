@@ -230,7 +230,7 @@ do it at handoff).
 
 ## Related
 
-- **plugin-technical-lead** skill — provides the brief; coordinates parallel work; updates
+- **plugin-technical-lead** subagent — provides the brief; coordinates parallel work; updates
   delivery order when findings change.
 - **plugin-architect** subagent — owns the plan template, plan files, and ROADMAP. If
   something you discover changes the design significantly, surface it in your
