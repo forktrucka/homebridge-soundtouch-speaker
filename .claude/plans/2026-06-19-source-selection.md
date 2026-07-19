@@ -22,7 +22,11 @@ Chosen representation: **Television service + one InputSource per source**, with
 (2026-07-18, branch `spike/tv-input-source`,
 `src/accessories/SoundTouchTVSpikeAccessory.ts`) has now **confirmed this path
 end-to-end** and resolved the three open HomeKit questions — see the settled
-summary below and the 2026-07-18 rows in Decisions & findings. The spike file is
+summary below and the 2026-07-18 rows in Decisions & findings. A round-2 session
+on the same branch/device (2026-07-19) went further and confirmed the full
+remote-control surface: `RemoteKey` transport controls, a linked
+`TelevisionSpeaker` service for real volume/mute, `CurrentMediaState`, always-on
+Bluetooth, and slot-numbered presets — see the 2026-07-19 rows. The spike file is
 a **reference only**; it is env-var-gated throwaway code (`TV_SPIKE`) that is not
 wired into discovery/cache lifecycle and must not be shipped as-is.
 
@@ -44,6 +48,12 @@ wired into discovery/cache lifecycle and must not be shipped as-is.
 | 2026-07-18 | ~~Decision: defer presets-as-inputs out of v1~~ — **superseded by the row below (user directive).** | — | — |
 | 2026-07-18 | **Decision (final, overrides the row above): presets-as-inputs ARE in v1 scope.** User directive: ship the device's stored presets (`api.getPresets()`) as additional selectable `InputSource` entries alongside plain sources, reusing `selectSource(contentItem)` with each preset's own `ContentItem` — exactly what the spike prototyped. This was typechecked/linted clean during the spike but not live-verified in the Home app that evening (WiFi issues cut the session short) — **on-device verification of presets-as-inputs is therefore a required part of this PR's verification step, not optional.** Preset item names come from the user's own preset labels (e.g. "More FM Auckland"), not raw account identifiers, so the SPOTIFY-email privacy concern does not apply to presets the same way it does to plain sources — but a preset whose `ContentItem.source === 'SPOTIFY'` should still be excluded for consistency with the plain-source SPOTIFY exclusion decision, unless the user wants that revisited too. | Deferring to Phase 2 — retired per direct user instruction; no coordination blocker with preset-sync/typed-preset-management was actually identified beyond both features reading the same `getPresets()` data, which is read-only and non-conflicting. |
 | 2026-07-18 | **Decision: source selection is opt-in per device via a new config flag (default off).** Add e.g. `sourceSelectionEnabled` (mergeable from `global` like the other per-accessory settings). Only when enabled for a device does the plugin publish that device's external Television accessory. | Enabling it changes the device's HomeKit topology (adds a second, external accessory) and imposes the full-screen TV "remote" UX plus the unavoidable one-time manual input-renaming (both confirmed above) on the user. Existing users' topology must not change unless they explicitly opt in. Requires `config.schema.json` + `ExternalPlatformConfig.ts` + `PlatformConfiguration.ts` + tests to stay in sync. | Always-on — imposes the topology/UX change and manual renaming on every existing user without consent. |
+| 2026-07-19 | **Round 2 spike (same branch, same real device): remote-control surface confirmed usable end-to-end — `RemoteKey`, a linked `TelevisionSpeaker` service, and `CurrentMediaState` all functioned correctly against the real speaker.** `RemoteKey` up/down cycles through the input list (wrapping); left/right/rewind/fast-forward all press track-skip keys; center (`SELECT`) toggles play/pause; a linked `TelevisionSpeaker` service exposed real `Volume`/`Mute`/`VolumeSelector`, confirmed moving the actual speaker volume; `CurrentMediaState` correctly reflected `getNowPlaying().playStatus`. | Confirms the Television service can carry the *entire* remote-control surface (not just power + input), not only the minimal path exercised in round 1 | — |
+| 2026-07-19 | **Finding: the standard remote UI (Home app / Control Center) only renders a fixed button set — power, D-pad, select, play/pause, volume.** `RemoteKey` values with no on-screen affordance in that UI (`REWIND`, `FAST_FORWARD`, `BACK`, `EXIT`, `INFORMATION`) are effectively unreachable from it regardless of whether they're wired up. Confirmed live: wiring `INFORMATION` doesn't make an "i" button appear anywhere. | Observed directly across both the Home app's own TV control screen and Control Center's Remote card | — |
+| 2026-07-19 | **Decision: map the D-pad to source cycling (up/down) and track skip (left/right), not volume.** Volume is fully covered by the `TelevisionSpeaker` service's own rocker/slider, so the D-pad is free for a second purpose. Center (`SELECT`) is play/pause. Rewind/fast-forward mirror left/right (track skip) since SoundTouch has no true scrub/seek API — redundant with the D-pad, but harmless, and there for the (rare) client that does render them. | An earlier iteration mapped up/down to volume ±5 before the `TelevisionSpeaker` service existed; superseded once real volume control was wired up, freeing the D-pad for source cycling | Up/down as volume (retired — redundant with `TelevisionSpeaker`); select cycling sources instead of play/pause (tried, reverted — play/pause is the more expected center-button action once a dedicated cycling control exists on up/down) |
+| 2026-07-19 | **Decision: label preset inputs by slot number (`Preset 1`…`Preset 6`), not the stored station name, and always list all 6 slots regardless of whether a slot currently has anything stored** — matching the physical device's own numbered preset buttons. Selecting a populated slot uses its stored `ContentItem` via `selectSource()` (unchanged); selecting an empty slot presses the corresponding `PRESET_n` key instead, mirroring what the physical button does. | User directive, for parity with the physical device's labeling and button layout, plus a "grayed out but present" UX for empty slots being clearer than an inconsistently-sized list | Station-name labels (round 1's approach) — retired; only listing populated slots (also round 1) — retired, since users expect all 6 physical buttons to be present even if empty |
+| 2026-07-19 | **Finding: `BLUETOOTH` reports `status="UNAVAILABLE"` on `/sources` whenever nothing is actively paired over Bluetooth — confirmed via a direct `/sources` request against the real device.** Unlike account-gated services (Spotify, Pandora, etc.), Bluetooth's `UNAVAILABLE` status doesn't mean "can't be selected" — Bose's own `/select` spec documents `<ContentItem source="BLUETOOTH">` as a valid payload with no `sourceAccount`, and selecting it is exactly what should trigger the speaker's discoverable/pairing mode. | Verified directly via `GET /sources` against the real device (`BLUETOOTH` present with `status="UNAVAILABLE"`, no `sourceAccount`) | — |
+| 2026-07-19 | **Decision: always include `BLUETOOTH` as a selectable source regardless of its `status`, as a special case alongside the existing `status === ready` filter — and additionally exclude `ALEXA`** (found present as a `READY` source on the real device but not something a v1 "select an input" UX should surface as a first-class tile). | Filtering Bluetooth out by its `UNAVAILABLE` status would permanently hide the one source a user is most likely to want to actively select (to trigger pairing) | Requiring Bluetooth to already be `READY` (round 1's implicit behavior) — retired, since that's a state Bluetooth can only reach *after* being selected |
 
 ## If cancelled
 
@@ -90,9 +100,12 @@ reference for *what worked*, not code to reuse.
   `SerialNumber` and a **stable UUID** (`uuid.generate(<device.id>-tv)` — distinct
   from the bridged accessory's `uuid.generate(device.id)`). Builds InputSources
   from `api.getSources()` filtered by `status === SourceStatus.ready` **and**
-  `source !== 'SPOTIFY'` (privacy + reliability, per the exclusion decision); maps
-  each to a stable `Identifier`; `ActiveIdentifier` `onSet` → `api.selectSource({
-  source, sourceAccount })`; current source reflected from `api.getSource()`.
+  `source !== 'SPOTIFY'` **and** `source !== 'ALEXA'`, **except** `BLUETOOTH` is
+  always included regardless of `status` (per the 2026-07-19 findings — Bluetooth's
+  `UNAVAILABLE` status just means nothing is currently paired, and selecting it is
+  what triggers pairing mode); maps each to a stable `Identifier`; `ActiveIdentifier`
+  `onSet` → `api.selectSource({ source, sourceAccount })`; current source reflected
+  from `api.getSource()`.
 - **New** `src/accessories/services/SoundTouchSpeakerActiveCharacteristic.ts` (or
   reuse/parameterise `SoundTouchSpeakerOnCharacteristic`) — the TV `Active` power
   characteristic. Must declare `gabboEvents` identical to the bridged `On`
@@ -121,6 +134,21 @@ reference for *what worked*, not code to reuse.
   preset's `ContentItem`, also excluding any `source === 'SPOTIFY'` preset for
   consistency), combined into one identifier-mapped list. `ActiveIdentifier`
   onSet calls `selectSource(item.contentItem)` for either kind uniformly.
+  **Revised per the 2026-07-19 findings:** always list all 6 preset slots (label
+  `Preset 1`…`Preset 6`, keyed by `Preset.id`), not just populated ones; an empty
+  slot's `ActiveIdentifier` `onSet` presses the matching `PRESET_n` key instead of
+  calling `selectSource` (no `ContentItem` to select).
+- **Confirmed feasible in the round-2 spike, scope decision (ship in v1 vs. a
+  follow-up) not yet made — flag for the next planning pass:** a linked
+  `TelevisionSpeaker` service (real `Volume`/`Mute`/`VolumeSelector`, wired the
+  same way as the existing Brightness-based volume characteristic), `RemoteKey`
+  handling (D-pad cycles the input list, left/right/rewind/fast-forward skip
+  tracks, center toggles play/pause), and `CurrentMediaState` (from
+  `getNowPlaying().playStatus`). All three were exercised live against a real
+  device and worked correctly — see the 2026-07-19 Decisions & findings rows for
+  the exact mapping and rationale. None of this is required for source
+  *selection* itself; it's an opportunistic expansion of the same Television
+  accessory's remote-control surface that the spike happened to prove out.
 
 **Roadmap dependency:** this plan is self-contained (API already implemented) and
 has no hard dependency on other plans. It does add external-accessory publishing
@@ -147,15 +175,23 @@ to `platform.ts`, which lightly overlaps the PWA plan's `discoverDevices` change
 - [x] **Spike:** Television + InputSource prototyped on a real speaker; TV path
       confirmed, Plan B retired, power-clash + Spotify + UX questions resolved
       (2026-07-18, `spike/tv-input-source`). Spike code is reference-only.
+- [x] **Spike round 2:** RemoteKey transport controls, linked `TelevisionSpeaker`
+      volume/mute, `CurrentMediaState`, always-listed numbered preset slots, and
+      always-on Bluetooth all confirmed working live on the same real device
+      (2026-07-19, same branch). Scope decision on whether the remote/volume/
+      media-state surface ships in v1 or a follow-up is still open — see the
+      "confirmed feasible" bullet above.
 - [ ] Add opt-in `sourceSelectionEnabled` config (default off) across
       `config.schema.json` + `ExternalPlatformConfig.ts` + `PlatformConfiguration.ts`
 - [ ] New `SoundTouchTVAccessory` wrapper: TV service + AccessoryInformation
       (stable unique SerialNumber, stable `<device.id>-tv` UUID)
 - [ ] Build InputSources from `getSources()`, filtered
-      `status === ready && source !== 'SPOTIFY'`; map to stable identifiers
-- [ ] Add `getPresets()` items to the same InputSource list (excluding any
-      `source === 'SPOTIFY'` preset), each preset's `ContentItem` mapped to its
-      own identifier alongside the plain sources (in v1 — user directive)
+      `status === ready && source !== 'SPOTIFY' && source !== 'ALEXA'`, except
+      `BLUETOOTH` always included regardless of `status`; map to stable identifiers
+- [ ] Add all 6 preset slots to the same InputSource list, labeled `Preset 1`…
+      `Preset 6` (not the stored station name); populated slots use
+      `selectSource(preset.contentItem)`, empty slots press the matching
+      `PRESET_n` key (in v1 — user directive, revised 2026-07-19)
 - [ ] `ActiveIdentifier` onSet → `selectSource(item.contentItem)` (uniform for
       both plain sources and presets); onGet/refresh ← `getSource()`, subscribed
       to the gabbo source-change event
@@ -167,8 +203,10 @@ to `platform.ts`, which lightly overlaps the PWA plan's `discoverDevices` change
       loops; tear down (gabbo/polling) on shutdown and on device removal
 - [ ] Remove the `_maybeRunTVSpike` env hook + `SoundTouchTVSpikeAccessory` import
       from `platform.ts`, and delete the throwaway spike accessory file
-- [ ] Tests: source→identifier mapping, preset→identifier mapping, SPOTIFY/`status`
-      filtering (both sources and presets), `ContentItem` construction, and
+- [ ] Tests: source→identifier mapping, preset→identifier mapping,
+      SPOTIFY/ALEXA/`status` filtering (both sources and presets, including the
+      always-on Bluetooth special case), `ContentItem` construction, always-listed
+      6 preset slots (populated vs. empty → `PRESET_n` key), and
       `sourceSelectionEnabled` config default/merge
 
 ## Verification
@@ -176,9 +214,9 @@ to `platform.ts`, which lightly overlaps the PWA plan's `discoverDevices` change
 - [ ] `npm run lint`
 - [ ] `npm run build`
 - [ ] `npm test`
-- [ ] **On-device: presets-as-inputs actually selectable and playable from the
-      Home app** (not just typecheck-clean) — this was not live-verified during
-      the spike and is required before considering this done
+- [x] **On-device: presets-as-inputs actually selectable and playable from the
+      Home app** — live-verified during the 2026-07-19 round-2 spike session
+      (selecting a preset input actually tuned the station on the real speaker)
 - [ ] On-device: TV `Active` and bridged `On` tiles stay in lock-step after a
       power change made via either one (the power-clash fix)
 - [ ] `npm run watch` — on a real speaker (`sourceSelectionEnabled: true`):
