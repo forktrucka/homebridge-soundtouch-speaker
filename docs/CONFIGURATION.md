@@ -93,6 +93,10 @@ Default configuration applied to all accessories. Any value here can be overridd
 
 ### Preset element
 
+**Presets will not work until you uncork the speaker and enable
+`global.server`** — see [Bose Cloud server](#bose-cloud-server-globalserver)
+below. Configuring presets alone does nothing on its own.
+
 Each entry in `global.presets` (or the top-level `presets` alias):
 
 - `type`: Preset type. Currently only `station` is supported.
@@ -103,9 +107,11 @@ Each entry in `global.presets` (or the top-level `presets` alias):
 
 ### Bose Cloud server (`global.server`)
 
-Since Bose shut down their cloud servers, TuneIn presets require this
-plugin's built-in local emulator. Full setup — including the one-time
-speaker "uncorking" step required before this will work — is documented in
+**Required for presets to work at all.** Since Bose shut down their cloud
+servers, TuneIn presets require both `global.server.enabled: true` *and* a
+one-time manual "uncorking" step on each speaker — without uncorking, the
+speaker never talks to this plugin's emulator and preset sync silently has no
+effect. Full setup is documented in
 [Internet radio (TuneIn) after the Bose cloud shutdown](bose-cloud-setup.md).
 Field reference:
 
