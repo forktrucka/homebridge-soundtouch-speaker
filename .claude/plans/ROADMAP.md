@@ -1,6 +1,6 @@
 # Technical Roadmap
 
-Last updated: 2026-07-18
+Last updated: 2026-07-19 (zone volume debounce fix)
 
 This file gives the delivery order and dependency chain across all planned
 features. The individual plan files contain the detail; this file answers

@@ -239,6 +239,17 @@ than prompting a restart per step:
 - For a step flagged as an unattended wait, tell the user to kick it off and
   keep going — don't block on it. Come back and confirm the result once
   enough time has passed, ideally after the other steps in that wave.
+- **After every restart, before moving on to that wave's verification
+  steps, run `node scripts/qa/check-process-health.mjs --log <the log file
+  you're tailing for this run>`.** A step can "pass" — the feature under test
+  visibly works — while the process is quietly pegging CPU or spamming a real
+  device in the background; a functional check alone won't catch that. This
+  is standing practice, not tied to any specific PR: it caught a genuine
+  resource-exhaustion bug (#145's runaway preset-sync loop) during the
+  2026-07-18/19 session that no individual manual step was looking for. If it
+  reports `FAIL`, treat it exactly like a failed manual-test step (stop,
+  surface as a blocker) — don't wave it through just because the *feature*
+  you were testing happened to work.
 - **If a step has a matching script in `scripts/qa/` (see "Automation
   scripts" below), run it yourself via Bash to confirm the result instead of
   asking the user to eyeball the Home app or grep a log.** The human still
@@ -379,6 +390,7 @@ step is actually testing — that's still the user's job.
 | `check-tunein-station.mjs` | BoseCloudServer's TuneIn resolution endpoint accepts a valid station id and rejects malformed ones (query injection, path traversal) with 400. | `node scripts/qa/check-tunein-station.mjs --valid-id s24939` |
 | `watch-gabbo-reconnect.mjs` | Connects its own independent gabbo client and times connect/disconnect/reconnect events, so backoff growth/reset can be read off a printed timeline instead of grepped from Homebridge's log. Ctrl+C or `--timeout` to stop and see the summary. | `node scripts/qa/watch-gabbo-reconnect.mjs --ip <ip>` |
 | `check-accessory-context.mjs` | Reads `cachedAccessories` directly and prints/asserts displayName + `context` (deviceId, memberDeviceIds) for every accessory this plugin registered — confirms a rename or zone-membership persistence without opening the Home app. | `node scripts/qa/check-accessory-context.mjs --expect-name "Kitchen"` |
+| `check-process-health.mjs` | Run after every restart, not tied to any specific step: sustained CPU on the `homebridge` process across two samples, plus a scan of the log tail for Node runtime warnings (`TimeoutOverflowWarning`, `MaxListenersExceededWarning`, `UnhandledPromiseRejectionWarning`, `DeprecationWarning`). Catches a runaway loop or resource leak even when the feature under test otherwise looks like it passed. | `node scripts/qa/check-process-health.mjs --log /tmp/homebridge-watch.log` |
 
 Each script exits `0`/prints `PASS` on success and exits non-zero/prints
 `FAIL` on failure or timeout — read its exit code, don't just read the log
@@ -401,7 +413,7 @@ tile) have no script equivalent — those stay manual.
 - **release-manager** subagent — the mechanical release gate this skill hands
   off to once manual verification is complete (step 8). Don't duplicate its
   checklist (build/lint/test/docs/commit-hygiene) here.
-- **plugin-technical-lead** skill — owns roadmap sequencing, plan status
+- **plugin-technical-lead** subagent — owns roadmap sequencing, plan status
   transitions long-term (`beta`/`done`, moving files to `plans/done/`), and —
   as of step 4 — sequencing/briefing any coverage-gap follow-up work this
   skill finds on already-delivered functionality. This skill only ticks the
