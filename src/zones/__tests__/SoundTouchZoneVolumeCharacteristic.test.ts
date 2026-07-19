@@ -155,30 +155,34 @@ describe('SoundTouchZoneVolumeCharacteristic', () => {
     it('applies the same relative delta to the primary and every slave after the debounce window elapses', async () => {
       const { subject, primary, slave1, slave2 } = await build({
         primaryVolume: 20,
-        slave1Volume: 30,
-        slave2Volume: 10,
+        slave1Volume: 15,
+        slave2Volume: 5,
       });
 
-      // primary moves from 20 -> 30, a delta of +10
+      // primary moves from 20 -> 30, a delta of +10. Neither slave's shifted
+      // target (25, 15) exceeds the new zone volume (30), so both apply the
+      // relative delta unclamped.
       await subject.setBrightness(30);
       await settle();
 
       expect(primary.api.setVolume).toHaveBeenCalledWith(30);
-      expect(slave1.api.setVolume).toHaveBeenCalledWith(40);
-      expect(slave2.api.setVolume).toHaveBeenCalledWith(20);
+      expect(slave1.api.setVolume).toHaveBeenCalledWith(25);
+      expect(slave2.api.setVolume).toHaveBeenCalledWith(15);
     });
 
     it('clamps a slave at 100 when the delta would push it over the max', async () => {
       const { subject, primary, slave1 } = await build({
-        primaryVolume: 20,
+        primaryVolume: 90,
         slave1Volume: 95,
       });
 
-      // delta of +10
-      await subject.setBrightness(30);
+      // delta of +10; slave1's shifted target (105) is clamped to 100 by the
+      // 0-100 range clamp, and 100 does not exceed the new zone volume (100)
+      // so the zone clamp is not the limiting factor here.
+      await subject.setBrightness(100);
       await settle();
 
-      expect(primary.api.setVolume).toHaveBeenCalledWith(30);
+      expect(primary.api.setVolume).toHaveBeenCalledWith(100);
       expect(slave1.api.setVolume).toHaveBeenCalledWith(100);
     });
 
@@ -194,6 +198,52 @@ describe('SoundTouchZoneVolumeCharacteristic', () => {
 
       expect(primary.api.setVolume).toHaveBeenCalledWith(5);
       expect(slave1.api.setVolume).toHaveBeenCalledWith(0);
+    });
+
+    it("clamps a slave down to the new zone volume when the relative shift would leave it louder than the zone's displayed volume", async () => {
+      const { subject, primary, slave1 } = await build({
+        primaryVolume: 10,
+        slave1Volume: 15,
+      });
+
+      // delta of +7 (10 -> 17); slave1's naive shift target is 15 + 7 = 22,
+      // which is above the new zone volume of 17, so it's pulled down to 17.
+      await subject.setBrightness(17);
+      await settle();
+
+      expect(primary.api.setVolume).toHaveBeenCalledWith(17);
+      expect(slave1.api.setVolume).toHaveBeenCalledWith(17);
+    });
+
+    it("leaves a slave's relative-shift result unaffected when it does not exceed the new zone volume", async () => {
+      const { subject, primary, slave1 } = await build({
+        primaryVolume: 20,
+        slave1Volume: 10,
+      });
+
+      // delta of +10 (20 -> 30); slave1's shift target is 10 + 10 = 20,
+      // which is below the new zone volume of 30, so it applies unchanged.
+      await subject.setBrightness(30);
+      await settle();
+
+      expect(primary.api.setVolume).toHaveBeenCalledWith(30);
+      expect(slave1.api.setVolume).toHaveBeenCalledWith(20);
+    });
+
+    it('never affects the primary, which always receives exactly the desired brightness', async () => {
+      const { subject, primary, slave1 } = await build({
+        primaryVolume: 17,
+        slave1Volume: 21,
+      });
+
+      // delta of 0 (17 -> 17); slave1's shift target is 21 + 0 = 21, above
+      // the new zone volume of 17, so it's clamped down to 17. The primary's
+      // write path is untouched by the clamp and still receives 17.
+      await subject.setBrightness(17);
+      await settle();
+
+      expect(primary.api.setVolume).toHaveBeenCalledWith(17);
+      expect(slave1.api.setVolume).toHaveBeenCalledWith(17);
     });
 
     it('is a no-op when the value is 0', async () => {
