@@ -28,6 +28,25 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
 
   private characteristic: Characteristic;
 
+  /**
+   * Serializes `setOn` against overlapping calls on this device.
+   *
+   * HAP does not serialize rapid `onSet` invocations from the Home app —
+   * a few quick taps on a tile can produce overlapping `setOn` calls. Each
+   * call does a live read (`SoundTouchDevice.deviceIsOn`) before deciding
+   * whether to press the POWER toggle key; without serialization, a later
+   * call's read can land while an earlier call's 300ms hold is still
+   * in-flight and see stale state, wrongly concluding no press is needed.
+   *
+   * Chaining every `setOn` off this promise ensures each call's full
+   * read-then-act sequence (read, hold, optional resume) completes before
+   * the next one starts its own read, so every call sees fresh
+   * post-settle state and the device ends in the state requested by the
+   * last call. Kept as an instance field (one characteristic instance per
+   * device) so different devices are never serialized against each other.
+   */
+  private pendingSetOn: Promise<void> = Promise.resolve();
+
   private constructor({
     service,
     ...props
@@ -64,6 +83,22 @@ export class SoundTouchSpeakerOnCharacteristic extends SoundTouchSpeakerCharacte
 
   async setOn(value: CharacteristicValue): Promise<void> {
     const desiredPowerStatus = value as boolean;
+
+    // Chain this call after any in-flight setOn for this device settles
+    // (successfully or not), then run this call's read-then-act sequence.
+    // Swallowing the predecessor's rejection here only unblocks the chain
+    // for the *next* call - this call's own errors still propagate via
+    // `run`, which is what's returned/thrown to the caller (and on to
+    // `wrapHapSet`).
+    const run = this.pendingSetOn
+      .catch(() => undefined)
+      .then(() => this.applyPowerState(desiredPowerStatus));
+    this.pendingSetOn = run.catch(() => undefined);
+
+    return run;
+  }
+
+  private async applyPowerState(desiredPowerStatus: boolean): Promise<void> {
     const actualPowerStatus = await SoundTouchDevice.deviceIsOn(this.device);
     if (actualPowerStatus !== desiredPowerStatus) {
       await this.device.api.holdKey(KeyValue.power, POWER_KEY_HOLD_DURATION_MS);
