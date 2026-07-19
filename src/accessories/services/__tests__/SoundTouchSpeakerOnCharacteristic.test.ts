@@ -240,5 +240,54 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
       ) => Promise<void>;
       await expect(handler(true)).rejects.toBeInstanceOf(FakeHapStatusError);
     });
+
+    describe('when calls overlap (rapid taps without awaiting between them)', () => {
+      const delay = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
+      it('settles the device to the value requested by the LAST call, not an earlier one', async () => {
+        // Simulated device power state, independent of the mocked cached
+        // HAP characteristic value. `getSource` reads it live (with a
+        // delay); `holdKey` toggles it after a longer delay, modelling the
+        // real 300ms POWER hold. This keeps the stale-read window open long
+        // enough for overlapping `setOn` calls to race if unserialized.
+        let deviceOn = true;
+
+        const { subject, getSource, holdKey } = await build({
+          source: SourceStatus.ready,
+        });
+        getSource.mockImplementation(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(
+                () =>
+                  resolve(deviceOn ? SourceStatus.ready : SourceStatus.standBy),
+                5
+              )
+            )
+        );
+        holdKey.mockImplementation(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(() => {
+                deviceOn = !deviceOn;
+                resolve(true);
+              }, 30)
+            )
+        );
+
+        // Mirrors HAP delivering rapid taps: fire without awaiting between calls.
+        const p1 = subject.setOn(false);
+        const p2 = subject.setOn(true);
+        const p3 = subject.setOn(false);
+
+        await Promise.all([p1, p2, p3]);
+        // Allow any stray (buggy, unserialized) in-flight holdKey timers to settle
+        // before asserting, so the assertion reflects the fully-settled state.
+        await delay(100);
+
+        expect(deviceOn).toBe(false);
+      });
+    });
   });
 });
