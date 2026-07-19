@@ -1,7 +1,15 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import {
   SoundTouchSpeakerOnCharacteristic,
   POWER_KEY_HOLD_DURATION_MS,
+  SET_ON_DEBOUNCE_MS,
 } from '../SoundTouchSpeakerOnCharacteristic.js';
 import {
   SourceStatus,
@@ -85,9 +93,21 @@ async function build({
   };
 }
 
+// Advances past the debounce window and flushes the microtasks it triggers
+// (the live read, and optionally holdKey/resumeLastPlayedSource/updateValue),
+// so the debounced action has fully settled before assertions run.
+async function settle(extraMs = 0): Promise<void> {
+  await jest.advanceTimersByTimeAsync(SET_ON_DEBOUNCE_MS + extraMs);
+}
+
 describe('SoundTouchSpeakerOnCharacteristic', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('#getOn', () => {
@@ -127,6 +147,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         hapCharacteristic.value = false;
 
         await subject.setOn(true);
+        await settle();
 
         expect(holdKey).not.toHaveBeenCalled();
       });
@@ -139,6 +160,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         hapCharacteristic.value = true;
 
         await subject.setOn(true);
+        await settle();
 
         expect(holdKey).toHaveBeenCalledTimes(1);
         expect(holdKey).toHaveBeenCalledWith(
@@ -155,6 +177,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         });
 
         await subject.setOn(true);
+        await settle();
 
         expect(holdKey).not.toHaveBeenCalled();
       });
@@ -165,6 +188,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         });
 
         await subject.setOn(true);
+        await settle();
 
         expect(getRecents).not.toHaveBeenCalled();
         expect(selectSource).not.toHaveBeenCalled();
@@ -178,6 +202,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         });
 
         await subject.setOn(true);
+        await settle();
 
         expect(pressKey).not.toHaveBeenCalled();
         expect(holdKey).toHaveBeenCalledTimes(1);
@@ -201,6 +226,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         ]);
 
         await subject.setOn(true);
+        await settle();
 
         expect(holdKey).toHaveBeenCalledTimes(1);
         expect(getRecents).toHaveBeenCalledTimes(1);
@@ -214,6 +240,7 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         getRecents.mockResolvedValue(undefined);
 
         await subject.setOn(true);
+        await settle();
 
         expect(getRecents).toHaveBeenCalledTimes(1);
         expect(selectSource).not.toHaveBeenCalled();
@@ -225,69 +252,154 @@ describe('SoundTouchSpeakerOnCharacteristic', () => {
         });
 
         await subject.setOn(false);
+        await settle();
 
         expect(getRecents).not.toHaveBeenCalled();
         expect(selectSource).not.toHaveBeenCalled();
       });
     });
 
-    it('throws HapStatusError via HAP binding when the live read fails', async () => {
+    it('resolves the HAP set handler promptly, without waiting on the debounced action', async () => {
+      // Never resolves within the test - if the returned setOn promise waited
+      // on this, the assertion below would hang/timeout instead of settling.
+      const { subject, holdKey } = await build({
+        source: SourceStatus.standBy,
+      });
+      holdKey.mockImplementation(() => new Promise(() => undefined));
+
+      const handlerPromise = subject.setOn(true);
+
+      await expect(handlerPromise).resolves.toBeUndefined();
+      // The debounce timer hasn't fired yet, so the device action - which
+      // would hang - has not started.
+      expect(holdKey).not.toHaveBeenCalled();
+    });
+
+    describe('when a single call is made (no burst)', () => {
+      it('still applies after the debounce window elapses', async () => {
+        const { subject, holdKey } = await build({
+          source: SourceStatus.standBy,
+        });
+
+        await subject.setOn(true);
+
+        // Not yet applied - still within the debounce window.
+        expect(holdKey).not.toHaveBeenCalled();
+
+        await settle();
+
+        expect(holdKey).toHaveBeenCalledTimes(1);
+        expect(holdKey).toHaveBeenCalledWith(
+          KeyValue.power,
+          POWER_KEY_HOLD_DURATION_MS
+        );
+      });
+    });
+
+    describe('when calls overlap (rapid taps without awaiting between them)', () => {
+      it('coalesces N rapid calls into exactly ONE physical action, targeting the LAST requested value', async () => {
+        const { subject, getSource, holdKey } = await build({
+          source: SourceStatus.ready,
+        });
+
+        // Fire a burst of taps in quick succession, each well inside the
+        // debounce window, mirroring HAP delivering rapid onSet calls.
+        const p1 = subject.setOn(false);
+        await jest.advanceTimersByTimeAsync(SET_ON_DEBOUNCE_MS / 4);
+        const p2 = subject.setOn(true);
+        await jest.advanceTimersByTimeAsync(SET_ON_DEBOUNCE_MS / 4);
+        const p3 = subject.setOn(false);
+
+        await Promise.all([p1, p2, p3]);
+        await settle();
+
+        // Only one physical action runs for the whole burst - not one per
+        // setOn call - and it targets the LAST requested value (false), not
+        // an intermediate one (true). (getSource is read twice: once inside
+        // the debounced action to decide whether to press, once more for
+        // the post-settle live re-read that closes the loop via updateValue
+        // - see "closing the loop" below - so it isn't the right signal for
+        // coalescing on its own.)
+        expect(getSource).toHaveBeenCalledTimes(2);
+        expect(holdKey).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not block each individual setOn call on the debounced device action completing', async () => {
+        const { subject, holdKey } = await build({
+          source: SourceStatus.standBy,
+        });
+        let holdKeyResolved = false;
+        holdKey.mockImplementation(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(() => {
+                holdKeyResolved = true;
+                resolve(true);
+              }, 5_000)
+            )
+        );
+
+        const p1 = subject.setOn(false);
+        const p2 = subject.setOn(true);
+        const p3 = subject.setOn(false);
+
+        // All three acks resolve immediately - well before the debounce
+        // window even elapses, let alone the (delayed) holdKey call.
+        await Promise.all([p1, p2, p3]);
+
+        expect(holdKeyResolved).toBe(false);
+        expect(holdKey).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('closing the loop with a live re-read after the debounced action settles', () => {
+      it('pushes updateValue with the live device state on the success path', async () => {
+        const { subject, updateValue, getSource } = await build({
+          source: SourceStatus.standBy,
+        });
+        // After the power toggle applies, the device is actually on.
+        getSource
+          .mockResolvedValueOnce(SourceStatus.standBy)
+          .mockResolvedValue(SourceStatus.ready);
+
+        await subject.setOn(true);
+        await settle();
+
+        expect(updateValue).toHaveBeenCalledWith(true);
+      });
+
+      it('pushes updateValue with the actual device state and logs rather than throws when the device action fails', async () => {
+        const { subject, updateValue, holdKey } = await build({
+          source: SourceStatus.standBy,
+        });
+        holdKey.mockRejectedValue(new Error('device unreachable'));
+
+        await subject.setOn(true);
+
+        // The debounced action's rejection must not become an unhandled
+        // rejection or bubble out of the timer callback.
+        await expect(settle()).resolves.toBeUndefined();
+
+        // Live re-read still ran despite the holdKey failure, and reports
+        // the actual (unchanged, still standby) state - not the optimistic
+        // requested value.
+        expect(updateValue).toHaveBeenCalledWith(false);
+      });
+    });
+
+    it('does not propagate a live-read failure to the HAP set handler (it settles, then updates via reconciliation instead)', async () => {
+      // Because the debounced action now runs after the HAP ack, a
+      // `deviceIsOn` failure can no longer surface as a synchronous
+      // HapStatusError from the set handler - it's caught and logged in the
+      // debounced action instead (see the "closing the loop" tests above).
       const { hapCharacteristic, getSource } = await build();
       getSource.mockRejectedValue(new Error('network error'));
 
       const handler = hapCharacteristic.onSet.mock.calls[0]?.[0] as (
         v: unknown
       ) => Promise<void>;
-      await expect(handler(true)).rejects.toBeInstanceOf(FakeHapStatusError);
-    });
 
-    describe('when calls overlap (rapid taps without awaiting between them)', () => {
-      const delay = (ms: number) =>
-        new Promise((resolve) => setTimeout(resolve, ms));
-
-      it('settles the device to the value requested by the LAST call, not an earlier one', async () => {
-        // Simulated device power state, independent of the mocked cached
-        // HAP characteristic value. `getSource` reads it live (with a
-        // delay); `holdKey` toggles it after a longer delay, modelling the
-        // real 300ms POWER hold. This keeps the stale-read window open long
-        // enough for overlapping `setOn` calls to race if unserialized.
-        let deviceOn = true;
-
-        const { subject, getSource, holdKey } = await build({
-          source: SourceStatus.ready,
-        });
-        getSource.mockImplementation(
-          () =>
-            new Promise((resolve) =>
-              setTimeout(
-                () =>
-                  resolve(deviceOn ? SourceStatus.ready : SourceStatus.standBy),
-                5
-              )
-            )
-        );
-        holdKey.mockImplementation(
-          () =>
-            new Promise((resolve) =>
-              setTimeout(() => {
-                deviceOn = !deviceOn;
-                resolve(true);
-              }, 30)
-            )
-        );
-
-        // Mirrors HAP delivering rapid taps: fire without awaiting between calls.
-        const p1 = subject.setOn(false);
-        const p2 = subject.setOn(true);
-        const p3 = subject.setOn(false);
-
-        await Promise.all([p1, p2, p3]);
-        // Allow any stray (buggy, unserialized) in-flight holdKey timers to settle
-        // before asserting, so the assertion reflects the fully-settled state.
-        await delay(100);
-
-        expect(deviceOn).toBe(false);
-      });
+      await expect(handler(true)).resolves.toBeUndefined();
     });
   });
 });
