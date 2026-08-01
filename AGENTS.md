@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 `homebridge-soundtouchspeaker` — a TypeScript ESM dynamic-platform Homebridge
 plugin that controls Bose SoundTouch speakers over their local HTTP/XML +
